@@ -67,12 +67,34 @@ const char* nombre_token(TokenType tipo) {
 
 
 int main() {
-    const char* codigo = "let x = 42 + 3.14; print(x);";
+    const char* codigo = 
+    "let x = 42 + 3.14;\n"
+    "let mensaje = \"Hola\\nMundo\";\n"
+    "print(mensaje);\n"
+    "function suma(x) => x + 1;\n"
+    "print( (suma(x) @ \" es el resultado\") );\n"
+    "x := x + 1;\n"
+    "if x == 43 print(\"OK\"); else print(\"Fallo\");\n"
+    "while x < 100 {\n"
+    "  x := x + 1;\n"
+    "  print(x);\n"
+    "}\n"
+    "type Persona(nombre, edad) {\n"
+    "  saludar() => \"Hola, soy \" @ self.nombre;\n"
+    "};\n"
+    "\"Cadena sin cerrar...\n"      // error: string sin cierre
+    "$variable_illegal = 12;\n";    // error: símbolo no reconocido
+
     Token* tokens = tokenize(codigo);
 
     for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-        printf("[%-15s] '%s'  (linea %d)\n", nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+        if (tokens[i].type == TOKEN_ERROR) {
+            printf("%s[ERROR LEXICO] Linea %d: texto no reconocido '%s'%s\n", RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
+        } else {
+            printf("[%-15s] '%s'  (linea %d)\n", nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+        }
     }
+    
     
     free_tokens(tokens);
     return 0;
