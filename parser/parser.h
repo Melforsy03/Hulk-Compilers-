@@ -10,7 +10,7 @@ typedef enum {
     NODO_ASIGNACION,
     NODO_LET,
     NODO_PRINT,
-    NODO_LLAMADA ,
+    NODO_LLAMADA,
     NODO_BLOQUE
 } TipoNodo;
 
@@ -42,7 +42,12 @@ typedef struct NodoAST {
         struct {
             struct NodoAST** expresiones;
             int cantidad;
-        } bloque;  
+        } bloque;
+        struct {
+            char*nombre;
+            struct NodoAst** argumento
+        }llamada;
+        
     };
 } NodoAST;
 

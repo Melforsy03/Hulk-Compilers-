@@ -20,6 +20,8 @@ static NodoAST* parsear_let();
 static NodoAST* parsear_expresion();
 static NodoAST* parsear_primario();
 static NodoAST* parsear_bloque() ;
+static NodoAST* parsear_asignacion();
+static NodoAST* parsear_llamada();
 // Avanzar al siguiente token
 static void avanzar() {
     actual++;
@@ -72,6 +74,23 @@ static NodoAST* parsear_print() {
     nodo->print.expresion = expr;
     return nodo;
 }
+static NodoAST* parsear_llamada() {
+    exigir(TOKEN_IDENTIFIER, "nombre de función");
+    char* nombre = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_LPAREN, "'('");
+
+    NodoAST* argumento = parsear_expresion();
+
+    exigir(TOKEN_RPAREN, "')'");
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_LLAMADA;
+    nodo->linea = actual[-1].line;
+    nodo->llamada.nombre = nombre;
+    nodo->llamada.argumento = argumento;
+    return nodo;
+}
 
 static NodoAST* parsear_termino() {
     NodoAST* izquierdo = parsear_primario();
@@ -118,10 +137,23 @@ static NodoAST* parsear_primario() {
         return crear_literal(atof(actual[-1].lexeme), actual[-1].line);
     }
 
-    if (coincidir(TOKEN_IDENTIFIER)) {
-        return crear_variable(actual[-1].lexeme, actual[-1].line);
+    if (actual->type == TOKEN_IDENTIFIER) {
+        Token identificador = *actual;
+        Token siguiente = actual[1];
+    
+        if (siguiente.type == TOKEN_COLON_EQUAL) {
+            return parsear_asignacion();
+        } else if (siguiente.type == TOKEN_LPAREN) {
+            return parsear_llamada();
+        } else if (siguiente.type == TOKEN_ASSIGN) {
+            fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
+            exit(1);
+        } else {
+            avanzar();
+            return crear_variable(identificador.lexeme, identificador.line);
+        }
     }
-
+    
     if (coincidir(TOKEN_PRINT)) {
         actual--; 
         return parsear_print();
@@ -210,6 +242,22 @@ static NodoAST* parsear_bloque() {
     return nodo;
 }
 
+static NodoAST* parsear_asignacion() {
+    exigir(TOKEN_IDENTIFIER, "nombre de variable");
+    char* nombre = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_COLON_EQUAL, "':='");
+
+    NodoAST* valor = parsear_expresion();
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_ASIGNACION;
+    nodo->linea = actual[-1].line;
+    nodo->asignacion.nombre = nombre;
+    nodo->asignacion.valor = valor;
+    return nodo;
+}
+
 // Función principal
 NodoAST* parsear(Token* tokens) {
     actual = tokens;
@@ -239,6 +287,11 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
                 imprimir_ast(nodo->bloque.expresiones[i], nivel + 1);
             }
             break;
+        case NODO_ASIGNACION:
+            printf("%sASIGNACION%s: %s :=\n", YELLOW_COLOR, RESET_COLOR, nodo->asignacion.nombre);
+            imprimir_ast(nodo->asignacion.valor, nivel + 1);
+            break;
+        
         case NODO_LITERAL:
             printf("%sLITERAL%s: %.2f\n", GREEN_COLOR, RESET_COLOR, nodo->literal.valor);
             break;
@@ -265,7 +318,12 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             printf("%sEN%s:\n", CYAN_COLOR, RESET_COLOR);
             imprimir_ast(nodo->let.cuerpo, nivel + 1);
             break;
-           
+           ;
+        case NODO_LLAMADA:
+           printf("%sLLAMADA%s: %s(...)\n", BLUE_COLOR, RESET_COLOR, nodo->llamada.nombre);
+           imprimir_ast(nodo->llamada.argumento, nivel + 1);
+           break;
+       
         default:
             printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
             break;
