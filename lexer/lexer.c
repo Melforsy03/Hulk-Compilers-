@@ -6,6 +6,7 @@
 #include "lexer.h"
 #ifndef _WIN32
 #else
+
 char* strndup(const char* s, size_t n) {
     char* p = malloc(n + 1);
     if (p) {

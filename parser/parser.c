@@ -2,7 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser.h"
-
+#define RESET_COLOR   "\x1b[0m"
+#define RED_COLOR     "\x1b[31m"
+#define GREEN_COLOR   "\x1b[32m"
+#define YELLOW_COLOR  "\x1b[33m"
+#define BLUE_COLOR    "\x1b[34m"
+#define CYAN_COLOR    "\x1b[36m"
+#define GRAY_COLOR    "\x1b[90m"
+#define RESET_COLOR   "\x1b[0m"
+#define GREEN_COLOR   "\x1b[32m"
+#define YELLOW_COLOR  "\x1b[33m"
+#define MAGENTA_COLOR "\x1b[35m"
 // Token actual del análisis
 static Token* actual;
 static NodoAST* parsear_print();
@@ -28,7 +38,7 @@ static int coincidir(TokenType tipo) {
 // Exigir un token específico o lanzar error
 static void exigir(TokenType tipo, const char* esperado) {
     if (!coincidir(tipo)) {
-        fprintf(stderr, "[Error de sintaxis] Se esperaba %s en línea %d, se encontró '%s'\n",
+        fprintf(stderr, "[Error de sintaxis] Se esperaba %s en linea %d, se encontro '%s'\n",
                 esperado, actual->line, actual->lexeme);
         exit(1);
     }
@@ -114,7 +124,7 @@ static NodoAST* parsear_primario() {
     }
 
     if (coincidir(TOKEN_PRINT)) {
-        actual--; // retrocedemos para que `parsear_print()` lo procese bien
+        actual--; 
         return parsear_print();
     }
 
@@ -123,8 +133,12 @@ static NodoAST* parsear_primario() {
         exigir(TOKEN_RPAREN, "')'");
         return expr;
     }
-
-    fprintf(stderr, "[Error de sintaxis] Expresión inválida en línea %d: '%s'\n",
+    if (coincidir (TOKEN_LET))
+    {
+        actual --;
+        return parsear_let();
+    }
+    fprintf(stderr, "[Error de sintaxis] Expresion invalida en línea %d: '%s'\n",
             actual->line, actual->lexeme);
     exit(1);
 }
@@ -176,37 +190,38 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
 
     switch (nodo->tipo) {
         case NODO_LITERAL:
-            printf("LITERAL: %.2f\n", nodo->literal.valor);
+            printf("%sLITERAL%s: %.2f\n", GREEN_COLOR, RESET_COLOR, nodo->literal.valor);
             break;
 
         case NODO_VARIABLE:
-            printf("VARIABLE: %s\n", nodo->variable.nombre);
+            printf("%sVARIABLE%s: %s\n", YELLOW_COLOR, RESET_COLOR, nodo->variable.nombre);
             break;
 
         case NODO_BINARIO:
-            printf("BINARIO: %s\n", nodo->binario.operador.lexeme);
+            printf("%sBINARIO%s: %s\n", BLUE_COLOR, RESET_COLOR, nodo->binario.operador.lexeme);
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             imprimir_ast(nodo->binario.derecho, nivel + 1);
             break;
 
         case NODO_PRINT:
-            printf("PRINT:\n");
+            printf("%sPRINT%s:\n", MAGENTA_COLOR, RESET_COLOR);
             imprimir_ast(nodo->print.expresion, nivel + 1);
             break;
 
         case NODO_LET:
-            printf("LET: %s =\n", nodo->let.nombre);
+            printf("%sLET%s: %s =\n", CYAN_COLOR, RESET_COLOR, nodo->let.nombre);
             imprimir_ast(nodo->let.valor, nivel + 1);
             for (int i = 0; i < nivel; i++) printf("  ");
-            printf("EN:\n");
+            printf("%sEN%s:\n", CYAN_COLOR, RESET_COLOR);
             imprimir_ast(nodo->let.cuerpo, nivel + 1);
             break;
 
         default:
-            printf("TIPO DE NODO DESCONOCIDO\n");
+            printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
             break;
     }
 }
+
 void liberar_ast(NodoAST* nodo) {
     if (!nodo) return;
 

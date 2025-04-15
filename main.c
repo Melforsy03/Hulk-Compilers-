@@ -1,15 +1,18 @@
 #include <stdio.h>
-#include "lexer.h"
-#include "parser.h"
+#include "./lexer/lexer.h"
+#include "./parser/parser.h"
 #define RESET_COLOR   "\x1b[0m"
 #define RED_COLOR     "\x1b[31m"
 #define GREEN_COLOR   "\x1b[32m"
 #define YELLOW_COLOR  "\x1b[33m"
 #define BLUE_COLOR    "\x1b[34m"
-#define MAGENTA_COLOR "\x1b[35m"
 #define CYAN_COLOR    "\x1b[36m"
 #define GRAY_COLOR    "\x1b[90m"
-
+#define RESET_COLOR   "\x1b[0m"
+#define GREEN_COLOR   "\x1b[32m"
+#define YELLOW_COLOR  "\x1b[33m"
+#define MAGENTA_COLOR "\x1b[35m"
+char* leer_archivo(const char* nombre_archivo) ;
 const char* nombre_token(TokenType tipo) {
     switch (tipo) {
         case TOKEN_PRINT : return GREEN_COLOR "PRINT" RESET_COLOR ;
@@ -67,28 +70,27 @@ const char* nombre_token(TokenType tipo) {
     }
 }
 
-
 int main() {
-   
-    const char* codigo = "let x = 2 + 3 in Print(x);";
+    char* codigo = leer_archivo("script.hulk");
 
     // Analizar léxicamente
     Token* tokens = tokenize(codigo);
 
-    // // Mostrar tokens
-    // for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-    //     if (tokens[i].type == TOKEN_ERROR) {
-    //         printf("%s[ERROR LÉXICO] Línea %d: texto no reconocido '%s'%s\n",
-    //                RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
-    //     } else {
-    //         printf("[%-15s] '%s'  (línea %d)\n",
-    //                nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
-    //     }
-    // }
+    // Mostrar tokens
+    for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+        if (tokens[i].type == TOKEN_ERROR) {
+            printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
+                   RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
+        } else {
+            printf("[%-15s] '%s'  (linea %d)\n",
+                   nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+        }
+    }
 
     // Parsear tokens y construir AST
     NodoAST* ast = parsear(tokens);
-
+    
+    printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
     imprimir_ast(ast, 0);
 
     // Liberar la  memoria
@@ -96,4 +98,26 @@ int main() {
     liberar_ast(ast);
 
     return 0;
+}
+char* leer_archivo(const char* nombre_archivo) {
+    FILE* archivo = fopen(nombre_archivo, "rb");
+    if (!archivo) {
+        fprintf(stderr, "No se pudo abrir el archivo: %s\n", nombre_archivo);
+        exit(1);
+    }
+
+    fseek(archivo, 0, SEEK_END);
+    long tamanio = ftell(archivo);
+    rewind(archivo);
+
+    char* buffer = malloc(tamanio + 1);
+    if (!buffer) {
+        fprintf(stderr, "No hay suficiente memoria.\n");
+        exit(1);
+    }
+
+    fread(buffer, 1, tamanio, archivo);
+    buffer[tamanio] = '\0';
+    fclose(archivo);
+    return buffer;
 }

@@ -1,0 +1,42 @@
+// Declaración y uso de variables
+let x = 2 + 3 in Print(x);
+let y = (x * 5) - 1 in Print(y);
+let z = (x + y) / 2 in Print(z);
+
+// Expresiones con paréntesis y prioridad
+let resultado = (1 + 2) * (3 + 4) in Print(resultado);
+
+// Expresiones complejas anidadas
+let a = 1 + 2 * 3 + 4 in Print(a);
+let b = ((1 + 2) * (3 + 4)) in Print(b);
+
+// Encadenar operaciones
+let total = 2 + 3 * 4 - 1 in Print(total);
+
+// Reasignaciones (por ahora se simulan con let anidados)
+let a = 1 in let a = a + 1 in Print(a);
+
+// Ejemplo con uso de múltiples variables
+let a = 1 in let b = 2 in let c = a + b in Print(c);
+
+// Operaciones mixtas
+let v = (2 + 3) * (4 - 1) / (5 + 1) in Print(v);
+
+// Casos con resultados negativos
+let neg = 5 - 10 in Print(neg);
+
+//TEST PARA VER ERRORES 
+// let sin in → ❌
+let x = 2 + 3 Print(x);
+
+// uso de símbolo ilegal → ❌
+let x = 2 $ 3 in Print(x);
+
+// sin cerrar paréntesis → ❌
+let x = (2 + 3 in Print(x);
+
+// Print sin argumento → ❌
+Print();
+
+// variable sin definir → ✅ válido léxicamente, el parser no se queja
+Print(noDefinida);

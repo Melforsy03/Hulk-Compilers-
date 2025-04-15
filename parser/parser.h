@@ -1,7 +1,6 @@
 #ifndef PARSER_H
 #define PARSER_H
-
-#include "lexer.h"
+#include "../lexer/lexer.h"
 
 // Tipos de nodo que puede tener el AST
 typedef enum {
