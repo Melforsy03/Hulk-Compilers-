@@ -41,7 +41,6 @@ void agregar_token(TokenType tipo, const char* inicio, int longitud) {
     token.line = lexer.linea;
     tokens[cantidad++] = token;
 }
-
 // Ignoramos espacios en blanco y salto de lineas
 void saltar_espacios() {
     while (1) {
@@ -67,7 +66,6 @@ int coincidir(char esperado) {
     lexer.actual++;
     return 1;
 }
-
 // Avanza y devuelve el carácter actual
 char avanzar() {
     return *lexer.actual++;
@@ -89,27 +87,49 @@ int fin_de_codigo() {
     return *lexer.actual == '\0';
 }
 
-// Detecta palabras clave y las convierte en tokens específicos
+// Detecta palabras clave y las convierte en tokens específicos#include <string.h>
+
 TokenType tipo_identificador(const char* inicio, int longitud) {
-    if (strncmp (inicio , "Print" , longitud)== 0) return TOKEN_PRINT;
-    if (strncmp(inicio, "let", longitud) == 0) return TOKEN_LET;
-    if (strncmp(inicio, "in", longitud) == 0) return TOKEN_IN;
-    if (strncmp(inicio, "function", longitud) == 0) return TOKEN_FUNCTION;
-    if (strncmp(inicio, "type", longitud) == 0) return TOKEN_TYPE;
-    if (strncmp(inicio, "if", longitud) == 0) return TOKEN_IF;
-    if (strncmp(inicio, "elif", longitud) == 0) return TOKEN_ELIF;
-    if (strncmp(inicio, "else", longitud) == 0) return TOKEN_ELSE;
-    if (strncmp(inicio, "while", longitud) == 0) return TOKEN_WHILE;
-    if (strncmp(inicio, "for", longitud) == 0) return TOKEN_FOR;
-    if (strncmp(inicio, "true", longitud) == 0) return TOKEN_TRUE;
-    if (strncmp(inicio, "false", longitud) == 0) return TOKEN_FALSE;
-    if (strncmp(inicio, "new", longitud) == 0) return TOKEN_NEW;
-    if (strncmp(inicio, "inherits", longitud) == 0) return TOKEN_INHERITS;
-    if (strncmp(inicio, "self", longitud) == 0) return TOKEN_SELF;
-    if (strncmp(inicio, "base", longitud) == 0) return TOKEN_BASE;
+    switch (longitud) {
+        case 2:
+            if (memcmp(inicio, "in", 2) == 0) return TOKEN_IN;
+            if (memcmp(inicio, "if", 2) == 0) return TOKEN_IF;
+            break;
+
+        case 3:
+            if (memcmp(inicio, "let", 3) == 0) return TOKEN_LET;
+            if (memcmp(inicio, "for", 3) == 0) return TOKEN_FOR;
+            if (memcmp(inicio, "new", 3) == 0) return TOKEN_NEW;
+            break;
+
+        case 4:
+            if (memcmp(inicio, "base", 4) == 0) return TOKEN_BASE;
+            if (memcmp(inicio, "elif", 4) == 0) return TOKEN_ELIF;
+            if (memcmp(inicio, "else", 4) == 0) return TOKEN_ELSE;
+            if (memcmp(inicio, "type", 4) == 0) return TOKEN_TYPE;
+            if (memcmp(inicio, "self", 4) == 0) return TOKEN_SELF;
+            if (memcmp(inicio, "true", 4) == 0) return TOKEN_TRUE;
+            break;
+
+        case 5:
+            if (memcmp(inicio, "Print", 5) == 0) return TOKEN_PRINT;
+            if (memcmp(inicio, "false", 5) == 0) return TOKEN_FALSE;
+            if (memcmp(inicio, "while", 5) == 0) return TOKEN_WHILE;
+            break;
+
+        case 6:
+            if (memcmp(inicio, "return", 6) == 0) return TOKEN_RETURN;
+            break;
+
+        case 8:
+            if (memcmp(inicio, "function", 8) == 0) return TOKEN_FUNCTION;
+            if (memcmp(inicio, "inherits", 8) == 0) return TOKEN_INHERITS;
+            break;
+    }
 
     return TOKEN_IDENTIFIER;
 }
+
 
 // Analiza identificadores y palabras clave
 void analizar_identificador() {

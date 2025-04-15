@@ -19,7 +19,7 @@ static NodoAST* parsear_print();
 static NodoAST* parsear_let();
 static NodoAST* parsear_expresion();
 static NodoAST* parsear_primario();
-
+static NodoAST* parsear_bloque() ;
 // Avanzar al siguiente token
 static void avanzar() {
     actual++;
@@ -33,7 +33,6 @@ static int coincidir(TokenType tipo) {
     }
     return 0;
 }
-
 
 // Exigir un token específico o lanzar error
 static void exigir(TokenType tipo, const char* esperado) {
@@ -127,17 +126,20 @@ static NodoAST* parsear_primario() {
         actual--; 
         return parsear_print();
     }
-
     if (coincidir(TOKEN_LPAREN)) {
         NodoAST* expr = parsear_expresion();
         exigir(TOKEN_RPAREN, "')'");
         return expr;
     }
-    if (coincidir (TOKEN_LET))
-    {
+    if (coincidir (TOKEN_LET)){
         actual --;
         return parsear_let();
     }
+    if (coincidir(TOKEN_LBRACE)) {
+        actual--;
+        return parsear_bloque();
+    }
+    
     fprintf(stderr, "[Error de sintaxis] Expresion invalida en línea %d: '%s'\n",
             actual->line, actual->lexeme);
     exit(1);
@@ -166,6 +168,48 @@ static NodoAST* parsear_let() {
     return nodo;
 }
 
+static NodoAST* parsear_bloque() {
+    exigir(TOKEN_LBRACE, "'{'");
+
+    NodoAST** expresiones = malloc(sizeof(NodoAST*) * 1024); // máximo 1024 expr
+    int cantidad = 0;
+
+    while (!coincidir(TOKEN_RBRACE)) {
+        if (actual->type == TOKEN_EOF) {
+            fprintf(stderr, "[Error de sintaxis] Bloque sin cerrar\n");
+            exit(1);
+        }
+
+        if (coincidir(TOKEN_SEMICOLON)) continue;
+
+        NodoAST* expr;
+
+        if (coincidir(TOKEN_LET)) {
+            actual--;
+            expr = parsear_let();
+        } else if (coincidir(TOKEN_PRINT)) {
+            actual--;
+            expr = parsear_print();
+        } else {
+            expr = parsear_expresion();
+        }
+
+        expresiones[cantidad++] = expr;
+
+        if (!coincidir(TOKEN_SEMICOLON) && actual->type != TOKEN_RBRACE) {
+            fprintf(stderr, "[Error de sintaxis] Se esperaba ';' o '}' después de una expresión\n");
+            exit(1);
+        }
+    }
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_BLOQUE;
+    nodo->linea = actual[-1].line;
+    nodo->bloque.expresiones = expresiones;
+    nodo->bloque.cantidad = cantidad;
+    return nodo;
+}
+
 // Función principal
 NodoAST* parsear(Token* tokens) {
     actual = tokens;
@@ -189,6 +233,12 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
     for (int i = 0; i < nivel; i++) printf("  ");
 
     switch (nodo->tipo) {
+        case NODO_BLOQUE:
+            printf("%sBLOQUE%s:\n", CYAN_COLOR, RESET_COLOR);
+            for (int i = 0; i < nodo->bloque.cantidad; i++) {
+                imprimir_ast(nodo->bloque.expresiones[i], nivel + 1);
+            }
+            break;
         case NODO_LITERAL:
             printf("%sLITERAL%s: %.2f\n", GREEN_COLOR, RESET_COLOR, nodo->literal.valor);
             break;
@@ -215,10 +265,11 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             printf("%sEN%s:\n", CYAN_COLOR, RESET_COLOR);
             imprimir_ast(nodo->let.cuerpo, nivel + 1);
             break;
-
+           
         default:
             printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
             break;
+        
     }
 }
 

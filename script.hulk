@@ -1,11 +1,13 @@
-let x = 2 + 3 in Print(x);
-let y = (x * 5) - 1 in Print(y);
-let z = (x + y) / 2 in Print(z);
-let resultado = (1 + 2) * (3 + 4) in Print(resultado);
-let a = 1 + 2 * 3 + 4 in Print(a);
-let b = ((1 + 2) * (3 + 4)) in Print(b);
-let total = 2 + 3 * 4 - 1 in Print(total);
-let a = 1 in let a = a + 1 in Print(a);
-let a = 1 in let b = 2 in let c = a + b in Print(c);
-let v = (2 + 3) * (4 - 1) / (5 + 1) in Print(v);
-let neg = 5 - 10 in Print(neg);
+{
+    let x = 2 + 3 in Print(x);
+    let y = (x * 5) - 1 in Print(y);
+    let z = (x + y) / 2 in Print(z);
+    let resultado = (1 + 2) * (3 + 4) in Print(resultado);
+    let a = 1 + 2 * 3 + 4 in Print(a);
+    let b = ((1 + 2) * (3 + 4)) in Print(b);
+    let total = 2 + 3 * 4 - 1 in Print(total);
+    let a = 1 in let a = a + 1 in Print(a);
+    let a = 1 in let b = 2 in let c = a + b in Print(c);
+    let v = (2 + 3) * (4 - 1) / (5 + 1) in Print(v);
+    let neg = 5 - 10 in Print(neg);
+}
