@@ -1,0 +1,64 @@
+program         = { function_def | type_def } expression ;
+
+function_def    = "function" identifier "(" identifier ")" "=>" expression ";" ;
+
+type_def        = "type" identifier [ "(" parameters ")" ] [ "inherits" identifier "(" arguments ")" ]? "{" { member_def } "}" ;
+
+member_def      = identifier "=" expression ";"                           // atributo
+                | identifier "(" [ identifier ] ")" "=>" expression ";" ; // método
+
+expression      = let_expr
+                | if_expr
+                | while_expr
+                | for_expr
+                | assignment ;
+
+assignment      = destructive_assign | logic_or ;
+
+destructive_assign = identifier ":=" expression ;
+
+let_expr        = "let" binding_list "in" expression ;
+
+binding_list    = binding { "," binding } ;
+binding         = identifier "=" expression ;
+
+if_expr         = "if" expression expression 
+                  { "elif" expression expression } 
+                  [ "else" expression ] ;
+
+while_expr      = "while" expression expression ;
+for_expr        = "for" "(" identifier "in" expression ")" expression ;
+
+logic_or        = logic_and { "||" logic_and } ;
+logic_and       = equality { "&&" equality } ;
+equality        = comparison { ("==" | "!=") comparison } ;
+comparison      = additive { ("<" | ">" | "<=" | ">=") additive } ;
+
+additive        = multiplicative { ("+" | "-") multiplicative } ;
+multiplicative  = exponential { ("*" | "/" | "@") exponential } ;
+exponential     = unary { "^" unary } ;
+unary           = ("!" | "-" | "+")? primary ;
+
+primary         = number
+                | string
+                | "true" | "false"
+                | "PI" | "E"
+                | identifier
+                | function_call
+                | object_call
+                | "(" expression ")"
+                | expression_block ;
+
+function_call   = identifier "(" expression ")" ;
+object_call     = expression "." identifier "(" [ expression ] ")" ;
+
+expression_block = "{" { expression ";" } "}" ;
+
+number          = digit { digit } [ "." digit { digit } ] ;
+string          = "\"" { character | escape_sequence } "\"" ;
+
+escape_sequence = "\\" ( "\"" | "n" | "t" | "\\" ) ;
+
+identifier      = letter { letter | digit | "_" } ;
+digit           = "0" | "1" | ... | "9" ;
+letter          = "a" | "b" | ... | "z" | "A" | ... | "Z" ;
