@@ -1,5 +1,5 @@
 {
-    let x = 1 in Print(x);
-    x := x + 1;
-    Print(x);
+    function doble(x) => x * 2;
+    Print(doble(10));
+    let a = 1 in Print(a);
 }

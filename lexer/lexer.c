@@ -191,8 +191,13 @@ void escanear_token() {
         case '@': agregar_token(TOKEN_AT, lexer.actual - 1, 1); break;
         case '^': agregar_token(TOKEN_POWER, lexer.actual - 1, 1); break;
         case '=':
-            if (coincidir('=')) agregar_token(TOKEN_EQUAL_EQUAL, lexer.actual - 2, 2);
-            else agregar_token(TOKEN_ASSIGN, lexer.actual - 1, 1);
+            if (coincidir('>')) {
+                agregar_token(TOKEN_ARROW, lexer.actual - 2, 2);  // reconoce =>
+            } else if (coincidir('=')) {
+                agregar_token(TOKEN_EQUAL_EQUAL, lexer.actual - 2, 2);  // reconoce ==
+            } else {
+                agregar_token(TOKEN_ASSIGN, lexer.actual - 1, 1);  // reconoce =
+            }
             break;
         case '!':
             if (coincidir('=')) agregar_token(TOKEN_NOT_EQUAL, lexer.actual - 2, 2);

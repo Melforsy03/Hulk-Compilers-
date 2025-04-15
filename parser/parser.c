@@ -22,6 +22,9 @@ static NodoAST* parsear_primario();
 static NodoAST* parsear_bloque() ;
 static NodoAST* parsear_asignacion();
 static NodoAST* parsear_llamada();
+
+static NodoAST* parsear_funcion();
+
 // Avanzar al siguiente token
 static void avanzar() {
     actual++;
@@ -153,6 +156,10 @@ static NodoAST* parsear_primario() {
             return crear_variable(identificador.lexeme, identificador.line);
         }
     }
+    if (coincidir(TOKEN_FUNCTION)) {
+        actual--;
+        return parsear_funcion();
+    }
     
     if (coincidir(TOKEN_PRINT)) {
         actual--; 
@@ -222,16 +229,47 @@ static NodoAST* parsear_bloque() {
         } else if (coincidir(TOKEN_PRINT)) {
             actual--;
             expr = parsear_print();
-        } else {
+        } 
+        else if (coincidir(TOKEN_FUNCTION)) {
+            actual--;
+            expr = parsear_funcion(); 
+        }
+        else if (actual->type == TOKEN_IDENTIFIER) {
+            Token identificador = *actual;
+            Token siguiente = actual[1];
+        
+            if (siguiente.type == TOKEN_COLON_EQUAL) {
+                return parsear_asignacion();
+            } else if (siguiente.type == TOKEN_LPAREN) {
+                return parsear_llamada();
+            } else if (siguiente.type == TOKEN_ASSIGN) {
+                fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
+                exit(1);
+            } else {
+                avanzar();
+                return crear_variable(identificador.lexeme, identificador.line);
+            }
+        }
+        else {
             expr = parsear_expresion();
         }
-
+       
         expresiones[cantidad++] = expr;
 
-        if (!coincidir(TOKEN_SEMICOLON) && actual->type != TOKEN_RBRACE) {
-            fprintf(stderr, "[Error de sintaxis] Se esperaba ';' o '}' después de una expresión\n");
-            exit(1);
+        // Solo exigir ';' si la expresión no es una función (ya la consume internamente)
+        if (expr->tipo != NODO_FUNCION && !coincidir(TOKEN_SEMICOLON)) {
+            if (actual->type != TOKEN_RBRACE) {
+                fprintf(stderr, "[Error de sintaxis] Se esperaba ';' o '}' después de una expresión\n");
+                exit(1);
+            }
         }
+
+
+        // Consumir el punto y coma si está presente
+        coincidir(TOKEN_SEMICOLON);
+
+  
+
     }
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
@@ -255,6 +293,33 @@ static NodoAST* parsear_asignacion() {
     nodo->linea = actual[-1].line;
     nodo->asignacion.nombre = nombre;
     nodo->asignacion.valor = valor;
+    return nodo;
+}
+static NodoAST* parsear_funcion() {
+    exigir(TOKEN_FUNCTION, "'function'");
+    exigir(TOKEN_IDENTIFIER, "nombre de la función");
+
+    char* nombre = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_LPAREN, "'('");
+    exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+
+    char* parametro = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_RPAREN, "')'");
+    exigir(TOKEN_ARROW, "'=>'");
+
+    NodoAST* cuerpo = parsear_expresion();
+
+    exigir(TOKEN_SEMICOLON, "';'");
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_FUNCION;
+    nodo->linea = actual[-1].line;
+    nodo->funcion.nombre = nombre;
+    nodo->funcion.parametro = parametro;
+    nodo->funcion.cuerpo = cuerpo;
+
     return nodo;
 }
 
@@ -322,6 +387,11 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
         case NODO_LLAMADA:
            printf("%sLLAMADA%s: %s(...)\n", BLUE_COLOR, RESET_COLOR, nodo->llamada.nombre);
            imprimir_ast(nodo->llamada.argumento, nivel + 1);
+           break;
+        case NODO_FUNCION:
+           printf("%sFUNCIÓN%s: %s(%s) =>\n", MAGENTA_COLOR, RESET_COLOR,
+                  nodo->funcion.nombre, nodo->funcion.parametro);
+           imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
            break;
        
         default:
