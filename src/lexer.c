@@ -90,6 +90,7 @@ int fin_de_codigo() {
 
 // Detecta palabras clave y las convierte en tokens específicos
 TokenType tipo_identificador(const char* inicio, int longitud) {
+    if (strncmp (inicio , "Print" , longitud)== 0) return TOKEN_PRINT;
     if (strncmp(inicio, "let", longitud) == 0) return TOKEN_LET;
     if (strncmp(inicio, "in", longitud) == 0) return TOKEN_IN;
     if (strncmp(inicio, "function", longitud) == 0) return TOKEN_FUNCTION;

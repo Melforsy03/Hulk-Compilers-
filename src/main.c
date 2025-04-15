@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "lexer.h"
+#include "parser.h"
 #define RESET_COLOR   "\x1b[0m"
 #define RED_COLOR     "\x1b[31m"
 #define GREEN_COLOR   "\x1b[32m"
@@ -11,6 +12,7 @@
 
 const char* nombre_token(TokenType tipo) {
     switch (tipo) {
+        case TOKEN_PRINT : return GREEN_COLOR "PRINT" RESET_COLOR ;
         case TOKEN_LET: return GREEN_COLOR "LET" RESET_COLOR;
         case TOKEN_IN: return GREEN_COLOR "IN" RESET_COLOR;
         case TOKEN_FUNCTION: return GREEN_COLOR "FUNCTION" RESET_COLOR;
@@ -67,35 +69,31 @@ const char* nombre_token(TokenType tipo) {
 
 
 int main() {
-    const char* codigo = 
-    "let x = 42 + 3.14;\n"
-    "let mensaje = \"Hola\\nMundo\";\n"
-    "print(mensaje);\n"
-    "function suma(x) => x + 1;\n"
-    "print( (suma(x) @ \" es el resultado\") );\n"
-    "x := x + 1;\n"
-    "if x == 43 print(\"OK\"); else print(\"Fallo\");\n"
-    "while x < 100 {\n"
-    "  x := x + 1;\n"
-    "  print(x);\n"
-    "}\n"
-    "type Persona(nombre, edad) {\n"
-    "  saludar() => \"Hola, soy \" @ self.nombre;\n"
-    "};\n"
-    "\"Cadena sin cerrar...\n"      // error: string sin cierre
-    "$variable_illegal = 12;\n";    // error: símbolo no reconocido
+   
+    const char* codigo = "let x = 2 + 3 in Print(x);";
 
+    // Analizar léxicamente
     Token* tokens = tokenize(codigo);
 
-    for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-        if (tokens[i].type == TOKEN_ERROR) {
-            printf("%s[ERROR LEXICO] Linea %d: texto no reconocido '%s'%s\n", RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
-        } else {
-            printf("[%-15s] '%s'  (linea %d)\n", nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
-        }
-    }
-    
-    
+    // // Mostrar tokens
+    // for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+    //     if (tokens[i].type == TOKEN_ERROR) {
+    //         printf("%s[ERROR LÉXICO] Línea %d: texto no reconocido '%s'%s\n",
+    //                RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
+    //     } else {
+    //         printf("[%-15s] '%s'  (línea %d)\n",
+    //                nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+    //     }
+    // }
+
+    // Parsear tokens y construir AST
+    NodoAST* ast = parsear(tokens);
+
+    imprimir_ast(ast, 0);
+
+    // Liberar la  memoria
     free_tokens(tokens);
+    liberar_ast(ast);
+
     return 0;
 }
