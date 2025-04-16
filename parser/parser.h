@@ -16,6 +16,8 @@ typedef enum {
     NODO_LITERAL_STRING,
     NODO_IF, 
     NODO_NOT,
+    NODO_WHILE,
+    NODO_FOR
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -48,9 +50,11 @@ typedef struct NodoAST {
             int cantidad;
         } bloque;
         struct {
-            char*nombre;
-            struct NodoAst** argumento
-        }llamada;
+            char* nombre;
+            struct NodoAST** argumentos;
+            int cantidad;
+        } llamada;
+        
         struct 
         {
             char*nombre;
@@ -63,6 +67,16 @@ typedef struct NodoAST {
             struct NodoAST* entonces;
             struct NodoAST* sino;
         } ifthen;
+        struct {
+            struct NodoAST* condicion;
+            struct NodoAST* cuerpo;
+        } bucle_while;
+        struct {
+            char* variable;
+            struct NodoAST* iterable;
+            struct NodoAST* cuerpo;
+        } bucle_for;
+        
         
 
     };
@@ -92,5 +106,8 @@ static NodoAST* parsear_comparacion();
 static NodoAST* parsear_elif();
 static NodoAST* parsear_logico_and();
 static NodoAST* parsear_logico_or();
+static NodoAST* parsear_while();
+static NodoAST* parsear_for();
+
 
 #endif

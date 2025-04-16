@@ -74,17 +74,32 @@ static NodoAST* parsear_llamada() {
 
     exigir(TOKEN_LPAREN, "'('");
 
-    NodoAST* argumento = parsear_expresion();
+    // Lista dinámica de argumentos
+    NodoAST** argumentos = NULL;
+    int capacidad = 0;
+    int cantidad = 0;
 
-    exigir(TOKEN_RPAREN, "')'");
+    if (!coincidir(TOKEN_RPAREN)) {
+        do {
+            if (cantidad >= capacidad) {
+                capacidad = capacidad == 0 ? 4 : capacidad * 2;
+                argumentos = realloc(argumentos, sizeof(NodoAST*) * capacidad);
+            }
+            argumentos[cantidad++] = parsear_expresion();
+        } while (coincidir(TOKEN_COMMA));
+
+        exigir(TOKEN_RPAREN, "')'");
+    }
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_LLAMADA;
     nodo->linea = actual[-1].line;
     nodo->llamada.nombre = nombre;
-    nodo->llamada.argumento = argumento;
+    nodo->llamada.argumentos = argumentos;
+    nodo->llamada.cantidad = cantidad;
     return nodo;
 }
+
 static NodoAST* parsear_termino() {
     NodoAST* izquierdo = parsear_potencia();
 
@@ -173,6 +188,41 @@ static NodoAST* parsear_comparacion() {
 
     return izquierdo;
 }
+static NodoAST* parsear_while() {
+    exigir(TOKEN_WHILE, "'while'");
+    NodoAST* condicion = parsear_expresion();
+    NodoAST* cuerpo = parsear_expresion(); 
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_WHILE;
+    nodo->linea = condicion->linea;
+    nodo->bucle_while.condicion = condicion;
+    nodo->bucle_while.cuerpo = cuerpo;
+    return nodo;
+}
+static NodoAST* parsear_for() {
+    exigir(TOKEN_FOR, "'for'");
+    exigir(TOKEN_LPAREN, "'('");
+
+    exigir(TOKEN_IDENTIFIER, "nombre de variable");
+    char* nombre = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_IN, "'in'");
+
+    NodoAST* iterable = parsear_expresion();
+
+    exigir(TOKEN_RPAREN, "')'");
+
+    NodoAST* cuerpo = parsear_expresion(); // puede ser bloque o expresión simple
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_FOR;
+    nodo->linea = cuerpo->linea;
+    nodo->bucle_for.variable = nombre;
+    nodo->bucle_for.iterable = iterable;
+    nodo->bucle_for.cuerpo = cuerpo;
+    return nodo;
+}
 
 static NodoAST* parsear_primario() {
     if (coincidir(TOKEN_NUMBER)) {
@@ -238,6 +288,14 @@ static NodoAST* parsear_primario() {
         actual--;
         return parsear_if();
     }
+    if (coincidir(TOKEN_WHILE)) {
+        actual--;
+        return parsear_while();
+    }
+    if (coincidir(TOKEN_FOR)) {
+        actual--;
+        return parsear_for();
+    }
     
     fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
             actual->line, actual->lexeme);
@@ -298,17 +356,18 @@ static NodoAST* parsear_bloque() {
             Token siguiente = actual[1];
         
             if (siguiente.type == TOKEN_COLON_EQUAL) {
-                return parsear_asignacion();
+                expr = parsear_asignacion();
             } else if (siguiente.type == TOKEN_LPAREN) {
-                return parsear_llamada();
+                expr = parsear_llamada();
             } else if (siguiente.type == TOKEN_ASSIGN) {
                 fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
                 exit(1);
             } else {
                 avanzar();
-                return crear_variable(identificador.lexeme, identificador.line);
+                expr = crear_variable(identificador.lexeme, identificador.line);
             }
         }
+        
         else {
             expr = parsear_expresion();
         }
@@ -505,7 +564,8 @@ NodoAST* parsear(Token* tokens) {
         actual--;
         return parsear_print();
     }
-
+    
+    
     return parsear_expresion();
 }
 
@@ -554,9 +614,14 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             break;
            ;
         case NODO_LLAMADA:
-           printf("%sLLAMADA%s: %s(...)\n", BLUE_COLOR, RESET_COLOR, nodo->llamada.nombre);
-           imprimir_ast(nodo->llamada.argumento, nivel + 1);
+           printf("%sLLAMADA%s: %s\n", CYAN_COLOR, RESET_COLOR, nodo->llamada.nombre);
+           for (int i = 0; i < nodo->llamada.cantidad; i++) {
+               for (int j = 0; j < nivel + 1; j++) printf("  ");
+               printf("ARG %d:\n", i + 1);
+               imprimir_ast(nodo->llamada.argumentos[i], nivel + 2);
+           }
            break;
+       
         case NODO_FUNCION:
            printf("%sFUNCIÓN%s: %s(%s) =>\n", MAGENTA_COLOR, RESET_COLOR,
                   nodo->funcion.nombre, nodo->funcion.parametro);
@@ -577,6 +642,27 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
            printf("SINO:\n");
            imprimir_ast(nodo->ifthen.sino, nivel + 2);
            break;
+        case NODO_WHILE:
+            printf("%sWHILE%s:\n", CYAN_COLOR, RESET_COLOR);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("CONDICIÓN:\n");
+            imprimir_ast(nodo->bucle_while.condicion, nivel + 2);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("CUERPO:\n");
+            imprimir_ast(nodo->bucle_while.cuerpo, nivel + 2);
+            break;
+        case NODO_FOR:
+            printf("%sBUCLE FOR%s:\n", GREEN_COLOR, RESET_COLOR);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("VARIABLE: %s\n", nodo->bucle_for.variable);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("ITERABLE:\n");
+            imprimir_ast(nodo->bucle_for.iterable, nivel + 2);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("CUERPO:\n");
+            imprimir_ast(nodo->bucle_for.cuerpo, nivel + 2);
+            break;
+        
         default:
             printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
             break;
@@ -628,8 +714,12 @@ void liberar_ast(NodoAST* nodo) {
 
         case NODO_LLAMADA:
             free(nodo->llamada.nombre);
-            liberar_ast(nodo->llamada.argumento);
+            for (int i = 0; i < nodo->llamada.cantidad; i++) {
+                liberar_ast(nodo->llamada.argumentos[i]);
+            }
+            free(nodo->llamada.argumentos);
             break;
+        
 
         case NODO_BLOQUE:
             for (int i = 0; i < nodo->bloque.cantidad; i++) {

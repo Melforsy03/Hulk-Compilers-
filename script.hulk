@@ -1,2 +1,5 @@
 let x = 5 in
-if x > 2 && x < 10 then Print("válido") else Print("inválido");
+while x > 0 {
+    if x == 3 then Print("Mitad") else Print(x);
+    x := x - 1;
+}
