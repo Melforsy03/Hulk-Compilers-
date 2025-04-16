@@ -2,17 +2,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser.h"
-#define RESET_COLOR   "\x1b[0m"
-#define RED_COLOR     "\x1b[31m"
-#define GREEN_COLOR   "\x1b[32m"
-#define YELLOW_COLOR  "\x1b[33m"
-#define BLUE_COLOR    "\x1b[34m"
-#define CYAN_COLOR    "\x1b[36m"
-#define GRAY_COLOR    "\x1b[90m"
-#define RESET_COLOR   "\x1b[0m"
-#define GREEN_COLOR   "\x1b[32m"
-#define YELLOW_COLOR  "\x1b[33m"
-#define MAGENTA_COLOR "\x1b[35m"
+#define CYAN "\x1b[36m"
+#define YELLOW "\x1b[33m"
+#define MAGENTA "\x1b[35m"
+#define GREEN "\x1b[32m"
+#define RED "\x1b[31m"
+#define BLUE "\x1b[34m"
+#define GRAY "\x1b[90m"
+#define VIOLET "\x1b[95m"
+#define LIGHT_RED "\x1b[91m"
+#define LIGHT_CYAN "\x1b[96m"
+#define LIGHT_YELLOW "\x1b[93m"
+#define RESET "\x1b[0m"
+
 // Token actual del análisis
 static Token* actual;
 
@@ -395,8 +397,8 @@ static NodoAST* parsear_primario() {
         NodoAST* llamada = malloc(sizeof(NodoAST));
         llamada->tipo = NODO_LLAMADA;
         llamada->linea = actual[-1].line;
-        llamada->llamada.nombre = NULL;  // ⚠️ Es una llamada sobre una expresión
-        llamada->llamada.objeto = expr;  // ← importante: sobre qué llamas
+        llamada->llamada.nombre = NULL; 
+        llamada->llamada.objeto = expr;  
         llamada->llamada.argumentos = argumentos;
         llamada->llamada.cantidad = cantidad;
 
@@ -811,146 +813,137 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
     for (int i = 0; i < nivel; i++) printf("  ");
 
     switch (nodo->tipo) {
-        case NODO_BLOQUE:
-            printf("%sBLOQUE%s:\n", CYAN_COLOR, RESET_COLOR);
-            for (int i = 0; i < nodo->bloque.cantidad; i++) {
-                imprimir_ast(nodo->bloque.expresiones[i], nivel + 1);
-            }
-            break;
-        case NODO_ASIGNACION:
-            printf("%sASIGNACION%s: %s :=\n", YELLOW_COLOR, RESET_COLOR, nodo->asignacion.nombre);
-            imprimir_ast(nodo->asignacion.valor, nivel + 1);
-            break;
         
         case NODO_LITERAL:
-            printf("%sLITERAL%s: %.2f\n", GREEN_COLOR, RESET_COLOR, nodo->literal.valor);
+            printf("%sLITERAL%s: %.2f\n", CYAN, RESET, nodo->literal.valor);
+            break;
+
+        case NODO_LITERAL_STRING:
+            printf("%sCADENA%s: \"%s\"\n", CYAN, RESET, nodo->literal_string.valor);
+            break;
+
+        case NODO_LITERAL_BOOL:
+            printf("%sBOOLEANO%s: %s\n", CYAN, RESET, nodo->literal_bool.valor ? "true" : "false");
             break;
 
         case NODO_VARIABLE:
-            printf("%sVARIABLE%s: %s\n", YELLOW_COLOR, RESET_COLOR, nodo->variable.nombre);
+            printf("%sVARIABLE%s: %s\n", YELLOW, RESET, nodo->variable.nombre);
             break;
 
         case NODO_BINARIO:
-            printf("%sBINARIO%s: %s\n", BLUE_COLOR, RESET_COLOR, nodo->binario.operador.lexeme);
+            printf("%sBINARIO%s: %s\n", MAGENTA, RESET, nombre_token(nodo->binario.operador.type));
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             imprimir_ast(nodo->binario.derecho, nivel + 1);
             break;
 
-        case NODO_PRINT:
-            printf("%sPRINT%s:\n", MAGENTA_COLOR, RESET_COLOR);
-            imprimir_ast(nodo->print.expresion, nivel + 1);
+        case NODO_NOT:
+            printf("%sNEGACIÓN%s:\n", VIOLET, RESET);
+            imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             break;
 
         case NODO_LET:
-            printf("%sLET%s: %s =\n", CYAN_COLOR, RESET_COLOR, nodo->let.nombre);
+            printf("%sLET%s: %s\n", GREEN, RESET, nodo->let.nombre);
             imprimir_ast(nodo->let.valor, nivel + 1);
-            for (int i = 0; i < nivel; i++) printf("  ");
-            printf("%sEN%s:\n", CYAN_COLOR, RESET_COLOR);
             imprimir_ast(nodo->let.cuerpo, nivel + 1);
             break;
-           ;
-        case NODO_LLAMADA:
-           if (nodo->llamada.nombre) {
-               printf("%sLLAMADA%s: %s(...)\n", CYAN_COLOR, RESET_COLOR, nodo->llamada.nombre);
-           } else {
-               printf("%sLLAMADA A EXPRESIÓN%s:\n", CYAN_COLOR, RESET_COLOR);
-               for (int i = 0; i < nivel + 1; i++) printf("  ");
-               printf("FUNCIÓN:\n");
-               imprimir_ast(nodo->llamada.objeto, nivel + 2);
-           }
-       
-           for (int i = 0; i < nodo->llamada.cantidad; i++) {
-               for (int j = 0; j < nivel + 1; j++) printf("  ");
-               printf("ARG %d:\n", i + 1);
-               imprimir_ast(nodo->llamada.argumentos[i], nivel + 2);
-           }
-           break;
-       
-        case NODO_FUNCION:
-           printf("%sFUNCIÓN%s: %s(%s) =>\n", MAGENTA_COLOR, RESET_COLOR,
-                  nodo->funcion.nombre, nodo->funcion.parametro);
-           imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
-           break;
-        case NODO_LITERAL_STRING:
-           printf("%sCADENA%s: \"%s\"\n", GREEN_COLOR, RESET_COLOR, nodo->literal_string.valor);
-           break;
+
+        case NODO_ASIGNACION:
+            printf("%sASIGNACIÓN%s: %s :=\n", RED, RESET, nodo->asignacion.nombre);
+            imprimir_ast(nodo->asignacion.valor, nivel + 1);
+            break;
+
+        case NODO_SET:
+            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n", LIGHT_RED, RESET);
+            printf("DESTINO:\n");
+            imprimir_ast(nodo->set.destino, nivel + 1);
+            printf("VALOR:\n");
+            imprimir_ast(nodo->set.valor, nivel + 1);
+            break;
+
+        case NODO_PRINT:
+            printf("%sIMPRIMIR%s:\n", CYAN, RESET);
+            imprimir_ast(nodo->print.expresion, nivel + 1);
+            break;
+
         case NODO_IF:
-           printf("%sCONDICIONAL%s:\n", MAGENTA_COLOR, RESET_COLOR);
-           for (int i = 0; i < nivel + 1; i++) printf("  ");
-           printf("CONDICIÓN:\n");
-           imprimir_ast(nodo->ifthen.condicion, nivel + 2);
-           for (int i = 0; i < nivel + 1; i++) printf("  ");
-           printf("ENTONCES:\n");
-           imprimir_ast(nodo->ifthen.entonces, nivel + 2);
-           for (int i = 0; i < nivel + 1; i++) printf("  ");
-           printf("SINO:\n");
-           imprimir_ast(nodo->ifthen.sino, nivel + 2);
-           break;
+            printf("%sIF%s:\n", LIGHT_CYAN, RESET);
+            imprimir_ast(nodo->ifthen.condicion, nivel + 1);
+            printf("THEN:\n");
+            imprimir_ast(nodo->ifthen.entonces, nivel + 1);
+            printf("ELSE:\n");
+            imprimir_ast(nodo->ifthen.sino, nivel + 1);
+            break;
+
         case NODO_WHILE:
-            printf("%sWHILE%s:\n", CYAN_COLOR, RESET_COLOR);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
-            printf("CONDICIÓN:\n");
-            imprimir_ast(nodo->bucle_while.condicion, nivel + 2);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("%sWHILE%s:\n", BLUE, RESET);
+            imprimir_ast(nodo->bucle_while.condicion, nivel + 1);
             printf("CUERPO:\n");
-            imprimir_ast(nodo->bucle_while.cuerpo, nivel + 2);
+            imprimir_ast(nodo->bucle_while.cuerpo, nivel + 1);
             break;
+
         case NODO_FOR:
-            printf("%sBUCLE FOR%s:\n", GREEN_COLOR, RESET_COLOR);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
-            printf("VARIABLE: %s\n", nodo->bucle_for.variable);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
-            printf("ITERABLE:\n");
-            imprimir_ast(nodo->bucle_for.iterable, nivel + 2);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("%sFOR%s: %s in\n", BLUE, RESET, nodo->bucle_for.variable);
+            imprimir_ast(nodo->bucle_for.iterable, nivel + 1);
             printf("CUERPO:\n");
-            imprimir_ast(nodo->bucle_for.cuerpo, nivel + 2);
+            imprimir_ast(nodo->bucle_for.cuerpo, nivel + 1);
             break;
-        case NODO_TIPO:
-            printf("%sTIPO:%s %s", MAGENTA_COLOR, RESET_COLOR, nodo->tipo_decl.nombre);
-            if (nodo->tipo_decl.padre != NULL) {
-                printf(" inherits %s", nodo->tipo_decl.padre);
+
+        case NODO_FUNCION:
+            printf("%sFUNCIÓN%s: %s(%s)\n", VIOLET, RESET, nodo->funcion.nombre,
+                nodo->funcion.parametro ? nodo->funcion.parametro : "");
+            imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
+            break;
+
+        case NODO_LLAMADA:
+            if (nodo->llamada.nombre) {
+                printf("%sLLAMADA%s: %s(...)\n", CYAN, RESET, nodo->llamada.nombre);
+            } else {
+                printf("%sLLAMADA A EXPRESIÓN%s:\n", CYAN, RESET);
+                imprimir_ast(nodo->llamada.objeto, nivel + 1);
             }
+            for (int i = 0; i < nodo->llamada.cantidad; i++) {
+                printf("ARG %d:\n", i + 1);
+                imprimir_ast(nodo->llamada.argumentos[i], nivel + 2);
+            }
+            break;
+
+        case NODO_ACCESO:
+            printf("%sACCESO%s: .%s\n", LIGHT_YELLOW, RESET, nodo->acceso.miembro);
+            imprimir_ast(nodo->acceso.objeto, nivel + 1);
+            break;
+
+        case NODO_TIPO:
+            printf("%sTIPO%s: %s", MAGENTA, RESET, nodo->tipo_decl.nombre);
+            if (nodo->tipo_decl.padre) printf(" inherits %s", nodo->tipo_decl.padre);
             printf("\n");
-        
             for (int i = 0; i < nodo->tipo_decl.cantidad; i++) {
                 imprimir_ast(nodo->tipo_decl.miembros[i], nivel + 1);
             }
             break;
-        
+
         case NODO_ATRIBUTO:
-            for (int i = 0; i < nivel; i++) printf("  ");
-            printf("ATRIBUTO: %s =\n", nodo->atributo.nombre);
+            printf("%sATRIBUTO%s: %s =\n", GREEN, RESET, nodo->atributo.nombre);
             imprimir_ast(nodo->atributo.valor, nivel + 1);
             break;
-        case NODO_LITERAL_BOOL:
-            printf("%sBOOLEANO%s: %s\n", GREEN_COLOR, RESET_COLOR,
-                   nodo->literal_bool.valor ? "true" : "false");
-            break;
-        case NODO_ACCESO:
-            printf("%sACCESO%s: .%s\n", CYAN_COLOR, RESET_COLOR, nodo->acceso.miembro);
-            imprimir_ast(nodo->acceso.objeto, nivel + 1);
-            break;
-        case NODO_SET:
-            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n", YELLOW_COLOR, RESET_COLOR);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
-            printf("DESTINO:\n");
-            imprimir_ast(nodo->set.destino, nivel + 2);
-            for (int i = 0; i < nivel + 1; i++) printf("  ");
-            printf("VALOR:\n");
-            imprimir_ast(nodo->set.valor, nivel + 2);
-            break;
+
         case NODO_NEW:
-            printf("%sINSTANCIA%s: new %s(...)\n", CYAN_COLOR, RESET_COLOR, nodo->nuevo.tipo_nombre);
+            printf("%sINSTANCIA%s: new %s(...)\n", LIGHT_CYAN, RESET, nodo->nuevo.tipo_nombre);
             for (int i = 0; i < nodo->nuevo.cantidad; i++) {
-                for (int j = 0; j < nivel + 1; j++) printf("  ");
                 printf("ARG %d:\n", i + 1);
                 imprimir_ast(nodo->nuevo.argumentos[i], nivel + 2);
             }
             break;
-        
+
+        case NODO_BLOQUE:
+            printf("%sBLOQUE%s:\n", GRAY, RESET);
+            for (int i = 0; i < nodo->bloque.cantidad; i++) {
+                imprimir_ast(nodo->bloque.expresiones[i], nivel + 1);
+            }
+            break;
+
+                
         default:
-            printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
+            printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED, RESET);
             break;
         
     }
