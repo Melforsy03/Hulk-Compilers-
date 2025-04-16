@@ -67,3 +67,6 @@ else Print("otro");
 if 1 == 1 then Print("true") elif 2 == 2 then Print("not seen") else Print("fin");
 
 }
+//probar los operadores and y or 
+let x = 5 in
+if x > 2 && x < 10 then Print("válido") else Print("inválido");

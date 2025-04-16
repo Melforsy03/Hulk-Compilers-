@@ -15,19 +15,6 @@
 #define MAGENTA_COLOR "\x1b[35m"
 // Token actual del análisis
 static Token* actual;
-static NodoAST* parsear_print();
-static NodoAST* parsear_let();
-static NodoAST* parsear_expresion();
-static NodoAST* parsear_primario();
-static NodoAST* parsear_bloque() ;
-static NodoAST* parsear_asignacion();
-static NodoAST* parsear_llamada();
-static NodoAST* parsear_funcion();
-static NodoAST* parsear_concatenacion();
-static NodoAST* parsear_potencia();
-static NodoAST* parsear_if();
-static NodoAST* parsear_comparacion();
-static NodoAST* parsear_elif();
 
 // Avanzar al siguiente token
 static void avanzar() {
@@ -119,7 +106,7 @@ static NodoAST* parsear_termino() {
 }
 
 static NodoAST* parsear_expresion() {
-    return parsear_comparacion();
+    return parsear_logico_or();
 }
 
 static NodoAST* parsear_suma() {
@@ -222,6 +209,16 @@ static NodoAST* parsear_primario() {
         exigir(TOKEN_RPAREN, "')'");
         return expr;
     }
+    if (coincidir(TOKEN_NOT)) {
+        NodoAST* operand = parsear_primario();
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_NOT;  // o un nuevo tipo NODO_NOT si lo prefieres
+        nodo->linea = actual[-1].line;
+        nodo->binario.operador.type = TOKEN_NOT;
+        nodo->binario.izquierdo = operand;
+        nodo->binario.derecho = NULL;
+        return nodo;
+    }    
     if (coincidir (TOKEN_LET)){
         actual --;
         return parsear_let();
@@ -430,7 +427,6 @@ static NodoAST* parsear_if() {
     return nodo;
 }
 
-
 static NodoAST* parsear_elif() {
     exigir(TOKEN_ELIF, "'elif'");
     NodoAST* condicion = parsear_expresion();
@@ -456,6 +452,44 @@ static NodoAST* parsear_elif() {
     nodo->ifthen.entonces = entonces;
     nodo->ifthen.sino = sino;
     return nodo;
+}
+static NodoAST* parsear_logico_or() {
+    NodoAST* izquierdo = parsear_logico_and();
+
+    while (actual->type == TOKEN_OR) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_logico_and();
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_BINARIO;
+        nodo->linea = op.line;
+        nodo->binario.izquierdo = izquierdo;
+        nodo->binario.operador = op;
+        nodo->binario.derecho = derecho;
+        izquierdo = nodo;
+    }
+
+    return izquierdo;
+}
+static NodoAST* parsear_logico_and() {
+    NodoAST* izquierdo = parsear_comparacion();
+
+    while (actual->type == TOKEN_AND) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_comparacion();
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_BINARIO;
+        nodo->linea = op.line;
+        nodo->binario.izquierdo = izquierdo;
+        nodo->binario.operador = op;
+        nodo->binario.derecho = derecho;
+        izquierdo = nodo;
+    }
+
+    return izquierdo;
 }
 
 // Función principal

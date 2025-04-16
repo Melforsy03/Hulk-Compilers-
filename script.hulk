@@ -1,10 +1,2 @@
-{
-let x = 3 in
-if x == 1 then Print("uno")
-elif x == 2 then Print("dos")
-elif x == 3 then Print("tres")
-else Print("otro");
-
-if 1 == 1 then Print("true") elif 2 == 2 then Print("not seen") else Print("fin");
-
-}
+let x = 5 in
+if x > 2 && x < 10 then Print("válido") else Print("inválido");

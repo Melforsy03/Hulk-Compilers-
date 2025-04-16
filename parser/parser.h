@@ -14,7 +14,8 @@ typedef enum {
     NODO_BLOQUE, 
     NODO_FUNCION, 
     NODO_LITERAL_STRING,
-    NODO_IF
+    NODO_IF, 
+    NODO_NOT,
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -76,6 +77,20 @@ void liberar_ast(NodoAST* nodo);
 // Imprimir AST
 void imprimir_ast(NodoAST* nodo, int nivel);
 
-
+static NodoAST* parsear_print();
+static NodoAST* parsear_let();
+static NodoAST* parsear_expresion();
+static NodoAST* parsear_primario();
+static NodoAST* parsear_bloque() ;
+static NodoAST* parsear_asignacion();
+static NodoAST* parsear_llamada();
+static NodoAST* parsear_funcion();
+static NodoAST* parsear_concatenacion();
+static NodoAST* parsear_potencia();
+static NodoAST* parsear_if();
+static NodoAST* parsear_comparacion();
+static NodoAST* parsear_elif();
+static NodoAST* parsear_logico_and();
+static NodoAST* parsear_logico_or();
 
 #endif

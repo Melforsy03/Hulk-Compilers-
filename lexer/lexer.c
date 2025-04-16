@@ -216,8 +216,24 @@ void escanear_token() {
             if (coincidir('=')) agregar_token(TOKEN_GREATER_EQUAL, lexer.actual - 2, 2);
             else agregar_token(TOKEN_GREATER, lexer.actual - 1, 1);
             break;
-        case '&': agregar_token(TOKEN_AND, lexer.actual - 1, 1); break;
-        case '|': agregar_token(TOKEN_OR, lexer.actual - 1, 1); break;
+            case '&':
+            if (coincidir('&')) {
+                agregar_token(TOKEN_AND, lexer.actual - 2, 2); 
+            } else {
+                agregar_token(TOKEN_ERROR, lexer.actual - 1, 1); 
+                fprintf(stderr, "[Error léxico] Se esperaba '&&' pero se encontró '&'\n");
+            }
+            break;
+        
+            case '|':
+            if (coincidir('|')) {
+                agregar_token(TOKEN_OR, lexer.actual - 2, 2); 
+            } else {
+                agregar_token(TOKEN_ERROR, lexer.actual - 1, 1);
+                fprintf(stderr, "[Error léxico] Se esperaba '||' pero se encontró '|'\n");
+            }
+            break;
+        
         case '(': agregar_token(TOKEN_LPAREN, lexer.actual - 1, 1); break;
         case ')': agregar_token(TOKEN_RPAREN, lexer.actual - 1, 1); break;
         case '{': agregar_token(TOKEN_LBRACE, lexer.actual - 1, 1); break;
