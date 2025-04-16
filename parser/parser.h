@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include "../lexer/lexer.h"
-
+typedef struct NodoAST NodoAST;
 // Tipos de nodo que puede tener el AST
 typedef enum {
     NODO_LITERAL,
@@ -17,7 +17,12 @@ typedef enum {
     NODO_IF, 
     NODO_NOT,
     NODO_WHILE,
-    NODO_FOR
+    NODO_FOR ,
+    NODO_TIPO ,
+    NODO_METODO,
+    NODO_ATRIBUTO,
+    NODO_INSTANCIA,
+    NODO_ACCCESO
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -76,12 +81,16 @@ typedef struct NodoAST {
             struct NodoAST* iterable;
             struct NodoAST* cuerpo;
         } bucle_for;
-        
-        
-
+        struct { char* nombre; NodoAST** miembros; int cantidad; } tipo_decl;
+        struct { char* nombre; NodoAST* valor; } atributo;
     };
 } NodoAST;
 
+typedef struct {
+    char* nombre;
+    NodoAST** miembros;
+    int cantidad;
+} NodoTipo;
 // Función principal del parser
 NodoAST* parsear(Token* tokens);
 
@@ -108,6 +117,6 @@ static NodoAST* parsear_logico_and();
 static NodoAST* parsear_logico_or();
 static NodoAST* parsear_while();
 static NodoAST* parsear_for();
-
+static NodoAST* parsear_tipo();
 
 #endif

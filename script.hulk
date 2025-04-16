@@ -1,5 +1,7 @@
-let x = 5 in
-while x > 0 {
-    if x == 3 then Print("Mitad") else Print(x);
-    x := x - 1;
+
+
+type Circle {
+  r = 3.14;
+  pi = 3.14159;
+  double_area = pi * r * r;
 }

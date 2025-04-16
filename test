@@ -105,3 +105,28 @@ while a < 2 {
     };
     a := a + 1;
 }
+//test de tipo 
+type Point {
+    x = 0;
+    y = 0;
+  }
+  type Rectangle {
+    width = 10;
+    height = 20;
+    area = width * height;
+  }
+  type Config {
+    debug = true;
+    version = "1.0.0";
+  }
+  
+  type User {
+    name = "Alice";
+    age = 30;
+  }
+  
+  type Product {
+    title = "Book";
+    price = 15.99;
+  }
+  

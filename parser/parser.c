@@ -296,6 +296,25 @@ static NodoAST* parsear_primario() {
         actual--;
         return parsear_for();
     }
+    if (coincidir(TOKEN_TYPE)) {
+        actual--;
+        return parsear_tipo();
+    }
+    if (coincidir(TOKEN_TRUE)) {
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_LITERAL;
+        nodo->linea = actual[-1].line;
+        nodo->literal.valor = 1.0;  
+        return nodo;
+    }
+    
+    if (coincidir(TOKEN_FALSE)) {
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_LITERAL;
+        nodo->linea = actual[-1].line;
+        nodo->literal.valor = 0.0;  
+        return nodo;
+    }
     
     fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
             actual->line, actual->lexeme);
@@ -550,6 +569,51 @@ static NodoAST* parsear_logico_and() {
 
     return izquierdo;
 }
+static NodoAST* parsear_tipo() {
+    exigir(TOKEN_TYPE, "'type'");
+    exigir(TOKEN_IDENTIFIER, "nombre del tipo");
+
+    char* nombre_tipo = strdup(actual[-1].lexeme);
+
+    exigir(TOKEN_LBRACE, "'{'");
+
+    NodoAST** miembros = NULL;
+    int cantidad = 0, capacidad = 0;
+
+    while (!coincidir(TOKEN_RBRACE)) {
+        exigir(TOKEN_IDENTIFIER, "nombre de atributo");
+
+        char* nombre_attr = strdup(actual[-1].lexeme);
+
+        exigir(TOKEN_ASSIGN, "'='");
+
+        NodoAST* valor = parsear_expresion();
+
+        coincidir(TOKEN_SEMICOLON); // opcional
+
+        NodoAST* nodo_attr = malloc(sizeof(NodoAST));
+        nodo_attr->tipo = NODO_ATRIBUTO;
+        nodo_attr->atributo.nombre = nombre_attr;
+        nodo_attr->atributo.valor = valor;
+        nodo_attr->linea = actual[-1].line;
+
+        if (cantidad >= capacidad) {
+            capacidad = capacidad == 0 ? 4 : capacidad * 2;
+            miembros = realloc(miembros, sizeof(NodoAST*) * capacidad);
+        }
+
+        miembros[cantidad++] = nodo_attr;
+    }
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_TIPO;
+    nodo->tipo_decl.nombre = nombre_tipo;
+    nodo->tipo_decl.miembros = miembros;
+    nodo->tipo_decl.cantidad = cantidad;
+    nodo->linea = actual[-1].line;
+
+    return nodo;
+}
 
 // Función principal
 NodoAST* parsear(Token* tokens) {
@@ -661,6 +725,18 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             for (int i = 0; i < nivel + 1; i++) printf("  ");
             printf("CUERPO:\n");
             imprimir_ast(nodo->bucle_for.cuerpo, nivel + 2);
+            break;
+        case NODO_TIPO:
+            printf("TIPO: %s\n", nodo->tipo_decl.nombre);
+            for (int i = 0; i < nodo->tipo_decl.cantidad; i++) {
+                imprimir_ast(nodo->tipo_decl.miembros[i], nivel + 1);
+            }
+            break;
+        
+        case NODO_ATRIBUTO:
+            for (int i = 0; i < nivel; i++) printf("  ");
+            printf("ATRIBUTO: %s =\n", nodo->atributo.nombre);
+            imprimir_ast(nodo->atributo.valor, nivel + 1);
             break;
         
         default:
