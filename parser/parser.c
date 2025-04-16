@@ -22,9 +22,9 @@ static NodoAST* parsear_primario();
 static NodoAST* parsear_bloque() ;
 static NodoAST* parsear_asignacion();
 static NodoAST* parsear_llamada();
-
 static NodoAST* parsear_funcion();
-
+static NodoAST* parsear_concatenacion();
+static NodoAST* parsear_potencia();
 // Avanzar al siguiente token
 static void avanzar() {
     actual++;
@@ -94,14 +94,13 @@ static NodoAST* parsear_llamada() {
     nodo->llamada.argumento = argumento;
     return nodo;
 }
-
 static NodoAST* parsear_termino() {
-    NodoAST* izquierdo = parsear_primario();
+    NodoAST* izquierdo = parsear_potencia();
 
     while (actual->type == TOKEN_STAR || actual->type == TOKEN_SLASH) {
         Token op = *actual;
         avanzar();
-        NodoAST* derecho = parsear_primario();
+        NodoAST* derecho = parsear_potencia();
 
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_BINARIO;
@@ -116,12 +115,35 @@ static NodoAST* parsear_termino() {
 }
 
 static NodoAST* parsear_expresion() {
+    return parsear_concatenacion();
+}
+
+static NodoAST* parsear_suma() {
     NodoAST* izquierdo = parsear_termino();
 
     while (actual->type == TOKEN_PLUS || actual->type == TOKEN_MINUS) {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_termino();
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_BINARIO;
+        nodo->linea = op.line;
+        nodo->binario.izquierdo = izquierdo;
+        nodo->binario.operador = op;
+        nodo->binario.derecho = derecho;
+        izquierdo = nodo;
+    }
+
+    return izquierdo;
+}
+static NodoAST* parsear_concatenacion() {
+    NodoAST* izquierdo = parsear_suma(); // menor precedencia debajo
+
+    while (actual->type == TOKEN_AT) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_suma();
 
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_BINARIO;
@@ -178,8 +200,15 @@ static NodoAST* parsear_primario() {
         actual--;
         return parsear_bloque();
     }
+    if (coincidir(TOKEN_STRING)) {
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_LITERAL_STRING;
+        nodo->linea = actual[-1].line;
+        nodo->literal_string.valor = strdup(actual[-1].lexeme);
+        return nodo;
+    }
     
-    fprintf(stderr, "[Error de sintaxis] Expresion invalida en línea %d: '%s'\n",
+    fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
             actual->line, actual->lexeme);
     exit(1);
 }
@@ -322,6 +351,25 @@ static NodoAST* parsear_funcion() {
 
     return nodo;
 }
+static NodoAST* parsear_potencia() {
+    NodoAST* izquierdo = parsear_primario();
+
+    while (actual->type == TOKEN_POWER) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_primario(); 
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_BINARIO;
+        nodo->linea = op.line;
+        nodo->binario.izquierdo = izquierdo;
+        nodo->binario.operador = op;
+        nodo->binario.derecho = derecho;
+        izquierdo = nodo;
+    }
+
+    return izquierdo;
+}
 
 // Función principal
 NodoAST* parsear(Token* tokens) {
@@ -393,6 +441,9 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
                   nodo->funcion.nombre, nodo->funcion.parametro);
            imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
            break;
+        case NODO_LITERAL_STRING:
+           printf("%sCADENA%s: \"%s\"\n", GREEN_COLOR, RESET_COLOR, nodo->literal_string.valor);
+           break;
        
         default:
             printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
@@ -422,8 +473,13 @@ void liberar_ast(NodoAST* nodo) {
         case NODO_PRINT:
             liberar_ast(nodo->print.expresion);
             break;
+        case NODO_LITERAL_STRING:
+            free(nodo->literal_string.valor);
+            break;
         default:
             break;
+
+        
     }
 
     free(nodo);

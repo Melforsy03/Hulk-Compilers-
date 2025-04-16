@@ -1,5 +1,6 @@
 {
-    function doble(x) => x * 2;
-    Print(doble(10));
-    let a = 1 in Print(a);
+    let x = 2 ^ 3 in Print(x);
+    let y = 2 + 3 ^ 2 in Print(y);
+    let z = 2 ^ 3 * 4 in Print(z);
+    let w = 2 ^ 3 ^ 2 in Print(w);
 }

@@ -12,7 +12,8 @@ typedef enum {
     NODO_PRINT,
     NODO_LLAMADA,
     NODO_BLOQUE, 
-    NODO_FUNCION
+    NODO_FUNCION, 
+    NODO_LITERAL_STRING
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -54,7 +55,8 @@ typedef struct NodoAST {
             char*parametro;
             struct NodoAST** cuerpo;
         }funcion;
-        
+        struct { char* valor; } literal_string;
+
     };
 } NodoAST;
 
