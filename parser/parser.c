@@ -848,12 +848,12 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             break;
 
         case NODO_ASIGNACION:
-            printf("%sASIGNACIÓN%s: %s :=\n", RED, RESET, nodo->asignacion.nombre);
+            printf("%sASIGNACIÓN%s: %s :=\n", BLUE, RESET, nodo->asignacion.nombre);
             imprimir_ast(nodo->asignacion.valor, nivel + 1);
             break;
 
         case NODO_SET:
-            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n", LIGHT_RED, RESET);
+            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n",BLUE , RESET);
             printf("DESTINO:\n");
             imprimir_ast(nodo->set.destino, nivel + 1);
             printf("VALOR:\n");
@@ -861,7 +861,7 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             break;
 
         case NODO_PRINT:
-            printf("%sIMPRIMIR%s:\n", CYAN, RESET);
+            printf("%sPRINT%s:\n", CYAN, RESET);
             imprimir_ast(nodo->print.expresion, nivel + 1);
             break;
 

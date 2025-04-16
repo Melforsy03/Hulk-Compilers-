@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "./lexer/lexer.h"
 #include "./parser/parser.h"
+#include "./ast/evaluador.h"
 #define RESET_COLOR   "\x1b[0m"
 #define RED_COLOR     "\x1b[31m"
 #define GREEN_COLOR   "\x1b[32m"
@@ -73,25 +74,53 @@ const char* nombre_token(TokenType tipo) {
 int main() {
     char* codigo = leer_archivo("script.hulk");
 
-    // Analizar léxicamente
-    Token* tokens = tokenize(codigo);
+    // // Analizar léxicamente
+     Token* tokens = tokenize(codigo);
 
-    // Mostrar tokens
-    for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-        if (tokens[i].type == TOKEN_ERROR) {
-            printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
-                   RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
-        } else {
-            printf("[%-15s] '%s'  (linea %d)\n",
-                   nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
-        }
-    }
+    // // Mostrar tokens
+    // for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+    //     if (tokens[i].type == TOKEN_ERROR) {
+    //         printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
+    //                RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
+    //     } else {
+    //         printf("[%-15s] '%s'  (linea %d)\n",
+    //                nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+    //     }
+    // }
 
-    // Parsear tokens y construir AST
-    NodoAST* ast = parsear(tokens);
+    // // Parsear tokens y construir AST
+     NodoAST* ast = parsear(tokens);
     
-    printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
-    imprimir_ast(ast, 0);
+     printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
+     imprimir_ast(ast, 0);
+
+    // Fase 1: Tokenización y parsing
+    //Token* tokens = tokenize(codigo);
+   // NodoAST* ast = parsear(tokens);
+
+    // Fase 2: Crear entorno global vacío
+    Entorno global;
+    global.variables = NULL;
+    global.anterior = NULL;
+
+    // Fase 3: Evaluar el AST
+    Valor resultado = eval(ast, &global);
+
+    // Fase 4: Mostrar resultado
+    switch (resultado.tipo) {
+        case VALOR_NUMERO:
+            printf("Resultado numerico: %.2f\n", resultado.numero);
+            break;
+        case VALOR_BOOL:
+            printf("Resultado booleano: %s\n", resultado.booleano ? "true" : "false");
+            break;
+        case VALOR_CADENA:
+            printf("Resultado cadena: \"%s\"\n", resultado.cadena);
+            break;
+        default:
+            printf("Resultado: (nulo)\n");
+            break;
+    }
 
     // Liberar la  memoria
     free_tokens(tokens);

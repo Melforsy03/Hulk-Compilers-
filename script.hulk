@@ -1,15 +1,4 @@
-{
-    type Point(x, y) {
-  x = x;
-  y = y;
-
-  getX() => self.x;
-  getY() => self.y;
+let x = 5 in {
+  x := 10;
+  Print(x);
 };
-
-let pt = new Point(3, 4) in {
-  Print("x: " @ pt.getX());
-  Print("y: " @ pt.getY());
-};
-
-}
