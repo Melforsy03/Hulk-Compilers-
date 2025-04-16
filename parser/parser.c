@@ -56,7 +56,6 @@ static NodoAST* crear_variable(const char* nombre, int linea) {
     nodo->variable.nombre = strdup(nombre);
     return nodo;
 }
-
 static NodoAST* parsear_print() {
     exigir(TOKEN_PRINT, "'Print'");
     exigir(TOKEN_LPAREN, "'('");
@@ -121,7 +120,7 @@ static NodoAST* parsear_termino() {
 }
 
 static NodoAST* parsear_expresion() {
-    return parsear_logico_or();
+    return parsear_asignacion_set();
 }
 
 static NodoAST* parsear_suma() {
@@ -223,16 +222,16 @@ static NodoAST* parsear_for() {
     nodo->bucle_for.cuerpo = cuerpo;
     return nodo;
 }
-
 static NodoAST* parsear_primario() {
-    if (coincidir(TOKEN_NUMBER)) {
-        return crear_literal(atof(actual[-1].lexeme), actual[-1].line);
-    }
+    NodoAST* expr = NULL;
 
-    if (actual->type == TOKEN_IDENTIFIER) {
+    if (coincidir(TOKEN_NUMBER)) {
+        expr = crear_literal(atof(actual[-1].lexeme), actual[-1].line);
+    }
+    else if (actual->type == TOKEN_IDENTIFIER) {
         Token identificador = *actual;
         Token siguiente = actual[1];
-    
+
         if (siguiente.type == TOKEN_COLON_EQUAL) {
             return parsear_asignacion();
         } else if (siguiente.type == TOKEN_LPAREN) {
@@ -242,86 +241,115 @@ static NodoAST* parsear_primario() {
             exit(1);
         } else {
             avanzar();
-            return crear_variable(identificador.lexeme, identificador.line);
+            expr = crear_variable(identificador.lexeme, identificador.line);
         }
     }
-    if (coincidir(TOKEN_FUNCTION)) {
+    else if (coincidir(TOKEN_FUNCTION)) {
         actual--;
         return parsear_funcion();
     }
-    
-    if (coincidir(TOKEN_PRINT)) {
+    else if (coincidir(TOKEN_PRINT)) {
         actual--; 
         return parsear_print();
     }
-    if (coincidir(TOKEN_LPAREN)) {
-        NodoAST* expr = parsear_expresion();
+    else if (coincidir(TOKEN_LPAREN)) {
+        expr = parsear_expresion();
         exigir(TOKEN_RPAREN, "')'");
-        return expr;
     }
-    if (coincidir(TOKEN_NOT)) {
+    else if (coincidir(TOKEN_NOT)) {
         NodoAST* operand = parsear_primario();
         NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_NOT;  // o un nuevo tipo NODO_NOT si lo prefieres
+        nodo->tipo = NODO_NOT;  
         nodo->linea = actual[-1].line;
         nodo->binario.operador.type = TOKEN_NOT;
         nodo->binario.izquierdo = operand;
         nodo->binario.derecho = NULL;
-        return nodo;
+        expr = nodo;
     }    
-    if (coincidir (TOKEN_LET)){
-        actual --;
+    else if (coincidir (TOKEN_LET)) {
+        actual--;
         return parsear_let();
     }
-    if (coincidir(TOKEN_LBRACE)) {
+    else if (coincidir(TOKEN_LBRACE)) {
         actual--;
         return parsear_bloque();
     }
-    if (coincidir(TOKEN_STRING)) {
+    else if (coincidir(TOKEN_STRING)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_LITERAL_STRING;
         nodo->linea = actual[-1].line;
         nodo->literal_string.valor = strdup(actual[-1].lexeme);
-        return nodo;
+        expr = nodo;
     }
-    if (coincidir(TOKEN_IF)) {
+    else if (coincidir(TOKEN_IF)) {
         actual--;
         return parsear_if();
     }
-    if (coincidir(TOKEN_WHILE)) {
+    else if (coincidir(TOKEN_WHILE)) {
         actual--;
         return parsear_while();
     }
-    if (coincidir(TOKEN_FOR)) {
+    else if (coincidir(TOKEN_FOR)) {
         actual--;
         return parsear_for();
     }
-    if (coincidir(TOKEN_TYPE)) {
+    else if (coincidir(TOKEN_TYPE)) {
         actual--;
         return parsear_tipo();
     }
-    if (coincidir(TOKEN_TRUE)) {
+    else if (coincidir(TOKEN_TRUE)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_LITERAL_BOOL;
         nodo->linea = actual[-1].line;
         nodo->literal_bool.valor = 1;
-        return nodo;
+        expr = nodo;
     }
-    
-    if (coincidir(TOKEN_FALSE)) {
+    else if (coincidir(TOKEN_FALSE)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_LITERAL_BOOL;
         nodo->linea = actual[-1].line;
         nodo->literal_bool.valor = 0;
-        return nodo;
+        expr = nodo;
+    }
+    else if (coincidir(TOKEN_BASE)) {
+        exigir(TOKEN_LPAREN, "'('");
+        exigir(TOKEN_RPAREN, "')'");
+    
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_VARIABLE;
+        nodo->linea = actual[-1].line;
+        nodo->variable.nombre = strdup("base()");
+        expr = nodo;
+    }
+    if (coincidir(TOKEN_SELF)) {
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_VARIABLE;
+        nodo->linea = actual[-1].line;
+        nodo->variable.nombre = strdup("self");
+        expr = nodo;
     }
     
-    
-    fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
-            actual->line, actual->lexeme);
-    exit(1);
-}
+    if (expr == NULL) {
+        fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
+                actual->line, actual->lexeme);
+        exit(1);
+    }
 
+    while (coincidir(TOKEN_DOT)) {
+        exigir(TOKEN_IDENTIFIER, "nombre del miembro después de '.'");
+        char* nombre = strdup(actual[-1].lexeme);
+
+        NodoAST* acceso = malloc(sizeof(NodoAST));
+        acceso->tipo = NODO_ACCESO;
+        acceso->linea = actual[-1].line;
+        acceso->acceso.objeto = expr;
+        acceso->acceso.miembro = nombre;
+
+        expr = acceso;
+    }
+
+    return expr;
+}
 static NodoAST* parsear_let() {
     exigir(TOKEN_LET, "'let'");
     exigir(TOKEN_IDENTIFIER, "nombre de variable");
@@ -433,6 +461,7 @@ static NodoAST* parsear_asignacion() {
     nodo->asignacion.valor = valor;
     return nodo;
 }
+
 static NodoAST* parsear_funcion() {
     exigir(TOKEN_FUNCTION, "'function'");
     exigir(TOKEN_IDENTIFIER, "nombre de la función");
@@ -575,6 +604,13 @@ static NodoAST* parsear_tipo() {
     exigir(TOKEN_IDENTIFIER, "nombre del tipo");
 
     char* nombre_tipo = strdup(actual[-1].lexeme);
+    char* padre_tipo = NULL;
+
+    // ✅ Herencia opcional
+    if (coincidir(TOKEN_INHERITS)) {
+        exigir(TOKEN_IDENTIFIER, "nombre del tipo padre");
+        padre_tipo = strdup(actual[-1].lexeme);
+    }
 
     exigir(TOKEN_LBRACE, "'{'");
 
@@ -582,38 +618,88 @@ static NodoAST* parsear_tipo() {
     int cantidad = 0, capacidad = 0;
 
     while (!coincidir(TOKEN_RBRACE)) {
-        exigir(TOKEN_IDENTIFIER, "nombre de atributo");
+        exigir(TOKEN_IDENTIFIER, "nombre del miembro");
 
-        char* nombre_attr = strdup(actual[-1].lexeme);
+        char* nombre_miembro = strdup(actual[-1].lexeme);
 
-        exigir(TOKEN_ASSIGN, "'='");
+        if (coincidir(TOKEN_LPAREN)) {
+            // ✅ Método en línea
+            char* parametro = NULL;
 
-        NodoAST* valor = parsear_expresion();
+            if (!coincidir(TOKEN_RPAREN)) {
+                exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+                parametro = strdup(actual[-1].lexeme);
+                exigir(TOKEN_RPAREN, "')'");
+            }
 
-        coincidir(TOKEN_SEMICOLON); // opcional
+            exigir(TOKEN_ARROW, "'=>'");
 
-        NodoAST* nodo_attr = malloc(sizeof(NodoAST));
-        nodo_attr->tipo = NODO_ATRIBUTO;
-        nodo_attr->atributo.nombre = nombre_attr;
-        nodo_attr->atributo.valor = valor;
-        nodo_attr->linea = actual[-1].line;
+            NodoAST* cuerpo = parsear_expresion();
+            coincidir(TOKEN_SEMICOLON); // opcional
 
-        if (cantidad >= capacidad) {
-            capacidad = capacidad == 0 ? 4 : capacidad * 2;
-            miembros = realloc(miembros, sizeof(NodoAST*) * capacidad);
+            NodoAST* metodo = malloc(sizeof(NodoAST));
+            metodo->tipo = NODO_FUNCION;
+            metodo->linea = actual[-1].line;
+            metodo->funcion.nombre = nombre_miembro;
+            metodo->funcion.parametro = parametro;
+            metodo->funcion.cuerpo = cuerpo;
+
+            if (cantidad >= capacidad) {
+                capacidad = capacidad == 0 ? 4 : capacidad * 2;
+                miembros = realloc(miembros, sizeof(NodoAST*) * capacidad);
+            }
+            miembros[cantidad++] = metodo;
+
+        } else if (coincidir(TOKEN_ASSIGN)) {
+            // ✅ Atributo
+            NodoAST* valor = parsear_expresion();
+            coincidir(TOKEN_SEMICOLON); // opcional
+
+            NodoAST* nodo_attr = malloc(sizeof(NodoAST));
+            nodo_attr->tipo = NODO_ATRIBUTO;
+            nodo_attr->linea = actual[-1].line;
+            nodo_attr->atributo.nombre = nombre_miembro;
+            nodo_attr->atributo.valor = valor;
+
+            if (cantidad >= capacidad) {
+                capacidad = capacidad == 0 ? 4 : capacidad * 2;
+                miembros = realloc(miembros, sizeof(NodoAST*) * capacidad);
+            }
+            miembros[cantidad++] = nodo_attr;
+
+        } else {
+            fprintf(stderr, "[Error de sintaxis] Se esperaba '=' o '(' después de '%s' en línea %d\n",
+                    nombre_miembro, actual->line);
+            exit(1);
         }
-
-        miembros[cantidad++] = nodo_attr;
     }
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_TIPO;
     nodo->tipo_decl.nombre = nombre_tipo;
+    nodo->tipo_decl.padre = padre_tipo; // puede ser NULL
     nodo->tipo_decl.miembros = miembros;
     nodo->tipo_decl.cantidad = cantidad;
     nodo->linea = actual[-1].line;
 
     return nodo;
+}
+static NodoAST* parsear_asignacion_set() {
+    NodoAST* izquierdo = parsear_logico_or(); 
+
+    if (coincidir(TOKEN_COLON_EQUAL)) {
+        NodoAST* derecho = parsear_asignacion_set(); 
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_SET;
+        nodo->linea = izquierdo->linea;
+        nodo->set.destino = izquierdo;
+        nodo->set.valor = derecho;
+
+        return nodo;
+    }
+
+    return izquierdo;
 }
 
 // Función principal
@@ -728,12 +814,13 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             imprimir_ast(nodo->bucle_for.cuerpo, nivel + 2);
             break;
         case NODO_TIPO:
-            printf("TIPO: %s\n", nodo->tipo_decl.nombre);
+            printf("TIPO: %s", nodo->tipo_decl.nombre);
+            if (nodo->tipo_decl.padre) printf(" inherits %s", nodo->tipo_decl.padre);
+            printf("\n");
             for (int i = 0; i < nodo->tipo_decl.cantidad; i++) {
                 imprimir_ast(nodo->tipo_decl.miembros[i], nivel + 1);
             }
             break;
-        
         case NODO_ATRIBUTO:
             for (int i = 0; i < nivel; i++) printf("  ");
             printf("ATRIBUTO: %s =\n", nodo->atributo.nombre);
@@ -742,6 +829,19 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
         case NODO_LITERAL_BOOL:
             printf("%sBOOLEANO%s: %s\n", GREEN_COLOR, RESET_COLOR,
                    nodo->literal_bool.valor ? "true" : "false");
+            break;
+        case NODO_ACCESO:
+            printf("%sACCESO%s: .%s\n", CYAN_COLOR, RESET_COLOR, nodo->acceso.miembro);
+            imprimir_ast(nodo->acceso.objeto, nivel + 1);
+            break;
+        case NODO_SET:
+            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n", YELLOW_COLOR, RESET_COLOR);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("DESTINO:\n");
+            imprimir_ast(nodo->set.destino, nivel + 2);
+            for (int i = 0; i < nivel + 1; i++) printf("  ");
+            printf("VALOR:\n");
+            imprimir_ast(nodo->set.valor, nivel + 2);
             break;
         
         default:

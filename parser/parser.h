@@ -22,8 +22,9 @@ typedef enum {
     NODO_METODO,
     NODO_ATRIBUTO,
     NODO_INSTANCIA,
-    NODO_ACCCESO,
-    NODO_LITERAL_BOOL
+    NODO_ACCESO,
+    NODO_LITERAL_BOOL, 
+    NODO_SET
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -82,11 +83,26 @@ typedef struct NodoAST {
             struct NodoAST* iterable;
             struct NodoAST* cuerpo;
         } bucle_for;
-        struct { char* nombre; NodoAST** miembros; int cantidad; } tipo_decl;
+        struct {
+            char* nombre;
+            char* padre; 
+            NodoAST** miembros;
+            int cantidad;
+        } tipo_decl;
+        
         struct { char* nombre; NodoAST* valor; } atributo;
         struct {
             int valor; 
         } literal_bool;
+        struct {
+            NodoAST* objeto;
+            char* miembro;
+        } acceso;
+        struct {
+            NodoAST* destino;     
+            NodoAST* valor;       
+        } set;
+        
         
     };
 } NodoAST;
@@ -123,5 +139,5 @@ static NodoAST* parsear_logico_or();
 static NodoAST* parsear_while();
 static NodoAST* parsear_for();
 static NodoAST* parsear_tipo();
-
+static NodoAST* parsear_asignacion_set();
 #endif
