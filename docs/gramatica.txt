@@ -2,7 +2,8 @@ program         = { function_def | type_def } expression ;
 
 function_def    = "function" identifier "(" identifier ")" "=>" expression ";" ;
 
-type_def        = "type" identifier [ "(" parameters ")" ] [ "inherits" identifier "(" arguments ")" ]? "{" { member_def } "}" ;
+Tipo ::= 'type' IDENTIFICADOR ( '(' Parametros? ')' )? '{' Miembros '}'
+Parametros ::= IDENTIFICADOR (',' IDENTIFICADOR)*
 
 member_def      = identifier "=" expression ";"                           // atributo
                 | identifier "(" [ identifier ] ")" "=>" expression ";" ; // método
