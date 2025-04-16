@@ -23,7 +23,6 @@ static void avanzar() {
     actual++;
 }
 
-// Coincide con un tipo específico de token
 static int coincidir(TokenType tipo) {
     if (actual->type == tipo) {
         avanzar();
@@ -41,7 +40,6 @@ static void exigir(TokenType tipo, const char* esperado) {
     }
 }
 
-// Crear nodo literal
 static NodoAST* crear_literal(double valor, int linea) {
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_LITERAL;
@@ -50,7 +48,6 @@ static NodoAST* crear_literal(double valor, int linea) {
     return nodo;
 }
 
-// Crear nodo variable
 static NodoAST* crear_variable(const char* nombre, int linea) {
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_VARIABLE;
@@ -102,23 +99,14 @@ static NodoAST* parsear_llamada() {
 }
 
 static NodoAST* parsear_termino() {
-    NodoAST* izquierdo = parsear_potencia();
-
+    NodoAST* expr = parsear_potencia();
     while (actual->type == TOKEN_STAR || actual->type == TOKEN_SLASH) {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_potencia();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        expr = crear_binario(expr, op, derecho);
     }
-
-    return izquierdo;
+    return expr;
 }
 
 static NodoAST* parsear_expresion() {
@@ -126,69 +114,28 @@ static NodoAST* parsear_expresion() {
 }
 
 static NodoAST* parsear_suma() {
-    NodoAST* izquierdo = parsear_termino();
-
+    NodoAST* expr = parsear_termino();
     while (actual->type == TOKEN_PLUS || actual->type == TOKEN_MINUS) {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_termino();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        expr = crear_binario(expr, op, derecho);
     }
-
-    return izquierdo;
+    return expr;
 }
-static NodoAST* parsear_concatenacion() {
-    NodoAST* izquierdo = parsear_suma(); // menor precedencia debajo
 
-    while (actual->type == TOKEN_AT) {
-        Token op = *actual;
-        avanzar();
-        NodoAST* derecho = parsear_suma();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
-    }
-
-    return izquierdo;
-}
 static NodoAST* parsear_comparacion() {
-    NodoAST* izquierdo = parsear_concatenacion();  // menor precedencia
-
-    while (
-        actual->type == TOKEN_EQUAL_EQUAL ||
-        actual->type == TOKEN_NOT_EQUAL ||
-        actual->type == TOKEN_LESS ||
-        actual->type == TOKEN_LESS_EQUAL ||
-        actual->type == TOKEN_GREATER ||
-        actual->type == TOKEN_GREATER_EQUAL
-    ) {
+    NodoAST* expr = parsear_concatenacion();
+    while (actual->type == TOKEN_GREATER || actual->type == TOKEN_LESS ||
+           actual->type == TOKEN_GREATER_EQUAL || actual->type == TOKEN_LESS_EQUAL) {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_concatenacion();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        expr = crear_binario(expr, op, derecho);
     }
-
-    return izquierdo;
+    return expr;
 }
+
 static NodoAST* parsear_while() {
     exigir(TOKEN_WHILE, "'while'");
     NodoAST* condicion = parsear_expresion();
@@ -364,7 +311,6 @@ static NodoAST* parsear_primario() {
         exit(1);
     }
 
-    // 🔁 Encadenamiento con '.' para pt.getX
     while (coincidir(TOKEN_DOT)) {
         exigir(TOKEN_IDENTIFIER, "nombre del miembro después de '.'");
         char* nombre = strdup(actual[-1].lexeme);
@@ -378,7 +324,7 @@ static NodoAST* parsear_primario() {
         expr = acceso;
     }
 
-    // 🔁 Llamadas como expr(...) → pt.getX(), base().x()
+   
     while (coincidir(TOKEN_LPAREN)) {
         NodoAST** argumentos = NULL;
         int cantidad = 0, capacidad = 0;
@@ -457,6 +403,11 @@ static NodoAST* parsear_bloque() {
             actual--;
             expr = parsear_funcion(); 
         }
+        else if (coincidir(TOKEN_IF)) {
+            actual--;
+            expr = parsear_if();
+            coincidir(TOKEN_SEMICOLON);
+        }
         else if (actual->type == TOKEN_IDENTIFIER) {
             Token identificador = *actual;
             Token siguiente = actual[1];
@@ -473,6 +424,7 @@ static NodoAST* parsear_bloque() {
                 expr = crear_variable(identificador.lexeme, identificador.line);
             }
         }
+       
         
         else {
             expr = parsear_expresion();
@@ -552,24 +504,43 @@ static NodoAST* parsear_funcion() {
     return nodo;
 }
 static NodoAST* parsear_potencia() {
-    NodoAST* izquierdo = parsear_primario();
-
+    NodoAST* expr = parsear_unario();
     while (actual->type == TOKEN_POWER) {
         Token op = *actual;
         avanzar();
-        NodoAST* derecho = parsear_primario(); 
+        NodoAST* derecho = parsear_unario();
+        expr = crear_binario(expr, op, derecho);
+    }
+    return expr;
+}
+static NodoAST* parsear_unario() {
+    if (actual->type == TOKEN_MINUS || actual->type == TOKEN_NOT) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_unario();
 
         NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
+        nodo->tipo = NODO_NOT;  
         nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
         nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        nodo->binario.izquierdo = derecho;
+        nodo->binario.derecho = NULL;
+        return nodo;
     }
 
-    return izquierdo;
+    return parsear_primario();
 }
+
+static NodoAST* crear_binario(NodoAST* izq, Token op, NodoAST* der) {
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_BINARIO;
+    nodo->linea = op.line;
+    nodo->binario.izquierdo = izq;
+    nodo->binario.operador = op;
+    nodo->binario.derecho = der;
+    return nodo;
+}
+
 static NodoAST* parsear_if() {
     exigir(TOKEN_IF, "'if'");
     NodoAST* condicion = parsear_expresion();
@@ -583,9 +554,6 @@ static NodoAST* parsear_if() {
         sino = parsear_elif();  
     } else if (coincidir(TOKEN_ELSE)) {
         sino = parsear_expresion();
-    } else {
-        fprintf(stderr, "[Error de sintaxis] Se esperaba 'elif' o 'else' después de 'then'\n");
-        exit(1);
     }
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
@@ -596,7 +564,6 @@ static NodoAST* parsear_if() {
     nodo->ifthen.sino = sino;
     return nodo;
 }
-
 static NodoAST* parsear_elif() {
     exigir(TOKEN_ELIF, "'elif'");
     NodoAST* condicion = parsear_expresion();
@@ -623,44 +590,51 @@ static NodoAST* parsear_elif() {
     nodo->ifthen.sino = sino;
     return nodo;
 }
-static NodoAST* parsear_logico_or() {
-    NodoAST* izquierdo = parsear_logico_and();
 
+static NodoAST* parsear_logico_or() {
+    NodoAST* expr = parsear_logico_and();
     while (actual->type == TOKEN_OR) {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_logico_and();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        expr = crear_binario(expr, op, derecho);
     }
-
-    return izquierdo;
+    return expr;
 }
-static NodoAST* parsear_logico_and() {
-    NodoAST* izquierdo = parsear_comparacion();
 
+static NodoAST* parsear_logico_and() {
+    NodoAST* expr = parsear_igualdad();
     while (actual->type == TOKEN_AND) {
         Token op = *actual;
         avanzar();
-        NodoAST* derecho = parsear_comparacion();
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_BINARIO;
-        nodo->linea = op.line;
-        nodo->binario.izquierdo = izquierdo;
-        nodo->binario.operador = op;
-        nodo->binario.derecho = derecho;
-        izquierdo = nodo;
+        NodoAST* derecho = parsear_igualdad();
+        expr = crear_binario(expr, op, derecho);
     }
-
-    return izquierdo;
+    return expr;
 }
+
+static NodoAST* parsear_igualdad() {
+    NodoAST* expr = parsear_comparacion();
+    while (actual->type == TOKEN_EQUAL_EQUAL || actual->type == TOKEN_NOT_EQUAL) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_comparacion();
+        expr = crear_binario(expr, op, derecho);
+    }
+    return expr;
+}
+
+static NodoAST* parsear_concatenacion() {
+    NodoAST* expr = parsear_suma();
+    while (actual->type == TOKEN_AT) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_suma();
+        expr = crear_binario(expr, op, derecho);
+    }
+    return expr;
+}
+
 static NodoAST* parsear_tipo() {
     exigir(TOKEN_TYPE, "'type'");
     exigir(TOKEN_IDENTIFIER, "nombre del tipo");
@@ -829,18 +803,37 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
         case NODO_VARIABLE:
             printf("%sVARIABLE%s: %s\n", YELLOW, RESET, nodo->variable.nombre);
             break;
-
-        case NODO_BINARIO:
-            printf("%sBINARIO%s: %s\n", MAGENTA, RESET, nombre_token(nodo->binario.operador.type));
-            imprimir_ast(nodo->binario.izquierdo, nivel + 1);
-            imprimir_ast(nodo->binario.derecho, nivel + 1);
-            break;
-
         case NODO_NOT:
             printf("%sNEGACIÓN%s:\n", VIOLET, RESET);
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             break;
 
+        case NODO_BINARIO: {
+            const char* opstr = NULL;
+            switch (nodo->binario.operador.type) {
+                case TOKEN_PLUS: opstr = "+"; break;
+                case TOKEN_MINUS: opstr = "-"; break;
+                case TOKEN_STAR: opstr = "*"; break;
+                case TOKEN_SLASH: opstr = "/"; break;
+                case TOKEN_POWER: opstr = "^"; break;
+                case TOKEN_AT: opstr = "@"; break;
+                case TOKEN_EQUAL_EQUAL: opstr = "=="; break;
+                case TOKEN_NOT_EQUAL: opstr = "!="; break;
+                case TOKEN_GREATER: opstr = ">"; break;
+                case TOKEN_LESS: opstr = "<"; break;
+                case TOKEN_GREATER_EQUAL: opstr = ">="; break;
+                case TOKEN_LESS_EQUAL: opstr = "<="; break;
+                case TOKEN_AND: opstr = "&&"; break;
+                case TOKEN_OR: opstr = "||"; break;
+                default: opstr = "¿?"; break;
+            }
+            printf("%sBINARIO%s: %s\n", MAGENTA, RESET, opstr);
+            
+            imprimir_ast(nodo->binario.izquierdo, nivel + 1);
+            imprimir_ast(nodo->binario.derecho, nivel + 1);
+            break;
+            }
+            
         case NODO_LET:
             printf("%sLET%s: %s\n", GREEN, RESET, nodo->let.nombre);
             imprimir_ast(nodo->let.valor, nivel + 1);
@@ -865,15 +858,22 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             imprimir_ast(nodo->print.expresion, nivel + 1);
             break;
 
-        case NODO_IF:
-            printf("%sIF%s:\n", LIGHT_CYAN, RESET);
-            imprimir_ast(nodo->ifthen.condicion, nivel + 1);
-            printf("THEN:\n");
-            imprimir_ast(nodo->ifthen.entonces, nivel + 1);
-            printf("ELSE:\n");
-            imprimir_ast(nodo->ifthen.sino, nivel + 1);
-            break;
-
+        case NODO_IF: {
+                for (int i = 0; i < nivel; i++) printf("  ");
+                printf("%sIF%s:\n", LIGHT_CYAN, RESET);
+            
+                imprimir_ast(nodo->ifthen.condicion, nivel + 1);
+            
+                for (int i = 0; i < nivel; i++) printf("  ");
+                printf("THEN:\n");
+                imprimir_ast(nodo->ifthen.entonces, nivel + 1);
+            
+                for (int i = 0; i < nivel; i++) printf("  ");
+                printf("ELSE:\n");
+                imprimir_ast(nodo->ifthen.sino, nivel + 1);
+                break;
+            }
+            
         case NODO_WHILE:
             printf("%sWHILE%s:\n", BLUE, RESET);
             imprimir_ast(nodo->bucle_while.condicion, nivel + 1);

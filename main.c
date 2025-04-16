@@ -67,7 +67,7 @@ const char* nombre_token(TokenType tipo) {
         case TOKEN_EOF: return GRAY_COLOR "EOF" RESET_COLOR;
         case TOKEN_ERROR: return RED_COLOR "ERROR" RESET_COLOR;
 
-        default: return RED_COLOR "UNKNOWN" RESET_COLOR;
+        default: return "¿?";
     }
 }
 
@@ -77,16 +77,16 @@ int main() {
     // // Analizar léxicamente
      Token* tokens = tokenize(codigo);
 
-    // // Mostrar tokens
-    // for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-    //     if (tokens[i].type == TOKEN_ERROR) {
-    //         printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
-    //                RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
-    //     } else {
-    //         printf("[%-15s] '%s'  (linea %d)\n",
-    //                nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
-    //     }
-    // }
+    // Mostrar tokens
+    for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+        if (tokens[i].type == TOKEN_ERROR) {
+            printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
+                   RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
+        } else {
+            printf("[%-15s] '%s'  (linea %d)\n",
+                   nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
+        }
+    }
 
     // // Parsear tokens y construir AST
      NodoAST* ast = parsear(tokens);
@@ -118,7 +118,7 @@ int main() {
             printf("Resultado cadena: \"%s\"\n", resultado.cadena);
             break;
         default:
-            printf("Resultado: (nulo)\n");
+            printf("");
             break;
     }
 

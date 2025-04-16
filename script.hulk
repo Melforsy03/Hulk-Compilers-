@@ -1,4 +1,6 @@
-let x = 5 in {
-  x := 10;
-  Print(x);
+let temp = 25 in {
+    if temp <= 0 then Print("Congelado")
+    elif temp > 0 && temp < 20 then Print("Frío")
+    elif temp >= 20 && temp < 30 then Print("Templado")
+    else Print("Caliente")
 };

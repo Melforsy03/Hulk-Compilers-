@@ -151,4 +151,7 @@ static NodoAST* parsear_while();
 static NodoAST* parsear_for();
 static NodoAST* parsear_tipo();
 static NodoAST* parsear_asignacion_set();
+static NodoAST* parsear_igualdad();
+static NodoAST* crear_binario(NodoAST* izq, Token op, NodoAST* der) ;
+static NodoAST* parsear_unario();
 #endif

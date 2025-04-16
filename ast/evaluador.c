@@ -143,7 +143,124 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             // Si no se encuentra la variable en el entorno actual
             fprintf(stderr, "Error: variable '%s' no declarada para asignación (:=)\n", nodo->asignacion.nombre);
             exit(1);
-        
+        case NODO_IF: {
+                Valor cond = eval(nodo->ifthen.condicion, env);
+            
+                if (cond.tipo != VALOR_BOOL) {
+                    fprintf(stderr, "Error: la condición del 'if' no es booleana.\n");
+                    exit(1);
+                }
+            
+                if (cond.booleano) {
+                    return eval(nodo->ifthen.entonces, env);
+                } else {
+                    return eval(nodo->ifthen.sino, env);
+                }
+            }
+        case NODO_BINARIO: {
+                Valor izq = eval(nodo->binario.izquierdo, env);
+                Valor der = eval(nodo->binario.derecho, env);
+                TokenType op = nodo->binario.operador.type;
+            
+                Valor resultado;
+            
+                switch (op) {
+                    case TOKEN_PLUS:
+                        resultado.tipo = VALOR_NUMERO;
+                        resultado.numero = izq.numero + der.numero;
+                        break;
+                    case TOKEN_MINUS:
+                        resultado.tipo = VALOR_NUMERO;
+                        resultado.numero = izq.numero - der.numero;
+                        break;
+                    case TOKEN_STAR:
+                        resultado.tipo = VALOR_NUMERO;
+                        resultado.numero = izq.numero * der.numero;
+                        break;
+                    case TOKEN_SLASH:
+                        resultado.tipo = VALOR_NUMERO;
+                        resultado.numero = izq.numero / der.numero;
+                        break;
+                    case TOKEN_POWER:
+                        resultado.tipo = VALOR_NUMERO;
+                        resultado.numero = pow(izq.numero, der.numero);
+                        break;
+            
+                    case TOKEN_EQUAL_EQUAL:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero == der.numero);
+                        break;
+                    case TOKEN_NOT_EQUAL:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero != der.numero);
+                        break;
+                    case TOKEN_GREATER:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero > der.numero);
+                        break;
+                    case TOKEN_LESS:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero < der.numero);
+                        break;
+                    case TOKEN_GREATER_EQUAL:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero >= der.numero);
+                        break;
+                    case TOKEN_LESS_EQUAL:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = (izq.numero <= der.numero);
+                        break;
+            
+                    case TOKEN_AND:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = izq.booleano && der.booleano;
+                        break;
+                    case TOKEN_OR:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = izq.booleano || der.booleano;
+                        break;
+            
+                    case TOKEN_AT: {  // concatenación: texto @ valor
+                        char buffer[256];
+            
+                        if (izq.tipo == VALOR_CADENA && der.tipo == VALOR_CADENA) {
+                            resultado.tipo = VALOR_CADENA;
+                            resultado.cadena = malloc(strlen(izq.cadena) + strlen(der.cadena) + 1);
+                            strcpy(resultado.cadena, izq.cadena);
+                            strcat(resultado.cadena, der.cadena);
+                        } else {
+                            resultado.tipo = VALOR_CADENA;
+                            resultado.cadena = malloc(256);
+            
+                            if (izq.tipo == VALOR_CADENA) {
+                                strcpy(resultado.cadena, izq.cadena);
+                            } else if (izq.tipo == VALOR_NUMERO) {
+                                sprintf(resultado.cadena, "%.2f", izq.numero);
+                            } else if (izq.tipo == VALOR_BOOL) {
+                                sprintf(resultado.cadena, izq.booleano ? "true" : "false");
+                            }
+            
+                            if (der.tipo == VALOR_CADENA) {
+                                strcat(resultado.cadena, der.cadena);
+                            } else if (der.tipo == VALOR_NUMERO) {
+                                sprintf(buffer, "%.2f", der.numero);
+                                strcat(resultado.cadena, buffer);
+                            } else if (der.tipo == VALOR_BOOL) {
+                                strcat(resultado.cadena, der.booleano ? "true" : "false");
+                            }
+                        }
+            
+                        break;
+                    }
+            
+                    default:
+                        fprintf(stderr, "Error: operador binario no soportado (%d)\n", op);
+                        exit(1);
+                }
+            
+                return resultado;
+            }
+            
         default:
             fprintf(stderr, " Nodo no manejado aun en eval.c (tipo %d)\n", nodo->tipo);
             exit(1);
