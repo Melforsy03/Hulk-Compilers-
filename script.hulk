@@ -1,7 +1,4 @@
-
-
-type Circle {
-  r = 3.14;
-  pi = 3.14159;
-  double_area = pi * r * r;
+type Config {
+  debug = true;
+  use_cache = false;
 }

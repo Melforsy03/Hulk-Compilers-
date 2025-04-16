@@ -302,19 +302,20 @@ static NodoAST* parsear_primario() {
     }
     if (coincidir(TOKEN_TRUE)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_LITERAL;
+        nodo->tipo = NODO_LITERAL_BOOL;
         nodo->linea = actual[-1].line;
-        nodo->literal.valor = 1.0;  
+        nodo->literal_bool.valor = 1;
         return nodo;
     }
     
     if (coincidir(TOKEN_FALSE)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_LITERAL;
+        nodo->tipo = NODO_LITERAL_BOOL;
         nodo->linea = actual[-1].line;
-        nodo->literal.valor = 0.0;  
+        nodo->literal_bool.valor = 0;
         return nodo;
     }
+    
     
     fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
             actual->line, actual->lexeme);
@@ -737,6 +738,10 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             for (int i = 0; i < nivel; i++) printf("  ");
             printf("ATRIBUTO: %s =\n", nodo->atributo.nombre);
             imprimir_ast(nodo->atributo.valor, nivel + 1);
+            break;
+        case NODO_LITERAL_BOOL:
+            printf("%sBOOLEANO%s: %s\n", GREEN_COLOR, RESET_COLOR,
+                   nodo->literal_bool.valor ? "true" : "false");
             break;
         
         default:

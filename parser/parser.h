@@ -22,7 +22,8 @@ typedef enum {
     NODO_METODO,
     NODO_ATRIBUTO,
     NODO_INSTANCIA,
-    NODO_ACCCESO
+    NODO_ACCCESO,
+    NODO_LITERAL_BOOL
 } TipoNodo;
 
 // Estructura del nodo del AST
@@ -83,6 +84,10 @@ typedef struct NodoAST {
         } bucle_for;
         struct { char* nombre; NodoAST** miembros; int cantidad; } tipo_decl;
         struct { char* nombre; NodoAST* valor; } atributo;
+        struct {
+            int valor; 
+        } literal_bool;
+        
     };
 } NodoAST;
 
