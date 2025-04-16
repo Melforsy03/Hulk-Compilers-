@@ -1,13 +1,1 @@
-{
-    type Base {
-  nombre = "Base";
-}
-;
-type Derivado inherits Base {
-  nombre = "Derivado";
-
-  obtenerNombre() => self.nombre;
-  obtenerBase() => base().nombre;
-}
-
-}
+self := 42; 

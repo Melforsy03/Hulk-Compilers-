@@ -450,6 +450,10 @@ static NodoAST* parsear_asignacion() {
     exigir(TOKEN_IDENTIFIER, "nombre de variable");
     char* nombre = strdup(actual[-1].lexeme);
 
+    if (strcmp(nombre, "self") == 0) {
+        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en línea %d\n", actual[-1].line);
+        exit(1);
+    }
     exigir(TOKEN_COLON_EQUAL, "':='");
 
     NodoAST* valor = parsear_expresion();
@@ -686,6 +690,11 @@ static NodoAST* parsear_tipo() {
 }
 static NodoAST* parsear_asignacion_set() {
     NodoAST* izquierdo = parsear_logico_or(); 
+    
+    if (izquierdo->tipo == NODO_VARIABLE && strcmp(izquierdo->variable.nombre, "self") == 0) {
+        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en línea %d\n", izquierdo->linea);
+        exit(1);
+    }
 
     if (coincidir(TOKEN_COLON_EQUAL)) {
         NodoAST* derecho = parsear_asignacion_set(); 
@@ -698,7 +707,7 @@ static NodoAST* parsear_asignacion_set() {
 
         return nodo;
     }
-
+  
     return izquierdo;
 }
 

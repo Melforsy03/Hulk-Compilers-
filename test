@@ -119,7 +119,7 @@ type Point {
     debug = true;
     version = "1.0.0";
   }
-  
+
   type User {
     name = "Alice";
     age = 30;
@@ -130,3 +130,17 @@ type Point {
     price = 15.99;
   }
   
+  //acceso , herecnia y tipos 
+  {
+    type Base {
+  nombre = "Base";
+}
+;
+type Derivado inherits Base {
+  nombre = "Derivado";
+
+  obtenerNombre() => self.nombre;
+  obtenerBase() => base().nombre;
+}
+
+}
