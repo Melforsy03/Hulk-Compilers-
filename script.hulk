@@ -1,6 +1,10 @@
 {
-    let x = 2 ^ 3 in Print(x);
-    let y = 2 + 3 ^ 2 in Print(y);
-    let z = 2 ^ 3 * 4 in Print(z);
-    let w = 2 ^ 3 ^ 2 in Print(w);
+let x = 3 in
+if x == 1 then Print("uno")
+elif x == 2 then Print("dos")
+elif x == 3 then Print("tres")
+else Print("otro");
+
+if 1 == 1 then Print("true") elif 2 == 2 then Print("not seen") else Print("fin");
+
 }

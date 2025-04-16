@@ -40,3 +40,30 @@ Print();
 
 // variable sin definir → ✅ válido léxicamente, el parser no se queja
 Print(noDefinida);
+//test para solo else if 
+{
+    let x = 0 in
+if x == 0 then Print("es cero")
+else if x == 1 then Print("es uno")
+else Print("otro");
+
+let edad = 17 in
+if edad >= 18 then Print("Mayor de edad")
+else Print("Menor de edad");
+
+if 3 < 5 then Print("sí") else Print("no");
+
+if 4 ^ 2 == 16 then Print("bien") else Print("error");
+
+}
+//test para elif
+{
+    let x = 3 in
+if x == 1 then Print("uno")
+elif x == 2 then Print("dos")
+elif x == 3 then Print("tres")
+else Print("otro");
+
+if 1 == 1 then Print("true") elif 2 == 2 then Print("not seen") else Print("fin");
+
+}

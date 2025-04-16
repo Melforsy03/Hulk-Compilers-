@@ -32,7 +32,7 @@ const char* nombre_token(TokenType tipo) {
         case TOKEN_SELF: return YELLOW_COLOR "SELF" RESET_COLOR;
         case TOKEN_BASE: return YELLOW_COLOR "BASE" RESET_COLOR;
         case TOKEN_RETURN: return GREEN_COLOR "RETURN" RESET_COLOR;
-
+        case TOKEN_THEN: return GREEN_COLOR "THEN" RESET_COLOR;
         case TOKEN_PLUS: return BLUE_COLOR "PLUS" RESET_COLOR;
         case TOKEN_MINUS: return BLUE_COLOR "MINUS" RESET_COLOR;
         case TOKEN_STAR: return BLUE_COLOR "STAR" RESET_COLOR;

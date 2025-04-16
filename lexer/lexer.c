@@ -109,6 +109,7 @@ TokenType tipo_identificador(const char* inicio, int longitud) {
             if (memcmp(inicio, "type", 4) == 0) return TOKEN_TYPE;
             if (memcmp(inicio, "self", 4) == 0) return TOKEN_SELF;
             if (memcmp(inicio, "true", 4) == 0) return TOKEN_TRUE;
+            if (memcmp(inicio, "then", 4) == 0) return TOKEN_THEN;
             break;
 
         case 5:
@@ -193,7 +194,8 @@ void escanear_token() {
         case '=':
             if (coincidir('>')) {
                 agregar_token(TOKEN_ARROW, lexer.actual - 2, 2);  // reconoce =>
-            } else if (coincidir('=')) {
+            } 
+            else if (coincidir('=')) {
                 agregar_token(TOKEN_EQUAL_EQUAL, lexer.actual - 2, 2);  // reconoce ==
             } else {
                 agregar_token(TOKEN_ASSIGN, lexer.actual - 1, 1);  // reconoce =

@@ -25,6 +25,10 @@ static NodoAST* parsear_llamada();
 static NodoAST* parsear_funcion();
 static NodoAST* parsear_concatenacion();
 static NodoAST* parsear_potencia();
+static NodoAST* parsear_if();
+static NodoAST* parsear_comparacion();
+static NodoAST* parsear_elif();
+
 // Avanzar al siguiente token
 static void avanzar() {
     actual++;
@@ -115,7 +119,7 @@ static NodoAST* parsear_termino() {
 }
 
 static NodoAST* parsear_expresion() {
-    return parsear_concatenacion();
+    return parsear_comparacion();
 }
 
 static NodoAST* parsear_suma() {
@@ -144,6 +148,32 @@ static NodoAST* parsear_concatenacion() {
         Token op = *actual;
         avanzar();
         NodoAST* derecho = parsear_suma();
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_BINARIO;
+        nodo->linea = op.line;
+        nodo->binario.izquierdo = izquierdo;
+        nodo->binario.operador = op;
+        nodo->binario.derecho = derecho;
+        izquierdo = nodo;
+    }
+
+    return izquierdo;
+}
+static NodoAST* parsear_comparacion() {
+    NodoAST* izquierdo = parsear_concatenacion();  // menor precedencia
+
+    while (
+        actual->type == TOKEN_EQUAL_EQUAL ||
+        actual->type == TOKEN_NOT_EQUAL ||
+        actual->type == TOKEN_LESS ||
+        actual->type == TOKEN_LESS_EQUAL ||
+        actual->type == TOKEN_GREATER ||
+        actual->type == TOKEN_GREATER_EQUAL
+    ) {
+        Token op = *actual;
+        avanzar();
+        NodoAST* derecho = parsear_concatenacion();
 
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_BINARIO;
@@ -207,12 +237,15 @@ static NodoAST* parsear_primario() {
         nodo->literal_string.valor = strdup(actual[-1].lexeme);
         return nodo;
     }
+    if (coincidir(TOKEN_IF)) {
+        actual--;
+        return parsear_if();
+    }
     
     fprintf(stderr, "[Error de sintaxis] Expresion invalida en linea %d: '%s'\n",
             actual->line, actual->lexeme);
     exit(1);
 }
-
 
 static NodoAST* parsear_let() {
     exigir(TOKEN_LET, "'let'");
@@ -370,6 +403,60 @@ static NodoAST* parsear_potencia() {
 
     return izquierdo;
 }
+static NodoAST* parsear_if() {
+    exigir(TOKEN_IF, "'if'");
+    NodoAST* condicion = parsear_expresion();
+    exigir(TOKEN_THEN, "'then'");
+    NodoAST* entonces = parsear_expresion();
+
+    NodoAST* sino = NULL;
+
+    if (coincidir(TOKEN_ELIF)) {
+        actual--;
+        sino = parsear_elif();  
+    } else if (coincidir(TOKEN_ELSE)) {
+        sino = parsear_expresion();
+    } else {
+        fprintf(stderr, "[Error de sintaxis] Se esperaba 'elif' o 'else' después de 'then'\n");
+        exit(1);
+    }
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_IF;
+    nodo->linea = condicion->linea;
+    nodo->ifthen.condicion = condicion;
+    nodo->ifthen.entonces = entonces;
+    nodo->ifthen.sino = sino;
+    return nodo;
+}
+
+
+static NodoAST* parsear_elif() {
+    exigir(TOKEN_ELIF, "'elif'");
+    NodoAST* condicion = parsear_expresion();
+    exigir(TOKEN_THEN, "'then'");
+    NodoAST* entonces = parsear_expresion();
+
+    NodoAST* sino = NULL;
+
+    if (coincidir(TOKEN_ELIF)) {
+        actual--;
+        sino = parsear_elif();
+    } else if (coincidir(TOKEN_ELSE)) {
+        sino = parsear_expresion();
+    } else {
+        fprintf(stderr, "[Error de sintaxis] Se esperaba 'elif' o 'else' después de 'then'\n");
+        exit(1);
+    }
+
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_IF;
+    nodo->linea = condicion->linea;
+    nodo->ifthen.condicion = condicion;
+    nodo->ifthen.entonces = entonces;
+    nodo->ifthen.sino = sino;
+    return nodo;
+}
 
 // Función principal
 NodoAST* parsear(Token* tokens) {
@@ -444,7 +531,18 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
         case NODO_LITERAL_STRING:
            printf("%sCADENA%s: \"%s\"\n", GREEN_COLOR, RESET_COLOR, nodo->literal_string.valor);
            break;
-       
+        case NODO_IF:
+           printf("%sCONDICIONAL%s:\n", MAGENTA_COLOR, RESET_COLOR);
+           for (int i = 0; i < nivel + 1; i++) printf("  ");
+           printf("CONDICIÓN:\n");
+           imprimir_ast(nodo->ifthen.condicion, nivel + 2);
+           for (int i = 0; i < nivel + 1; i++) printf("  ");
+           printf("ENTONCES:\n");
+           imprimir_ast(nodo->ifthen.entonces, nivel + 2);
+           for (int i = 0; i < nivel + 1; i++) printf("  ");
+           printf("SINO:\n");
+           imprimir_ast(nodo->ifthen.sino, nivel + 2);
+           break;
         default:
             printf("%s[ERROR]%s Tipo de nodo desconocido\n", RED_COLOR, RESET_COLOR);
             break;
@@ -457,29 +555,64 @@ void liberar_ast(NodoAST* nodo) {
 
     switch (nodo->tipo) {
         case NODO_LITERAL:
+            // nada que liberar
             break;
+
+        case NODO_LITERAL_STRING:
+            free(nodo->literal_string.valor);
+            break;
+
         case NODO_VARIABLE:
             free(nodo->variable.nombre);
             break;
+
         case NODO_BINARIO:
             liberar_ast(nodo->binario.izquierdo);
             liberar_ast(nodo->binario.derecho);
             break;
+
         case NODO_LET:
             free(nodo->let.nombre);
             liberar_ast(nodo->let.valor);
             liberar_ast(nodo->let.cuerpo);
             break;
+
         case NODO_PRINT:
             liberar_ast(nodo->print.expresion);
             break;
-        case NODO_LITERAL_STRING:
-            free(nodo->literal_string.valor);
-            break;
-        default:
+
+        case NODO_ASIGNACION:
+            free(nodo->asignacion.nombre);
+            liberar_ast(nodo->asignacion.valor);
             break;
 
-        
+        case NODO_FUNCION:
+            free(nodo->funcion.nombre);
+            free(nodo->funcion.parametro);
+            liberar_ast(nodo->funcion.cuerpo);
+            break;
+
+        case NODO_LLAMADA:
+            free(nodo->llamada.nombre);
+            liberar_ast(nodo->llamada.argumento);
+            break;
+
+        case NODO_BLOQUE:
+            for (int i = 0; i < nodo->bloque.cantidad; i++) {
+                liberar_ast(nodo->bloque.expresiones[i]);
+            }
+            free(nodo->bloque.expresiones);
+            break;
+
+        case NODO_IF:
+            liberar_ast(nodo->ifthen.condicion);
+            liberar_ast(nodo->ifthen.entonces);
+            liberar_ast(nodo->ifthen.sino);
+            break;
+
+        default:
+            
+            break;
     }
 
     free(nodo);
