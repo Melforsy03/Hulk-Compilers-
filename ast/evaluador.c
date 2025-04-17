@@ -1,49 +1,23 @@
+#include "evaluador.h"  
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "./parser/parser.h"
-#include "./lexer/lexer.h"
-typedef enum {
-    VALOR_NUMERO,
-    VALOR_BOOL,
-    VALOR_CADENA,
-    VALOR_NULO,
-    VALOR_OBJETO 
-} TipoValor;
 
-typedef struct Valor {
-    TipoValor tipo;
-    union {
-        double numero;
-        int booleano;
-        char* cadena;
-        void* objeto; 
-    };
-} Valor;
-typedef struct Variable {
-    char* nombre;
-    Valor valor;
-    struct Variable* siguiente;
-} Variable;
-
-typedef struct Entorno {
-    Variable* variables;
-    struct Entorno* anterior;
-} Entorno;
-Valor obtener_variable(Entorno* env, const char* nombre) {
+Variable* obtener_variable(Entorno* env, const char* nombre) {
     while (env) {
-        Variable* v = env->variables;
-        while (v) {
-            if (strcmp(v->nombre, nombre) == 0) {
-                return v->valor;
+        Variable* var = env->variables;
+        while (var) {
+            if (strcmp(var->nombre, nombre) == 0) {
+                return var;  // Devuelve la variable encontrada
             }
-            v = v->siguiente;
+            var = var->siguiente;
         }
-        env = env->anterior;
+        env = env->anterior;  // Si no la encontró, busca en el entorno anterior
     }
-    fprintf(stderr, "Error: variable no definida: %s\n", nombre);
+    fprintf(stderr, "Error: variable '%s' no definida.\n", nombre);
     exit(1);
 }
+
 Valor eval(NodoAST* nodo, Entorno* env) {
     switch (nodo->tipo) {
         case NODO_LITERAL: {
@@ -65,29 +39,26 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             return v;
         }
         case NODO_VARIABLE: {
-            return obtener_variable(env, nodo->variable.nombre);
-        }        
+            // Buscar la variable en el entorno
+            Variable* var = obtener_variable(env, nodo->variable.nombre);
+            return var->valor;  // Retorna el valor de la variable
+        }
+        
         case NODO_LET: {
-            // evalua el valor inicial
             Valor valor = eval(nodo->let.valor, env);
         
-            //  Crea un nuevo entorno con ese valor ligado a la variable
-            Entorno* nuevo = malloc(sizeof(Entorno));
-            nuevo->variables = NULL;
-            nuevo->anterior = env;
+            // Crear un nuevo entorno para la variable 'let'
+            Entorno* nuevo_entorno = malloc(sizeof(Entorno));
+            nuevo_entorno->variables = malloc(sizeof(Variable));
+            nuevo_entorno->variables->nombre = strdup(nodo->let.nombre);
+            nuevo_entorno->variables->valor = valor;
+            nuevo_entorno->variables->siguiente = env->variables;
+            nuevo_entorno->anterior = env;
         
-            Variable* var = malloc(sizeof(Variable));
-            var->nombre = strdup(nodo->let.nombre);
-            var->valor = valor;
-            var->siguiente = NULL;
-        
-            nuevo->variables = var;
-        
-            //  Evalúa la expresión del cuerpo en el nuevo entorno
-            Valor resultado = eval(nodo->let.cuerpo, nuevo);
-        
-            return resultado;
+            // Evaluar el cuerpo del bloque en el nuevo entorno
+            return eval(nodo->let.cuerpo, nuevo_entorno);
         }
+        
         case NODO_ASIGNACION: {
             Variable* var = env->variables;
             while (var) {
@@ -157,12 +128,85 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                     return eval(nodo->ifthen.sino, env);
                 }
             }
+        case NODO_FOR: {
+                Valor iterable = eval(nodo->bucle_for.iterable, env);
+            
+                if (iterable.tipo != VALOR_OBJETO) {
+                    fprintf(stderr, "Error: el iterable debe ser un objeto o rango válido.\n");
+                    exit(1);
+                }
+            
+                // Crear un nuevo entorno para el bucle
+                Entorno* nuevo_entorno = malloc(sizeof(Entorno));
+                nuevo_entorno->variables = NULL;
+                nuevo_entorno->anterior = env; // Apuntando al entorno anterior
+            
+                for (int i = 0; i < iterable.lista.cantidad; i++) {
+                    Valor valor = iterable.lista.valores[i];
+            
+                    Variable* var_x = malloc(sizeof(Variable));
+                    var_x->nombre = strdup(nodo->bucle_for.variable);
+                    var_x->valor = valor;
+                    var_x->siguiente = nuevo_entorno->variables;
+                    nuevo_entorno->variables = var_x;
+            
+                    eval(nodo->bucle_for.cuerpo, nuevo_entorno);
+            
+                    // Limpiar el entorno después de cada iteración
+                    nuevo_entorno->variables = nuevo_entorno->variables->siguiente;
+                }
+            
+                Valor vacio;
+                vacio.tipo = VALOR_NULO;
+                return vacio;
+            }
+            
+            
+        case NODO_WHILE: {
+                // Evaluar la condición
+                Valor condicion = eval(nodo->bucle_while.condicion, env);
+            
+                if (condicion.tipo != VALOR_BOOL) {
+                    fprintf(stderr, "Error: la condición de 'while' debe ser un valor booleano.\n");
+                    exit(1);
+                }
+            
+                // Mientras la condición sea verdadera, ejecutar el cuerpo
+                while (condicion.booleano) {
+                    eval(nodo->bucle_while.cuerpo, env);  // Evaluamos el cuerpo del bucle
+            
+                    // Volver a evaluar la condición después de cada iteración
+                    condicion = eval(nodo->bucle_while.condicion, env);
+                    if (condicion.tipo != VALOR_BOOL) {
+                        fprintf(stderr, "Error: la condición de 'while' debe ser un valor booleano.\n");
+                        exit(1);
+                    }
+                }
+            
+                // Retornar un valor vacío después del bucle
+                Valor vacio;
+                vacio.tipo = VALOR_NULO;
+                return vacio;
+            }
+        case NODO_OBJETO: {
+                Valor iterable;
+                iterable.tipo = VALOR_OBJETO;
+                iterable.lista.valores = nodo->objeto.valores;  // El arreglo de valores ya está en el nodo
+                iterable.lista.cantidad = nodo->objeto.cantidad;  // La cantidad de valores
+            
+                return iterable;
+            }
+                
         case NODO_BINARIO: {
                 Valor izq = eval(nodo->binario.izquierdo, env);
                 Valor der = eval(nodo->binario.derecho, env);
                 TokenType op = nodo->binario.operador.type;
             
                 Valor resultado;
+                if (izq.tipo == VALOR_NULO || der.tipo == VALOR_NULO) {
+                    fprintf(stderr, "Error: operación binaria con valores nulos.\n");
+                    exit(1);
+                }
             
                 switch (op) {
                     case TOKEN_PLUS:

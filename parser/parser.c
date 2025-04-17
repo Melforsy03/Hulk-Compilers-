@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser.h"
+#include"./ast/evaluador.h"
 #define CYAN "\x1b[36m"
 #define YELLOW "\x1b[33m"
 #define MAGENTA "\x1b[35m"
@@ -267,6 +268,24 @@ static NodoAST* parsear_primario() {
         nodo->variable.nombre = strdup("base()");
         expr = nodo;
     }
+    if (coincidir(TOKEN_RANGE)) {
+        exigir(TOKEN_LPAREN, "'('");
+        NodoAST* inicio = parsear_expresion();  // Primer parámetro del rango
+        exigir(TOKEN_COMMA, "','");
+        NodoAST* fin = parsear_expresion();  // Segundo parámetro del rango
+        exigir(TOKEN_RPAREN, "')'");
+    
+        Valor valor_inicio = eval(inicio, fin);  // Evaluamos el valor de inicio
+        Valor valor_fin = eval(fin, fin);  // Evaluamos el valor de fin
+    
+        if (valor_inicio.tipo != VALOR_NUMERO || valor_fin.tipo != VALOR_NUMERO) {
+            fprintf(stderr, "Error: 'range' requiere dos números como parámetros.\n");
+            exit(1);
+        }
+    
+        return crear_rango((int)valor_inicio.numero, (int)valor_fin.numero);  // Crear el nodo de rango
+    }    
+    
     else if (coincidir(TOKEN_SELF)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
         nodo->tipo = NODO_VARIABLE;
@@ -762,6 +781,23 @@ static NodoAST* parsear_asignacion_set() {
   
     return izquierdo;
 }
+static NodoAST* crear_rango(int inicio, int fin) {
+    // Crear el nodo AST de tipo NODO_OBJETO
+    NodoAST* nodo = malloc(sizeof(NodoAST));
+    nodo->tipo = NODO_OBJETO; 
+
+    // Crear el iterable dentro del nodo
+    nodo->objeto.valores = malloc(sizeof(Valor) * (fin - inicio));  // Arreglo de valores
+    nodo->objeto.cantidad = fin - inicio;  // Cantidad de elementos en el rango
+
+    // Rellenar el rango con los valores
+    for (int i = 0; i < nodo->objeto.cantidad; i++) {
+        nodo->objeto.valores[i].tipo = VALOR_NUMERO;
+        nodo->objeto.valores[i].numero = inicio + i;  // Asigna los números del rango
+    }
+
+    return nodo;  // Retorna el nodo AST que representa el rango
+}
 
 // Función principal
 NodoAST* parsear(Token* tokens) {
@@ -807,7 +843,23 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             printf("%sNEGACIÓN%s:\n", VIOLET, RESET);
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             break;
-
+        case NODO_OBJETO: {
+                // Imprimir el nombre del objeto o iterable
+                for (int i = 0; i < nivel; i++) printf("  ");
+                printf("%sOBJETO%s:\n", MAGENTA, RESET);
+            
+                // Imprimir los valores del rango o iterable
+                for (int i = 0; i < nodo->objeto.cantidad; i++) {
+                    for (int j = 0; j < nivel + 1; j++) printf("  ");
+                    printf("VALOR %d: ", i + 1);
+                    
+                    // Imprimir el valor correspondiente
+                    imprimir_ast(&(nodo->objeto.valores[i]), nivel + 2);  // Recursivo para imprimir el valor
+                }
+            
+                break;
+            }
+            
         case NODO_BINARIO: {
             const char* opstr = NULL;
             switch (nodo->binario.operador.type) {

@@ -1,8 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include "../lexer/lexer.h"
+
 typedef struct NodoAST NodoAST;
-// Tipos de nodo que puede tener el AST
+typedef struct Valor Valor;
 typedef enum {
     NODO_LITERAL,
     NODO_VARIABLE,
@@ -25,14 +26,14 @@ typedef enum {
     NODO_ACCESO,
     NODO_LITERAL_BOOL, 
     NODO_SET, 
-    NODO_NEW
+    NODO_NEW,
+    NODO_OBJETO,
+    
 } TipoNodo;
 
-// Estructura del nodo del AST
 typedef struct NodoAST {
     TipoNodo tipo;
     int linea;
-
     union {
         struct { char* nombre; } variable;
         struct { double valor; } literal;
@@ -100,7 +101,6 @@ typedef struct NodoAST {
             int cantidad;
         } nuevo;
         
-        
         struct { char* nombre; NodoAST* valor; } atributo;
         struct {
             int valor; 
@@ -113,7 +113,10 @@ typedef struct NodoAST {
             NodoAST* destino;     
             NodoAST* valor;       
         } set;
-        
+        struct { 
+            Valor* valores; 
+            int cantidad;     
+        } objeto;
         
     };
 } NodoAST;
@@ -123,13 +126,13 @@ typedef struct {
     NodoAST** miembros;
     int cantidad;
 } NodoTipo;
-// Función principal del parser
+
 NodoAST* parsear(Token* tokens);
 
-// Liberar memoria
+
 void liberar_ast(NodoAST* nodo);
 
-// Imprimir AST
+
 void imprimir_ast(NodoAST* nodo, int nivel);
 
 static NodoAST* parsear_print();
@@ -154,4 +157,5 @@ static NodoAST* parsear_asignacion_set();
 static NodoAST* parsear_igualdad();
 static NodoAST* crear_binario(NodoAST* izq, Token op, NodoAST* der) ;
 static NodoAST* parsear_unario();
+static NodoAST* crear_rango(int inicio, int fin);
 #endif

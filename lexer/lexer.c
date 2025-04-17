@@ -116,6 +116,7 @@ TokenType tipo_identificador(const char* inicio, int longitud) {
             if (memcmp(inicio, "Print", 5) == 0) return TOKEN_PRINT;
             if (memcmp(inicio, "false", 5) == 0) return TOKEN_FALSE;
             if (memcmp(inicio, "while", 5) == 0) return TOKEN_WHILE;
+            if (memcmp(inicio, "range", 5) == 0) return TOKEN_RANGE;
             break;
 
         case 6:
