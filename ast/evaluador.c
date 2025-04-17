@@ -33,10 +33,6 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             
                 return resultado;
             }
-                
-            // Si no se encuentra la variable en el entorno actual
-            fprintf(stderr, "Error: variable '%s' no declarada para asignacion (:=)\n", nodo->asignacion.nombre);
-            exit(1);
         case NODO_IF: {
                 Valor cond = eval(nodo->ifthen.condicion, env);
             
@@ -51,40 +47,85 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                     return eval(nodo->ifthen.sino, env);
                 }
             }
-        case NODO_FOR: {
+            case NODO_FOR: {
                 Valor iterable = eval(nodo->bucle_for.iterable, env);
-            
                 if (iterable.tipo != VALOR_OBJETO) {
-                    fprintf(stderr, "Error: el iterable debe ser un objeto o rango valido.\n");
+                    fprintf(stderr, "Error: el iterable debe ser un objeto (rango o lista).\n");
                     exit(1);
                 }
             
-                // Crear un nuevo entorno para el bucle
-                Entorno* nuevo_entorno = malloc(sizeof(Entorno));
-                nuevo_entorno->variables = NULL;
-                nuevo_entorno->anterior = env; // Apuntando al entorno anterior
+                Valor resultado = {.tipo = VALOR_NULO};
             
                 for (int i = 0; i < iterable.lista.cantidad; i++) {
-                    Valor valor = iterable.lista.valores[i];
+                    Entorno* nuevo_entorno = malloc(sizeof(Entorno));
+                    nuevo_entorno->variables = NULL;
+                    nuevo_entorno->funciones = env->funciones; 
+                    nuevo_entorno->anterior = env;
+                    
+                    Valor original = iterable.lista.valores[i];
+                    Valor copia;
+
+                    switch (original.tipo) {
+                        case VALOR_NUMERO:
+                            copia.tipo = VALOR_NUMERO;
+                            copia.numero = original.numero;
+                            copia.debe_liberarse = 0;
+                            break;
+                        case VALOR_BOOL:
+                            copia.tipo = VALOR_BOOL;
+                            copia.booleano = original.booleano;
+                            copia.debe_liberarse = 0;
+                            break;
+                        case VALOR_CADENA:
+                            copia.tipo = VALOR_CADENA;
+                            copia.cadena = strdup(original.cadena);
+                            copia.debe_liberarse = 1;
+                            break;
+                        case VALOR_OBJETO:
+                            copia.tipo = VALOR_OBJETO;
+                            copia.lista.cantidad = original.lista.cantidad;
+                            copia.lista.valores = malloc(sizeof(Valor) * copia.lista.cantidad);
+                            copia.debe_liberarse = 1;
+                            for (int j = 0; j < copia.lista.cantidad; j++) {
+                                Valor elem = original.lista.valores[j];
+                                Valor copia_elem;
+                                copia_elem.tipo = elem.tipo;
+                                copia_elem.debe_liberarse = 0;
+                                if (elem.tipo == VALOR_NUMERO) {
+                                    copia_elem.numero = elem.numero;
+                                } else if (elem.tipo == VALOR_BOOL) {
+                                    copia_elem.booleano = elem.booleano;
+                                } else if (elem.tipo == VALOR_CADENA) {
+                                    copia_elem.cadena = strdup(elem.cadena);
+                                    copia_elem.debe_liberarse = 1;
+                                }
+                                copia.lista.valores[j] = copia_elem;
+                            }
+                            break;
+                        default:
+                            copia.tipo = VALOR_NULO;
+                            copia.debe_liberarse = 0;
+                            break;
+                    }
+
+                    Variable* var = malloc(sizeof(Variable));
+                    var->nombre = strdup(nodo->bucle_for.variable);
+                    var->valor = copia;
+                    var->siguiente = NULL;
             
-                    Variable* var_x = malloc(sizeof(Variable));
-                    var_x->nombre = strdup(nodo->bucle_for.variable);
-                    var_x->valor = valor;
-                    var_x->siguiente = nuevo_entorno->variables;
-                    nuevo_entorno->variables = var_x;
+                    nuevo_entorno->variables = var;
             
-                    eval(nodo->bucle_for.cuerpo, nuevo_entorno);
+                    resultado = eval(nodo->bucle_for.cuerpo, nuevo_entorno);
             
-                    // Limpiar el entorno después de cada iteración
-                    nuevo_entorno->variables = nuevo_entorno->variables->siguiente;
+                    // Liberar solo el entorno creado, sin liberar el global (env->anterior)
+                    liberar_variable(nuevo_entorno->variables);
+                    liberar_funciones(nuevo_entorno->funciones);
+                    free(nuevo_entorno);
+
                 }
             
-                Valor vacio;
-                vacio.tipo = VALOR_NULO;
-                return vacio;
-            } 
-    
-
+                return resultado;
+            }
             
         case NODO_WHILE: {
                 // Evaluar la condición
@@ -112,15 +153,15 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 vacio.tipo = VALOR_NULO;
                 return vacio;
             }
-        case NODO_OBJETO: {
+            case NODO_OBJETO_ITERABLE: {
                 Valor iterable;
                 iterable.tipo = VALOR_OBJETO;
-                iterable.lista.valores = nodo->objeto.valores;  // El arreglo de valores ya está en el nodo
-                iterable.lista.cantidad = nodo->objeto.cantidad;  // La cantidad de valores
-            
+                iterable.debe_liberarse = 0; 
+                iterable.lista.valores = nodo->objeto.valores;
+                iterable.lista.cantidad = nodo->objeto.cantidad;
                 return iterable;
             }
-                
+            
             case NODO_LITERAL: {
                 return (Valor){.tipo = VALOR_NUMERO, .numero = nodo->literal.valor};
             }
@@ -176,15 +217,49 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             }
             case NODO_LLAMADA: {
                 Funcion* f = obtener_funcion(env, nodo->llamada.nombre);
+    
+                // Función nativa: range
+                if (strcmp(f->nombre, "range") == 0 && f->cuerpo == NULL) {
+                    if (nodo->llamada.cantidad != 2) {
+                        fprintf(stderr, "Error: 'range' espera 2 argumentos.\n");
+                        exit(1);
+                    }
+            
+                    Valor inicio = eval(nodo->llamada.argumentos[0], env);
+                    Valor fin = eval(nodo->llamada.argumentos[1], env);
+            
+                    if (inicio.tipo != VALOR_NUMERO || fin.tipo != VALOR_NUMERO) {
+                        fprintf(stderr, "Error: argumentos de 'range' deben ser numéricos.\n");
+                        exit(1);
+                    }
+            
+                    int cantidad = (int)(fin.numero - inicio.numero);
+                    if (cantidad < 0) cantidad = 0;
+            
+                    Valor* valores = malloc(sizeof(Valor) * cantidad);
+                    for (int i = 0; i < cantidad; i++) {
+                        valores[i].tipo = VALOR_NUMERO;
+                        valores[i].numero = inicio.numero + i;
+                    }
+            
+                    Valor resultado;
+                    resultado.tipo = VALOR_OBJETO;
+                    resultado.lista.valores = valores;
+                    resultado.lista.cantidad = cantidad;
+                    return resultado;
+                }
+           
                 if (nodo->llamada.cantidad != f->cantidad_parametros) {
-                    fprintf(stderr, "Error: funcion '%s' esperaba %d argumentos, recibio %d\n",
+                    fprintf(stderr, "Error: función '%s' esperaba %d argumentos, recibió %d\n",
                             f->nombre, f->cantidad_parametros, nodo->llamada.cantidad);
                     exit(1);
                 }
+            
                 Entorno* nuevo = malloc(sizeof(Entorno));
                 nuevo->variables = NULL;
                 nuevo->funciones = NULL;
                 nuevo->anterior = env;
+            
                 for (int i = 0; i < f->cantidad_parametros; i++) {
                     Variable* var = malloc(sizeof(Variable));
                     var->nombre = strdup(f->parametros[i]->variable.nombre);
@@ -192,9 +267,10 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                     var->siguiente = nuevo->variables;
                     nuevo->variables = var;
                 }
-    
+                
                 return eval(f->cuerpo, nuevo);
             }
+            
     
             case NODO_BINARIO: {
                 Valor izq = eval(nodo->binario.izquierdo, env);
@@ -257,14 +333,21 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                         resultado.tipo = VALOR_BOOL;
                         resultado.booleano = izq.numero <= der.numero;
                         break;
+                    case TOKEN_AND:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = izq.booleano && der.booleano;
+                        break;
+                    case TOKEN_OR:
+                        resultado.tipo = VALOR_BOOL;
+                        resultado.booleano = izq.booleano || der.booleano;
+                        break;
                     default:
                         fprintf(stderr, "Error: operador binario no soportado.\n");
                         exit(1);
                 }
                 return resultado;
             }
-    
-            
+           
         default:
             fprintf(stderr, " Nodo no manejado aun en eval.c (tipo %d)\n", nodo->tipo);
             exit(1);
@@ -286,27 +369,49 @@ Funcion* obtener_funcion(Entorno* env, const char* nombre) {
 }
 void liberar_variable(Variable* var) {
     while (var) {
-        Variable* sig = var->siguiente;
-        free(var->nombre);
-        if (var->valor.tipo == VALOR_CADENA) {
-            free(var->valor.cadena);
-        } else if (var->valor.tipo == VALOR_OBJETO) {
-            for (int i = 0; i < var->valor.lista.cantidad; i++) {
-                if (var->valor.lista.valores[i].tipo == VALOR_CADENA) {
-                    free(var->valor.lista.valores[i].cadena);
+        Variable* siguiente = var->siguiente;
+        if (var->nombre) {
+            free(var->nombre);
+            var->nombre = NULL;
+        }        
+        if (var->valor.tipo == VALOR_OBJETO && var->valor.debe_liberarse) {
+            if (var->valor.lista.valores != NULL) {
+                for (int i = 0; i < var->valor.lista.cantidad; i++) {
+                    if (var->valor.lista.valores[i].tipo == VALOR_CADENA &&
+                        var->valor.lista.valores[i].debe_liberarse) {
+                        free(var->valor.lista.valores[i].cadena);
+                        var->valor.lista.valores[i].cadena = NULL;
+                    }
                 }
+                if (var->valor.lista.valores) {
+                    free(var->valor.lista.valores);
+                    var->valor.lista.valores = NULL;
+                }
+                
             }
-            free(var->valor.lista.valores);
         }
         free(var);
-        var = sig;
+        var = siguiente;
+    }
+}
+
+void liberar_funciones(Funcion* f) {
+    while (f) {
+        Funcion* sig = f->siguiente;
+        free(f->nombre);
+        free(f);
+        f = sig;
     }
 }
 
 void liberar_entorno(Entorno* env) {
-    while (env) {
+    if (env == NULL) return;
+
+    
+    while (env->anterior != NULL) {
         Entorno* anterior = env->anterior;
         liberar_variable(env->variables);
+        liberar_funciones(env->funciones);
         free(env);
         env = anterior;
     }

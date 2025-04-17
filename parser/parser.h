@@ -27,7 +27,7 @@ typedef enum {
     NODO_LITERAL_BOOL, 
     NODO_SET, 
     NODO_NEW,
-    NODO_OBJETO,
+    NODO_OBJETO_ITERABLE,
     
 } TipoNodo;
 

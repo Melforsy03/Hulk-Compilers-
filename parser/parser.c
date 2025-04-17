@@ -276,22 +276,25 @@ static NodoAST* parsear_primario() {
     }
     else if (coincidir(TOKEN_RANGE)) {
         exigir(TOKEN_LPAREN, "'('");
-        NodoAST* inicio = parsear_expresion();  // Primer parámetro del rango
+        NodoAST* inicio = parsear_expresion();
         exigir(TOKEN_COMMA, "','");
-        NodoAST* fin = parsear_expresion();  // Segundo parámetro del rango
+        NodoAST* fin = parsear_expresion();
         exigir(TOKEN_RPAREN, "')'");
-
-        NodoAST* nodo = malloc(sizeof(NodoAST));
-        nodo->tipo = NODO_LLAMADA;
-        nodo->linea = actual[-1].line;
-        nodo->llamada.nombre = strdup("range");
-        nodo->llamada.argumentos = malloc(sizeof(NodoAST*) * 2);
-        nodo->llamada.argumentos[0] = inicio;
-        nodo->llamada.argumentos[1] = fin;
-        nodo->llamada.cantidad = 2;
     
-        return nodo;
+        if (inicio->tipo != NODO_LITERAL || fin->tipo != NODO_LITERAL) {
+            fprintf(stderr, "Error: los argumentos de 'range' deben ser literales numéricos.\n");
+            exit(1);
+        }
+    
+        int ini = (int)inicio->literal.valor;
+        int f = (int)fin->literal.valor;
+    
+        free(inicio);  // ya no se necesita
+        free(fin);     // lo mismo
+    
+        return crear_rango(ini, f);
     }
+    
     
     else if (coincidir(TOKEN_SELF)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
@@ -760,7 +763,7 @@ static NodoAST* parsear_asignacion_set() {
 static NodoAST* crear_rango(int inicio, int fin) {
     
     NodoAST* nodo = malloc(sizeof(NodoAST));
-    nodo->tipo = NODO_OBJETO; 
+    nodo->tipo = NODO_OBJETO_ITERABLE; 
 
     // Crear el iterable dentro del nodo
     nodo->objeto.valores = malloc(sizeof(Valor) * (fin - inicio));  // Arreglo de valores
@@ -864,9 +867,9 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             printf("%sNEGACION%s:\n", VIOLET, RESET);
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             break;
-        case NODO_OBJETO: {
+        case NODO_OBJETO_ITERABLE: {
                 for (int i = 0; i < nivel; i++) printf("  ");
-                printf("%sOBJETO%s:\n", MAGENTA, RESET);
+                printf("%sOBJETO_ITERABLE%s:\n", MAGENTA, RESET);
             
                 // Imprimir los valores del rango o iterable
                 for (int i = 0; i < nodo->objeto.cantidad; i++) {
@@ -1084,7 +1087,15 @@ void liberar_ast(NodoAST* nodo) {
             liberar_ast(nodo->ifthen.entonces);
             liberar_ast(nodo->ifthen.sino);
             break;
-
+        case NODO_OBJETO_ITERABLE:
+            if (nodo->objeto.valores) {
+                free(nodo->objeto.valores);
+                nodo->objeto.valores = NULL; 
+            }
+            break;
+        
+            break;
+        
         default:
             
             break;

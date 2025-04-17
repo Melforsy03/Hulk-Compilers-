@@ -13,7 +13,7 @@ let b = ((1 + 2) * (3 + 4)) in Print(b);
 // Encadenar operaciones
 let total = 2 + 3 * 4 - 1 in Print(total);
 
-// Reasignaciones (por ahora se simulan con let anidados)
+// Reasignaciones 
 let a = 1 in let a = a + 1 in Print(a);
 
 // Ejemplo con uso de múltiples variables
@@ -40,22 +40,28 @@ Print();
 
 // variable sin definir → ✅ válido léxicamente, el parser no se queja
 Print(noDefinida);
+
 //test para solo else if 
 {
     let x = 0 in
 if x == 0 then Print("es cero")
 else if x == 1 then Print("es uno")
 else Print("otro");
+}
 
+//otro
+{
 let edad = 17 in
 if edad >= 18 then Print("Mayor de edad")
 else Print("Menor de edad");
+}
 
+//otro
 if 3 < 5 then Print("sí") else Print("no");
 
+//otro
 if 4 ^ 2 == 16 then Print("bien") else Print("error");
 
-}
 //test para elif
 {
     let x = 3 in
@@ -67,6 +73,7 @@ else Print("otro");
 if 1 == 1 then Print("true") elif 2 == 2 then Print("not seen") else Print("fin");
 
 }
+
 //probar los operadores and y or 
 let x = 5 in
 if x > 2 && x < 10 then Print("válido") else Print("inválido");
@@ -78,15 +85,20 @@ while a > 0 {
     a := a - 1;
 }
 
+//otro
 let a = 2 in while a > 0 a := a - 1;
 
+//otro
+{
 function countdown(n) => while n > 0 {
     Print(n);
     n := n - 1;
 };
 
 countdown(5);
+}
 
+//otro
 for (i in range(0, 5)) {
     Print(i);
 }
@@ -97,6 +109,7 @@ let mensaje = "Iterando..." in {
         Print(x);
     }
 }
+//otro
 let a = 0 in
 while a < 2 {
     Print("Inicio de while");
@@ -105,26 +118,32 @@ while a < 2 {
     };
     a := a + 1;
 }
+
 //test de tipo 
 type Point {
     x = 0;
     y = 0;
   }
+
+//otro
   type Rectangle {
     width = 10;
     height = 20;
     area = width * height;
   }
+//otro
   type Config {
     debug = true;
     version = "1.0.0";
   }
 
+//otro
   type User {
     name = "Alice";
     age = 30;
   }
-  
+
+//otro
   type Product {
     title = "Book";
     price = 15.99;
@@ -132,15 +151,15 @@ type Point {
   
   //acceso , herecnia y tipos 
   {
-    type Base {
-  nombre = "Base";
-}
-;
-type Derivado inherits Base {
-  nombre = "Derivado";
+        type Base {
+      nombre = "Base";
+    }
+    ;
+    type Derivado inherits Base {
+      nombre = "Derivado";
 
-  obtenerNombre() => self.nombre;
-  obtenerBase() => base().nombre;
-}
+      obtenerNombre() => self.nombre;
+      obtenerBase() => base().nombre;
+    }
 
 }

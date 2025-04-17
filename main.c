@@ -66,6 +66,7 @@ const char* nombre_token(TokenType tipo) {
         case TOKEN_STRING: return CYAN_COLOR "STRING" RESET_COLOR;
         case TOKEN_EOF: return GRAY_COLOR "EOF" RESET_COLOR;
         case TOKEN_ERROR: return RED_COLOR "ERROR" RESET_COLOR;
+        case TOKEN_RANGE : return GREEN_COLOR "RANGE" RESET_COLOR;
         default: return "¿?";
     }
 }
@@ -101,6 +102,7 @@ int main() {
     global.funciones = NULL;
     global.anterior = NULL;
 
+
     // Evaluar AST completo
     printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
     Valor resultado = eval(ast, &global);
@@ -113,7 +115,6 @@ int main() {
 
     return 0;
 }
-
 // Leer archivo como string
 char* leer_archivo(const char* nombre_archivo) {
     FILE* archivo = fopen(nombre_archivo, "rb");

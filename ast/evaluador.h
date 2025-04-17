@@ -25,14 +25,15 @@ typedef enum {
 
 typedef struct Valor {
     TipoValor tipo;
+    int debe_liberarse; 
     union {
         double numero;
         int booleano;
         char* cadena;
-        void* objeto;  
-        struct { 
-            Valor* valores; 
-            int cantidad;   
+        void* objeto;
+        struct {
+            Valor* valores;
+            int cantidad;
         } lista;
     };
 } Valor;

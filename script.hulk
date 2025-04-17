@@ -1,8 +1,9 @@
-{
-  function suma(a, b) => a + b;
 
-let x = suma(5, 3) in {
-  Print(x);
-};
-
+let a = 0 in
+while a < 2 {
+    Print("Inicio de while");
+    for (i in range(0, 3)) {
+        Print(i);
+    };
+    a := a + 1;
 }
