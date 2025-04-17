@@ -68,7 +68,7 @@ static NodoAST* parsear_print() {
     return nodo;
 }
 static NodoAST* parsear_llamada() {
-    exigir(TOKEN_IDENTIFIER, "nombre de función");
+    exigir(TOKEN_IDENTIFIER, "nombre de funcion");
     char* nombre_funcion = strdup(actual[-1].lexeme);
 
     exigir(TOKEN_LPAREN, "'('");
@@ -165,7 +165,7 @@ static NodoAST* parsear_for() {
 
     exigir(TOKEN_RPAREN, "')'");
 
-    NodoAST* cuerpo = parsear_expresion(); // puede ser bloque o expresión simple
+    NodoAST* cuerpo = parsear_expresion(); 
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_FOR;
@@ -191,7 +191,7 @@ static NodoAST* parsear_primario() {
         else if (siguiente.type == TOKEN_COLON_EQUAL) {
             return parsear_asignacion();
         } else if (siguiente.type == TOKEN_ASSIGN) {
-            fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
+            fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignacion en linea %d, no '='\n", actual->line);
             exit(1);
         } else {
             avanzar();
@@ -443,7 +443,7 @@ static NodoAST* parsear_bloque() {
             } else if (siguiente.type == TOKEN_LPAREN) {
                 expr = parsear_llamada();
             } else if (siguiente.type == TOKEN_ASSIGN) {
-                fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
+                fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignacion en linea %d, no '='\n", actual->line);
                 exit(1);
             } else {
                 avanzar();
@@ -466,11 +466,8 @@ static NodoAST* parsear_bloque() {
             }
         }
 
-
         // Consumir el punto y coma si está presente
         coincidir(TOKEN_SEMICOLON);
-
-  
 
     }
 
@@ -487,7 +484,7 @@ static NodoAST* parsear_asignacion() {
     char* nombre = strdup(actual[-1].lexeme);
 
     if (strcmp(nombre, "self") == 0) {
-        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en línea %d\n", actual[-1].line);
+        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en linea %d\n", actual[-1].line);
         exit(1);
     }
     exigir(TOKEN_COLON_EQUAL, "':='");
@@ -576,7 +573,7 @@ static NodoAST* parsear_elif() {
     } else if (coincidir(TOKEN_ELSE)) {
         sino = parsear_expresion();
     } else {
-        fprintf(stderr, "[Error de sintaxis] Se esperaba 'elif' o 'else' después de 'then'\n");
+        fprintf(stderr, "[Error de sintaxis] Se esperaba 'elif' o 'else' despues de 'then'\n");
         exit(1);
     }
 
@@ -649,7 +646,7 @@ static NodoAST* parsear_tipo() {
 
     if (coincidir(TOKEN_LPAREN)) {
         do {
-            exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+            exigir(TOKEN_IDENTIFIER, "nombre del parametro");
             if (cantidad_parametros >= capacidad_parametros) {
                 capacidad_parametros = capacidad_parametros == 0 ? 4 : capacidad_parametros * 2;
                 parametros = realloc(parametros, sizeof(char*) * capacidad_parametros);
@@ -674,7 +671,7 @@ static NodoAST* parsear_tipo() {
             char* parametro = NULL;
     
             if (!coincidir(TOKEN_RPAREN)) {
-                exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+                exigir(TOKEN_IDENTIFIER, "nombre del parametro");
                 parametro = strdup(actual[-1].lexeme);
                 exigir(TOKEN_RPAREN, "')'");
             }
@@ -716,7 +713,7 @@ static NodoAST* parsear_tipo() {
             miembros[cantidad++] = nodo_attr;
     
         } else {
-            fprintf(stderr, "[Error de sintaxis] Se esperaba '=' o '=>' después de '%s' en línea %d\n",
+            fprintf(stderr, "[Error de sintaxis] Se esperaba '=' o '=>' despues de '%s' en linea %d\n",
                     nombre_miembro, actual->line);
             exit(1);
         }
@@ -742,7 +739,7 @@ static NodoAST* parsear_asignacion_set() {
     NodoAST* izquierdo = parsear_logico_or(); 
     
     if (izquierdo->tipo == NODO_VARIABLE && strcmp(izquierdo->variable.nombre, "self") == 0) {
-        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en línea %d\n", izquierdo->linea);
+        fprintf(stderr, "[Error de sintaxis] No se puede asignar directamente a 'self' en linea %d\n", izquierdo->linea);
         exit(1);
     }
 
@@ -761,7 +758,7 @@ static NodoAST* parsear_asignacion_set() {
     return izquierdo;
 }
 static NodoAST* crear_rango(int inicio, int fin) {
-    // Crear el nodo AST de tipo NODO_OBJETO
+    
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_OBJETO; 
 
@@ -772,15 +769,15 @@ static NodoAST* crear_rango(int inicio, int fin) {
     // Rellenar el rango con los valores
     for (int i = 0; i < nodo->objeto.cantidad; i++) {
         nodo->objeto.valores[i].tipo = VALOR_NUMERO;
-        nodo->objeto.valores[i].numero = inicio + i;  // Asigna los números del rango
+        nodo->objeto.valores[i].numero = inicio + i;  
     }
 
-    return nodo;  // Retorna el nodo AST que representa el rango
+    return nodo; 
 }
 
 static NodoAST* parsear_funcion() {
     exigir(TOKEN_FUNCTION, "'function'");
-    exigir(TOKEN_IDENTIFIER, "nombre de la función");
+    exigir(TOKEN_IDENTIFIER, "nombre de la funcion");
 
     char* nombre_funcion = strdup(actual[-1].lexeme);
     exigir(TOKEN_LPAREN, "'('");
@@ -790,7 +787,7 @@ static NodoAST* parsear_funcion() {
 
     if (!coincidir(TOKEN_RPAREN)) {
         do {
-            exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+            exigir(TOKEN_IDENTIFIER, "nombre del parametro");
             if (cantidad_parametros >= capacidad) {
                 capacidad = capacidad == 0 ? 4 : capacidad * 2;
                 parametros = realloc(parametros, sizeof(NodoAST*) * capacidad);
@@ -807,7 +804,7 @@ static NodoAST* parsear_funcion() {
     nodo_funcion->tipo = NODO_FUNCION;
     nodo_funcion->funcion.nombre = nombre_funcion;
     nodo_funcion->funcion.parametros = parametros;
-    nodo_funcion->funcion.cantidad_parametros = cantidad_parametros;  // ✅ LÍNEA QUE DEBES AÑADIR
+    nodo_funcion->funcion.cantidad_parametros = cantidad_parametros;  
     nodo_funcion->funcion.cuerpo = cuerpo;
 
     return nodo_funcion;
@@ -864,11 +861,10 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             printf("%sVARIABLE%s: %s\n", YELLOW, RESET, nodo->variable.nombre);
             break;
         case NODO_NOT:
-            printf("%sNEGACIÓN%s:\n", VIOLET, RESET);
+            printf("%sNEGACION%s:\n", VIOLET, RESET);
             imprimir_ast(nodo->binario.izquierdo, nivel + 1);
             break;
         case NODO_OBJETO: {
-                // Imprimir el nombre del objeto o iterable
                 for (int i = 0; i < nivel; i++) printf("  ");
                 printf("%sOBJETO%s:\n", MAGENTA, RESET);
             
@@ -878,7 +874,7 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
                     printf("VALOR %d: ", i + 1);
                     
                     // Imprimir el valor correspondiente
-                    imprimir_ast(&(nodo->objeto.valores[i]), nivel + 2);  // Recursivo para imprimir el valor
+                    imprimir_ast(&(nodo->objeto.valores[i]), nivel + 2);  
                 }
             
                 break;
@@ -917,12 +913,12 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             break;
 
         case NODO_ASIGNACION:
-            printf("%sASIGNACIÓN%s: %s :=\n", BLUE, RESET, nodo->asignacion.nombre);
+            printf("%sASIGNACION%s: %s :=\n", BLUE, RESET, nodo->asignacion.nombre);
             imprimir_ast(nodo->asignacion.valor, nivel + 1);
             break;
 
         case NODO_SET:
-            printf("%sASIGNACIÓN A PROPIEDAD%s :=\n",BLUE , RESET);
+            printf("%sASIGNACION A PROPIEDAD%s :=\n",BLUE , RESET);
             printf("DESTINO:\n");
             imprimir_ast(nodo->set.destino, nivel + 1);
             printf("VALOR:\n");
@@ -965,7 +961,7 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             break;
 
         case NODO_FUNCION:
-            printf("%sFUNCIÓN%s: %s(%s)\n", VIOLET, RESET, nodo->funcion.nombre,
+            printf("%sFUNCION%s: %s(%s)\n", VIOLET, RESET, nodo->funcion.nombre,
                 nodo->funcion.parametros ? nodo->funcion.parametros : "");
             imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
             break;
@@ -974,7 +970,7 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
             if (nodo->llamada.nombre) {
                 printf("%sLLAMADA%s: %s(...)\n", CYAN, RESET, nodo->llamada.nombre);
             } else {
-                printf("%sLLAMADA A EXPRESIÓN%s:\n", CYAN, RESET);
+                printf("%sLLAMADA A EXPRESION%s:\n", CYAN, RESET);
                 imprimir_ast(nodo->llamada.objeto, nivel + 1);
             }
             for (int i = 0; i < nodo->llamada.cantidad; i++) {

@@ -80,10 +80,10 @@ int main() {
     // Mostrar tokens (debug)
     for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
         if (tokens[i].type == TOKEN_ERROR) {
-            printf("%s[ERROR LÉXICO] Línea %d: texto no reconocido '%s'%s\n",
+            printf("%s[ERROR LEXICO] Linea %d: texto no reconocido '%s'%s\n",
                    RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
         } else {
-            printf("[%-15s] '%s'  (línea %d)\n",
+            printf("[%-15s] '%s'  (linea %d)\n",
                    nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
         }
     }
@@ -102,7 +102,7 @@ int main() {
     global.anterior = NULL;
 
     // Evaluar AST completo
-    printf("\n--- %sEJECUCIÓN%s ---\n", GREEN_COLOR, RESET_COLOR);
+    printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
     Valor resultado = eval(ast, &global);
 
     // Liberar memoria

@@ -14,7 +14,6 @@ typedef struct Funcion {
     struct Funcion* siguiente;
 } Funcion;
 
-
 // Definición de la estructura 'Valor' y demás tipos
 typedef enum {
     VALOR_NUMERO,
@@ -48,7 +47,7 @@ typedef struct Variable {
 // Definición de la estructura 'Entorno'
 typedef struct Entorno {
     Variable* variables;
-    Funcion* funciones;  // Lista de funciones en el entorno
+    Funcion* funciones;  
     struct Entorno* anterior;
 } Entorno;
 Variable* obtener_variable(Entorno* env, const char* nombre);

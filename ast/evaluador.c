@@ -8,11 +8,13 @@ Variable* obtener_variable(Entorno* env, const char* nombre) {
         Variable* var = env->variables;
         while (var) {
             if (strcmp(var->nombre, nombre) == 0) {
-                return var;  // Devuelve la variable encontrada
+                // Devuelve la variable encontrada
+                return var;  
             }
             var = var->siguiente;
         }
-        env = env->anterior;  // Si no la encontró, busca en el entorno anterior
+        // Si no la encontró, busca en el entorno anterior
+        env = env->anterior;  
     }
     fprintf(stderr, "Error: variable '%s' no definida.\n", nombre);
     exit(1);
@@ -21,9 +23,6 @@ Variable* obtener_variable(Entorno* env, const char* nombre) {
 Valor eval(NodoAST* nodo, Entorno* env) {
     switch (nodo->tipo) {
         
-        
-            
-     
         case NODO_BLOQUE: {
                 Valor resultado;
                 resultado.tipo = VALOR_NULO;
@@ -36,13 +35,13 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             }
                 
             // Si no se encuentra la variable en el entorno actual
-            fprintf(stderr, "Error: variable '%s' no declarada para asignación (:=)\n", nodo->asignacion.nombre);
+            fprintf(stderr, "Error: variable '%s' no declarada para asignacion (:=)\n", nodo->asignacion.nombre);
             exit(1);
         case NODO_IF: {
                 Valor cond = eval(nodo->ifthen.condicion, env);
             
                 if (cond.tipo != VALOR_BOOL) {
-                    fprintf(stderr, "Error: la condición del 'if' no es booleana.\n");
+                    fprintf(stderr, "Error: la condicion del 'if' no es booleana.\n");
                     exit(1);
                 }
             
@@ -56,7 +55,7 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 Valor iterable = eval(nodo->bucle_for.iterable, env);
             
                 if (iterable.tipo != VALOR_OBJETO) {
-                    fprintf(stderr, "Error: el iterable debe ser un objeto o rango válido.\n");
+                    fprintf(stderr, "Error: el iterable debe ser un objeto o rango valido.\n");
                     exit(1);
                 }
             
@@ -92,7 +91,7 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 Valor condicion = eval(nodo->bucle_while.condicion, env);
             
                 if (condicion.tipo != VALOR_BOOL) {
-                    fprintf(stderr, "Error: la condición de 'while' debe ser un valor booleano.\n");
+                    fprintf(stderr, "Error: la condicion de 'while' debe ser un valor booleano.\n");
                     exit(1);
                 }
             
@@ -178,7 +177,7 @@ Valor eval(NodoAST* nodo, Entorno* env) {
             case NODO_LLAMADA: {
                 Funcion* f = obtener_funcion(env, nodo->llamada.nombre);
                 if (nodo->llamada.cantidad != f->cantidad_parametros) {
-                    fprintf(stderr, "Error: función '%s' esperaba %d argumentos, recibió %d\n",
+                    fprintf(stderr, "Error: funcion '%s' esperaba %d argumentos, recibio %d\n",
                             f->nombre, f->cantidad_parametros, nodo->llamada.cantidad);
                     exit(1);
                 }
@@ -204,12 +203,12 @@ Valor eval(NodoAST* nodo, Entorno* env) {
     
                 Valor resultado;
                 if (izq.tipo == VALOR_NULO || der.tipo == VALOR_NULO) {
-                    fprintf(stderr, "Error: operación binaria con valores nulos.\n");
+                    fprintf(stderr, "Error: operacion binaria con valores nulos.\n");
                     exit(1);
                 }
                 if ((op == TOKEN_PLUS || op == TOKEN_MINUS || op == TOKEN_STAR || op == TOKEN_SLASH || op == TOKEN_POWER)
                     && (izq.tipo != VALOR_NUMERO || der.tipo != VALOR_NUMERO)) {
-                    fprintf(stderr, "Error: operador aritmético requiere números.\n");
+                    fprintf(stderr, "Error: operador aritmetico requiere numeros.\n");
                     exit(1);
                 }
     
@@ -282,7 +281,7 @@ Funcion* obtener_funcion(Entorno* env, const char* nombre) {
         }
         env = env->anterior;  
     }
-    fprintf(stderr, "Error: función '%s' no definida.\n", nombre);
+    fprintf(stderr, "Error: funcion '%s' no definida.\n", nombre);
     exit(1);
 }
 void liberar_variable(Variable* var) {
