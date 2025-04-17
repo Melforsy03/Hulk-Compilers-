@@ -1,5 +1,8 @@
-let x = 0 in {
-  for (x in range(1, 5)) {
-    Print(x);
-  }
+{
+  function suma(a, b) => a + b;
+
+let x = suma(5, 3) in {
+  Print(x);
 };
+
+}

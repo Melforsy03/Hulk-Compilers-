@@ -69,33 +69,36 @@ static NodoAST* parsear_print() {
 }
 static NodoAST* parsear_llamada() {
     exigir(TOKEN_IDENTIFIER, "nombre de función");
-    char* nombre = strdup(actual[-1].lexeme);
+    char* nombre_funcion = strdup(actual[-1].lexeme);
 
     exigir(TOKEN_LPAREN, "'('");
 
-    // Lista dinámica de argumentos
     NodoAST** argumentos = NULL;
-    int capacidad = 0;
-    int cantidad = 0;
+    int cantidad = 0, capacidad = 0;
 
     if (!coincidir(TOKEN_RPAREN)) {
         do {
             if (cantidad >= capacidad) {
                 capacidad = capacidad == 0 ? 4 : capacidad * 2;
-                argumentos = realloc(argumentos, sizeof(NodoAST*) * capacidad);
+                NodoAST** temp = realloc(argumentos, sizeof(NodoAST*) * capacidad);
+                if (!temp) {
+                    fprintf(stderr, "Error: memoria insuficiente para argumentos.\n");
+                    exit(1);
+                }
+                argumentos = temp;
             }
             argumentos[cantidad++] = parsear_expresion();
         } while (coincidir(TOKEN_COMMA));
-
         exigir(TOKEN_RPAREN, "')'");
     }
 
     NodoAST* nodo = malloc(sizeof(NodoAST));
     nodo->tipo = NODO_LLAMADA;
     nodo->linea = actual[-1].line;
-    nodo->llamada.nombre = nombre;
+    nodo->llamada.nombre = nombre_funcion;
     nodo->llamada.argumentos = argumentos;
     nodo->llamada.cantidad = cantidad;
+
     return nodo;
 }
 
@@ -182,7 +185,10 @@ static NodoAST* parsear_primario() {
         Token identificador = *actual;
         Token siguiente = actual[1];
 
-        if (siguiente.type == TOKEN_COLON_EQUAL) {
+        if (siguiente.type == TOKEN_LPAREN) {  
+            return parsear_llamada();  // Llamar a una función
+        } 
+        else if (siguiente.type == TOKEN_COLON_EQUAL) {
             return parsear_asignacion();
         } else if (siguiente.type == TOKEN_ASSIGN) {
             fprintf(stderr, "[Error de sintaxis] Se esperaba ':=' para asignación en línea %d, no '='\n", actual->line);
@@ -268,23 +274,24 @@ static NodoAST* parsear_primario() {
         nodo->variable.nombre = strdup("base()");
         expr = nodo;
     }
-    if (coincidir(TOKEN_RANGE)) {
+    else if (coincidir(TOKEN_RANGE)) {
         exigir(TOKEN_LPAREN, "'('");
         NodoAST* inicio = parsear_expresion();  // Primer parámetro del rango
         exigir(TOKEN_COMMA, "','");
         NodoAST* fin = parsear_expresion();  // Segundo parámetro del rango
         exigir(TOKEN_RPAREN, "')'");
+
+        NodoAST* nodo = malloc(sizeof(NodoAST));
+        nodo->tipo = NODO_LLAMADA;
+        nodo->linea = actual[-1].line;
+        nodo->llamada.nombre = strdup("range");
+        nodo->llamada.argumentos = malloc(sizeof(NodoAST*) * 2);
+        nodo->llamada.argumentos[0] = inicio;
+        nodo->llamada.argumentos[1] = fin;
+        nodo->llamada.cantidad = 2;
     
-        Valor valor_inicio = eval(inicio, fin);  // Evaluamos el valor de inicio
-        Valor valor_fin = eval(fin, fin);  // Evaluamos el valor de fin
-    
-        if (valor_inicio.tipo != VALOR_NUMERO || valor_fin.tipo != VALOR_NUMERO) {
-            fprintf(stderr, "Error: 'range' requiere dos números como parámetros.\n");
-            exit(1);
-        }
-    
-        return crear_rango((int)valor_inicio.numero, (int)valor_fin.numero);  // Crear el nodo de rango
-    }    
+        return nodo;
+    }
     
     else if (coincidir(TOKEN_SELF)) {
         NodoAST* nodo = malloc(sizeof(NodoAST));
@@ -494,34 +501,6 @@ static NodoAST* parsear_asignacion() {
     nodo->asignacion.valor = valor;
     return nodo;
 }
-
-static NodoAST* parsear_funcion() {
-    exigir(TOKEN_FUNCTION, "'function'");
-    exigir(TOKEN_IDENTIFIER, "nombre de la función");
-
-    char* nombre = strdup(actual[-1].lexeme);
-
-    exigir(TOKEN_LPAREN, "'('");
-    exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
-
-    char* parametro = strdup(actual[-1].lexeme);
-
-    exigir(TOKEN_RPAREN, "')'");
-    exigir(TOKEN_ARROW, "'=>'");
-
-    NodoAST* cuerpo = parsear_expresion();
-
-    exigir(TOKEN_SEMICOLON, "';'");
-
-    NodoAST* nodo = malloc(sizeof(NodoAST));
-    nodo->tipo = NODO_FUNCION;
-    nodo->linea = actual[-1].line;
-    nodo->funcion.nombre = nombre;
-    nodo->funcion.parametro = parametro;
-    nodo->funcion.cuerpo = cuerpo;
-
-    return nodo;
-}
 static NodoAST* parsear_potencia() {
     NodoAST* expr = parsear_unario();
     while (actual->type == TOKEN_POWER) {
@@ -708,7 +687,7 @@ static NodoAST* parsear_tipo() {
             metodo->tipo = NODO_FUNCION;
             metodo->linea = actual[-1].line;
             metodo->funcion.nombre = nombre_miembro;
-            metodo->funcion.parametro = parametro;
+            metodo->funcion.parametros = parametro;
             metodo->funcion.cuerpo = cuerpo;
     
             if (cantidad >= capacidad) {
@@ -799,6 +778,51 @@ static NodoAST* crear_rango(int inicio, int fin) {
     return nodo;  // Retorna el nodo AST que representa el rango
 }
 
+static NodoAST* parsear_funcion() {
+    exigir(TOKEN_FUNCTION, "'function'");
+    exigir(TOKEN_IDENTIFIER, "nombre de la función");
+
+    char* nombre_funcion = strdup(actual[-1].lexeme);
+    exigir(TOKEN_LPAREN, "'('");
+
+    NodoAST** parametros = NULL;
+    int cantidad_parametros = 0, capacidad = 0;
+
+    if (!coincidir(TOKEN_RPAREN)) {
+        do {
+            exigir(TOKEN_IDENTIFIER, "nombre del parámetro");
+            if (cantidad_parametros >= capacidad) {
+                capacidad = capacidad == 0 ? 4 : capacidad * 2;
+                parametros = realloc(parametros, sizeof(NodoAST*) * capacidad);
+            }
+            parametros[cantidad_parametros++] = crear_variable(actual[-1].lexeme, actual[-1].line);
+        } while (coincidir(TOKEN_COMMA));
+        exigir(TOKEN_RPAREN, "')'");
+    }
+
+    exigir(TOKEN_ARROW, "'=>'");
+    NodoAST* cuerpo = parsear_expresion();
+
+    NodoAST* nodo_funcion = malloc(sizeof(NodoAST));
+    nodo_funcion->tipo = NODO_FUNCION;
+    nodo_funcion->funcion.nombre = nombre_funcion;
+    nodo_funcion->funcion.parametros = parametros;
+    nodo_funcion->funcion.cantidad_parametros = cantidad_parametros;  // ✅ LÍNEA QUE DEBES AÑADIR
+    nodo_funcion->funcion.cuerpo = cuerpo;
+
+    return nodo_funcion;
+}
+static NodoAST* agregar_a_lista(NodoAST* lista, NodoAST* nuevo) {
+    if (!lista) {
+        return nuevo;  
+    }
+    NodoAST* actual = lista;
+    while (actual->variable.siguiente) {  
+        actual = actual->variable.siguiente;
+    }
+    actual->variable.siguiente = nuevo;  
+    return lista;
+}
 // Función principal
 NodoAST* parsear(Token* tokens) {
     actual = tokens;
@@ -942,7 +966,7 @@ void imprimir_ast(NodoAST* nodo, int nivel) {
 
         case NODO_FUNCION:
             printf("%sFUNCIÓN%s: %s(%s)\n", VIOLET, RESET, nodo->funcion.nombre,
-                nodo->funcion.parametro ? nodo->funcion.parametro : "");
+                nodo->funcion.parametros ? nodo->funcion.parametros : "");
             imprimir_ast(nodo->funcion.cuerpo, nivel + 1);
             break;
 
@@ -1039,7 +1063,7 @@ void liberar_ast(NodoAST* nodo) {
 
         case NODO_FUNCION:
             free(nodo->funcion.nombre);
-            free(nodo->funcion.parametro);
+            free(nodo->funcion.parametros);
             liberar_ast(nodo->funcion.cuerpo);
             break;
 

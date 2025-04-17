@@ -1,5 +1,5 @@
-build/ast/evaluador.o: ast/evaluador.c ast/evaluador.h parser/parser.h \
- parser/../lexer/lexer.h
+build/ast/evaluador.o: ast/evaluador.c ast/evaluador.h \
+ ast/../parser/parser.h ast/../parser/../lexer/lexer.h
 ast/evaluador.h:
-parser/parser.h:
-parser/../lexer/lexer.h:
+ast/../parser/parser.h:
+ast/../parser/../lexer/lexer.h:

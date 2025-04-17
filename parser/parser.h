@@ -35,7 +35,10 @@ typedef struct NodoAST {
     TipoNodo tipo;
     int linea;
     union {
-        struct { char* nombre; } variable;
+        struct {
+            char* nombre; 
+            NodoAST* siguiente; // Para la lista de parámetros
+        } variable;
         struct { double valor; } literal;
         struct {
             struct NodoAST* izquierdo;
@@ -58,20 +61,6 @@ typedef struct NodoAST {
             struct NodoAST** expresiones;
             int cantidad;
         } bloque;
-        struct {
-            char* nombre;              
-            NodoAST* objeto;           
-            NodoAST** argumentos;
-            int cantidad;
-        } llamada;
-        
-        
-        struct 
-        {
-            char*nombre;
-            char*parametro;
-            struct NodoAST** cuerpo;
-        }funcion;
         struct { char* valor; } literal_string;
         struct {
             struct NodoAST* condicion;
@@ -117,6 +106,13 @@ typedef struct NodoAST {
             Valor* valores; 
             int cantidad;     
         } objeto;
+        struct { char* nombre; NodoAST* objeto; NodoAST** argumentos; int cantidad; } llamada;
+        struct { 
+            char* nombre;  
+            NodoAST** parametros;     
+            int cantidad_parametros; 
+            NodoAST* cuerpo;
+        } funcion;
         
     };
 } NodoAST;
@@ -158,4 +154,6 @@ static NodoAST* parsear_igualdad();
 static NodoAST* crear_binario(NodoAST* izq, Token op, NodoAST* der) ;
 static NodoAST* parsear_unario();
 static NodoAST* crear_rango(int inicio, int fin);
+static NodoAST* agregar_a_lista(NodoAST* lista, NodoAST* nuevo) ;
+
 #endif

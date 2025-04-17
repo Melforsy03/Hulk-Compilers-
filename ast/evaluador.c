@@ -20,86 +20,10 @@ Variable* obtener_variable(Entorno* env, const char* nombre) {
 
 Valor eval(NodoAST* nodo, Entorno* env) {
     switch (nodo->tipo) {
-        case NODO_LITERAL: {
-            Valor v;
-            v.tipo = VALOR_NUMERO;
-            v.numero = nodo->literal.valor;
-            return v;
-        }
-        case NODO_LITERAL_BOOL: {
-            Valor v;
-            v.tipo = VALOR_BOOL;
-            v.booleano = nodo->literal_bool.valor;
-            return v;
-        }
-        case NODO_LITERAL_STRING: {
-            Valor v;
-            v.tipo = VALOR_CADENA;
-            v.cadena = strdup(nodo->literal_string.valor);
-            return v;
-        }
-        case NODO_VARIABLE: {
-            // Buscar la variable en el entorno
-            Variable* var = obtener_variable(env, nodo->variable.nombre);
-            return var->valor;  // Retorna el valor de la variable
-        }
         
-        case NODO_LET: {
-            Valor valor = eval(nodo->let.valor, env);
         
-            // Crear un nuevo entorno para la variable 'let'
-            Entorno* nuevo_entorno = malloc(sizeof(Entorno));
-            nuevo_entorno->variables = malloc(sizeof(Variable));
-            nuevo_entorno->variables->nombre = strdup(nodo->let.nombre);
-            nuevo_entorno->variables->valor = valor;
-            nuevo_entorno->variables->siguiente = env->variables;
-            nuevo_entorno->anterior = env;
-        
-            // Evaluar el cuerpo del bloque en el nuevo entorno
-            return eval(nodo->let.cuerpo, nuevo_entorno);
-        }
-        
-        case NODO_ASIGNACION: {
-            Variable* var = env->variables;
-            while (var) {
-                if (strcmp(var->nombre, nodo->asignacion.nombre) == 0) {
-                    Valor nuevo = eval(nodo->asignacion.valor, env);
-                    var->valor = nuevo;
-                    return nuevo;
-                }
-                var = var->siguiente;
-            }
-        
-            // Si no se encuentra la variable en el entorno actual
-            fprintf(stderr, "Error: variable '%s' no declarada para asignación (:=)\n", nodo->asignacion.nombre);
-            exit(1);
-        }        
-        case NODO_PRINT: {
-                Valor valor = eval(nodo->print.expresion, env);
             
-                printf("[Print] ");
-            
-                switch (valor.tipo) {
-                    case VALOR_NUMERO:
-                        printf("%.2f", valor.numero);
-                        break;
-                    case VALOR_BOOL:
-                        printf("%s", valor.booleano ? "true" : "false");
-                        break;
-                    case VALOR_CADENA:
-                        printf("%s", valor.cadena);
-                        break;
-                    default:
-                        printf("(nulo)");
-                        break;
-                }
-            
-                printf("\n");
-            
-                Valor vacio;
-                vacio.tipo = VALOR_NULO;
-                return vacio;
-            }
+     
         case NODO_BLOQUE: {
                 Valor resultado;
                 resultado.tipo = VALOR_NULO;
@@ -159,8 +83,9 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 Valor vacio;
                 vacio.tipo = VALOR_NULO;
                 return vacio;
-            }
-            
+            } 
+    
+
             
         case NODO_WHILE: {
                 // Evaluar la condición
@@ -197,17 +122,97 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 return iterable;
             }
                 
-        case NODO_BINARIO: {
+            case NODO_LITERAL: {
+                return (Valor){.tipo = VALOR_NUMERO, .numero = nodo->literal.valor};
+            }
+            case NODO_LITERAL_BOOL: {
+                return (Valor){.tipo = VALOR_BOOL, .booleano = nodo->literal_bool.valor};
+            }
+            case NODO_LITERAL_STRING: {
+                Valor v = {.tipo = VALOR_CADENA};
+                v.cadena = strdup(nodo->literal_string.valor);
+                return v;
+            }
+            case NODO_VARIABLE: {
+                Variable* var = obtener_variable(env, nodo->variable.nombre);
+                return var->valor;
+            }
+            case NODO_LET: {
+                Valor val = eval(nodo->let.valor, env);
+                Entorno* nuevo = malloc(sizeof(Entorno));
+                nuevo->variables = malloc(sizeof(Variable));
+                nuevo->variables->nombre = strdup(nodo->let.nombre);
+                nuevo->variables->valor = val;
+                nuevo->variables->siguiente = NULL;
+                nuevo->funciones = NULL;
+                nuevo->anterior = env;
+                return eval(nodo->let.cuerpo, nuevo);
+            }
+            case NODO_ASIGNACION: {
+                Variable* var = obtener_variable(env, nodo->asignacion.nombre);
+                var->valor = eval(nodo->asignacion.valor, env);
+                return var->valor;
+            }
+            case NODO_PRINT: {
+                Valor v = eval(nodo->print.expresion, env);
+                printf("[Print] ");
+                switch (v.tipo) {
+                    case VALOR_NUMERO: printf("%.2f", v.numero); break;
+                    case VALOR_BOOL: printf("%s", v.booleano ? "true" : "false"); break;
+                    case VALOR_CADENA: printf("%s", v.cadena); break;
+                    default: printf("(nulo)"); break;
+                }
+                printf("\n");
+                return (Valor){.tipo = VALOR_NULO};
+            }
+            case NODO_FUNCION: {
+                Funcion* f = malloc(sizeof(Funcion));
+                f->nombre = strdup(nodo->funcion.nombre);
+                f->parametros = nodo->funcion.parametros;
+                f->cantidad_parametros = nodo->funcion.cantidad_parametros;
+                f->cuerpo = nodo->funcion.cuerpo;
+                f->siguiente = env->funciones;
+                env->funciones = f;
+                return (Valor){.tipo = VALOR_NULO};
+            }
+            case NODO_LLAMADA: {
+                Funcion* f = obtener_funcion(env, nodo->llamada.nombre);
+                if (nodo->llamada.cantidad != f->cantidad_parametros) {
+                    fprintf(stderr, "Error: función '%s' esperaba %d argumentos, recibió %d\n",
+                            f->nombre, f->cantidad_parametros, nodo->llamada.cantidad);
+                    exit(1);
+                }
+                Entorno* nuevo = malloc(sizeof(Entorno));
+                nuevo->variables = NULL;
+                nuevo->funciones = NULL;
+                nuevo->anterior = env;
+                for (int i = 0; i < f->cantidad_parametros; i++) {
+                    Variable* var = malloc(sizeof(Variable));
+                    var->nombre = strdup(f->parametros[i]->variable.nombre);
+                    var->valor = eval(nodo->llamada.argumentos[i], env);
+                    var->siguiente = nuevo->variables;
+                    nuevo->variables = var;
+                }
+    
+                return eval(f->cuerpo, nuevo);
+            }
+    
+            case NODO_BINARIO: {
                 Valor izq = eval(nodo->binario.izquierdo, env);
                 Valor der = eval(nodo->binario.derecho, env);
                 TokenType op = nodo->binario.operador.type;
-            
+    
                 Valor resultado;
                 if (izq.tipo == VALOR_NULO || der.tipo == VALOR_NULO) {
                     fprintf(stderr, "Error: operación binaria con valores nulos.\n");
                     exit(1);
                 }
-            
+                if ((op == TOKEN_PLUS || op == TOKEN_MINUS || op == TOKEN_STAR || op == TOKEN_SLASH || op == TOKEN_POWER)
+                    && (izq.tipo != VALOR_NUMERO || der.tipo != VALOR_NUMERO)) {
+                    fprintf(stderr, "Error: operador aritmético requiere números.\n");
+                    exit(1);
+                }
+    
                 switch (op) {
                     case TOKEN_PLUS:
                         resultado.tipo = VALOR_NUMERO;
@@ -229,85 +234,81 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                         resultado.tipo = VALOR_NUMERO;
                         resultado.numero = pow(izq.numero, der.numero);
                         break;
-            
                     case TOKEN_EQUAL_EQUAL:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero == der.numero);
+                        resultado.booleano = izq.numero == der.numero;
                         break;
                     case TOKEN_NOT_EQUAL:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero != der.numero);
+                        resultado.booleano = izq.numero != der.numero;
                         break;
                     case TOKEN_GREATER:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero > der.numero);
+                        resultado.booleano = izq.numero > der.numero;
                         break;
                     case TOKEN_LESS:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero < der.numero);
+                        resultado.booleano = izq.numero < der.numero;
                         break;
                     case TOKEN_GREATER_EQUAL:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero >= der.numero);
+                        resultado.booleano = izq.numero >= der.numero;
                         break;
                     case TOKEN_LESS_EQUAL:
                         resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = (izq.numero <= der.numero);
+                        resultado.booleano = izq.numero <= der.numero;
                         break;
-            
-                    case TOKEN_AND:
-                        resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = izq.booleano && der.booleano;
-                        break;
-                    case TOKEN_OR:
-                        resultado.tipo = VALOR_BOOL;
-                        resultado.booleano = izq.booleano || der.booleano;
-                        break;
-            
-                    case TOKEN_AT: {  // concatenación: texto @ valor
-                        char buffer[256];
-            
-                        if (izq.tipo == VALOR_CADENA && der.tipo == VALOR_CADENA) {
-                            resultado.tipo = VALOR_CADENA;
-                            resultado.cadena = malloc(strlen(izq.cadena) + strlen(der.cadena) + 1);
-                            strcpy(resultado.cadena, izq.cadena);
-                            strcat(resultado.cadena, der.cadena);
-                        } else {
-                            resultado.tipo = VALOR_CADENA;
-                            resultado.cadena = malloc(256);
-            
-                            if (izq.tipo == VALOR_CADENA) {
-                                strcpy(resultado.cadena, izq.cadena);
-                            } else if (izq.tipo == VALOR_NUMERO) {
-                                sprintf(resultado.cadena, "%.2f", izq.numero);
-                            } else if (izq.tipo == VALOR_BOOL) {
-                                sprintf(resultado.cadena, izq.booleano ? "true" : "false");
-                            }
-            
-                            if (der.tipo == VALOR_CADENA) {
-                                strcat(resultado.cadena, der.cadena);
-                            } else if (der.tipo == VALOR_NUMERO) {
-                                sprintf(buffer, "%.2f", der.numero);
-                                strcat(resultado.cadena, buffer);
-                            } else if (der.tipo == VALOR_BOOL) {
-                                strcat(resultado.cadena, der.booleano ? "true" : "false");
-                            }
-                        }
-            
-                        break;
-                    }
-            
                     default:
-                        fprintf(stderr, "Error: operador binario no soportado (%d)\n", op);
+                        fprintf(stderr, "Error: operador binario no soportado.\n");
                         exit(1);
                 }
-            
                 return resultado;
             }
+    
             
         default:
             fprintf(stderr, " Nodo no manejado aun en eval.c (tipo %d)\n", nodo->tipo);
             exit(1);
     }
 }
+Funcion* obtener_funcion(Entorno* env, const char* nombre) {
+    while (env) {
+        Funcion* funcion = env->funciones;
+        while (funcion) {
+            if (strcmp(funcion->nombre, nombre) == 0) {
+                return funcion;  // Devuelve la función si la encuentra
+            }
+            funcion = funcion->siguiente;
+        }
+        env = env->anterior;  
+    }
+    fprintf(stderr, "Error: función '%s' no definida.\n", nombre);
+    exit(1);
+}
+void liberar_variable(Variable* var) {
+    while (var) {
+        Variable* sig = var->siguiente;
+        free(var->nombre);
+        if (var->valor.tipo == VALOR_CADENA) {
+            free(var->valor.cadena);
+        } else if (var->valor.tipo == VALOR_OBJETO) {
+            for (int i = 0; i < var->valor.lista.cantidad; i++) {
+                if (var->valor.lista.valores[i].tipo == VALOR_CADENA) {
+                    free(var->valor.lista.valores[i].cadena);
+                }
+            }
+            free(var->valor.lista.valores);
+        }
+        free(var);
+        var = sig;
+    }
+}
 
+void liberar_entorno(Entorno* env) {
+    while (env) {
+        Entorno* anterior = env->anterior;
+        liberar_variable(env->variables);
+        free(env);
+        env = anterior;
+    }
+}

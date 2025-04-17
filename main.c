@@ -2,6 +2,8 @@
 #include "./lexer/lexer.h"
 #include "./parser/parser.h"
 #include "./ast/evaluador.h"
+
+// Colores
 #define RESET_COLOR   "\x1b[0m"
 #define RED_COLOR     "\x1b[31m"
 #define GREEN_COLOR   "\x1b[32m"
@@ -9,14 +11,14 @@
 #define BLUE_COLOR    "\x1b[34m"
 #define CYAN_COLOR    "\x1b[36m"
 #define GRAY_COLOR    "\x1b[90m"
-#define RESET_COLOR   "\x1b[0m"
-#define GREEN_COLOR   "\x1b[32m"
-#define YELLOW_COLOR  "\x1b[33m"
 #define MAGENTA_COLOR "\x1b[35m"
-char* leer_archivo(const char* nombre_archivo) ;
+
+char* leer_archivo(const char* nombre_archivo);
+
+// --- Mostrar el nombre del token con color ---
 const char* nombre_token(TokenType tipo) {
     switch (tipo) {
-        case TOKEN_PRINT : return GREEN_COLOR "PRINT" RESET_COLOR ;
+        case TOKEN_PRINT: return GREEN_COLOR "PRINT" RESET_COLOR;
         case TOKEN_LET: return GREEN_COLOR "LET" RESET_COLOR;
         case TOKEN_IN: return GREEN_COLOR "IN" RESET_COLOR;
         case TOKEN_FUNCTION: return GREEN_COLOR "FUNCTION" RESET_COLOR;
@@ -59,75 +61,60 @@ const char* nombre_token(TokenType tipo) {
         case TOKEN_SEMICOLON: return MAGENTA_COLOR "SEMICOLON" RESET_COLOR;
         case TOKEN_ARROW: return MAGENTA_COLOR "ARROW" RESET_COLOR;
         case TOKEN_DOT: return MAGENTA_COLOR "DOT" RESET_COLOR;
-
         case TOKEN_IDENTIFIER: return YELLOW_COLOR "IDENTIFIER" RESET_COLOR;
         case TOKEN_NUMBER: return CYAN_COLOR "NUMBER" RESET_COLOR;
         case TOKEN_STRING: return CYAN_COLOR "STRING" RESET_COLOR;
-
         case TOKEN_EOF: return GRAY_COLOR "EOF" RESET_COLOR;
         case TOKEN_ERROR: return RED_COLOR "ERROR" RESET_COLOR;
-
         default: return "¿?";
     }
 }
 
 int main() {
+    // Leer el código fuente desde archivo
     char* codigo = leer_archivo("script.hulk");
 
-    // // Analizar léxicamente
-     Token* tokens = tokenize(codigo);
+    // Tokenizar
+    Token* tokens = tokenize(codigo);
 
-    // Mostrar tokens
+    // Mostrar tokens (debug)
     for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
         if (tokens[i].type == TOKEN_ERROR) {
-            printf("%s[ERROR LÉXICO] Linea %d: texto no reconocido '%s'%s\n",
+            printf("%s[ERROR LÉXICO] Línea %d: texto no reconocido '%s'%s\n",
                    RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
         } else {
-            printf("[%-15s] '%s'  (linea %d)\n",
+            printf("[%-15s] '%s'  (línea %d)\n",
                    nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
         }
     }
 
-    // // Parsear tokens y construir AST
-     NodoAST* ast = parsear(tokens);
-    
-     printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
-     imprimir_ast(ast, 0);
+    // Parsear tokens a AST
+    NodoAST* ast = parsear(tokens);
 
-    // Fase 1: Tokenización y parsing
-    //Token* tokens = tokenize(codigo);
-   // NodoAST* ast = parsear(tokens);
+    // Mostrar AST
+    printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
+    imprimir_ast(ast, 0);
 
-    // Fase 2: Crear entorno global vacío
+    // Crear entorno global
     Entorno global;
     global.variables = NULL;
+    global.funciones = NULL;
     global.anterior = NULL;
 
-    // Fase 3: Evaluar el AST
+    // Evaluar AST completo
+    printf("\n--- %sEJECUCIÓN%s ---\n", GREEN_COLOR, RESET_COLOR);
     Valor resultado = eval(ast, &global);
 
-    // Fase 4: Mostrar resultado
-    switch (resultado.tipo) {
-        case VALOR_NUMERO:
-            printf("Resultado numerico: %.2f\n", resultado.numero);
-            break;
-        case VALOR_BOOL:
-            printf("Resultado booleano: %s\n", resultado.booleano ? "true" : "false");
-            break;
-        case VALOR_CADENA:
-            printf("Resultado cadena: \"%s\"\n", resultado.cadena);
-            break;
-        default:
-            printf("");
-            break;
-    }
-
-    // Liberar la  memoria
+    // Liberar memoria
     free_tokens(tokens);
     liberar_ast(ast);
+    liberar_entorno(&global);
+    free(codigo);
 
     return 0;
 }
+
+// Leer archivo como string
 char* leer_archivo(const char* nombre_archivo) {
     FILE* archivo = fopen(nombre_archivo, "rb");
     if (!archivo) {
