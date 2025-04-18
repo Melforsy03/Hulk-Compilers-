@@ -129,29 +129,29 @@ int main() {
         }
     }
     
-    // // Parsear tokens a AST
-    // NodoAST* ast = parsear(tokens);
+    // Parsear tokens a AST
+    NodoAST* ast = parsear(tokens);
 
-    // // Mostrar AST
-    // printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
-    // imprimir_ast(ast, 0);
+    // Mostrar AST
+    printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
+    imprimir_ast(ast, 0);
 
-    // // Crear entorno global
-    // Entorno global;
-    // global.variables = NULL;
-    // global.funciones = NULL;
-    // global.anterior = NULL;
+    // Crear entorno global
+    Entorno global;
+    global.variables = NULL;
+    global.funciones = NULL;
+    global.anterior = NULL;
 
 
-    // // Evaluar AST completo
-    // printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
-    // Valor resultado = eval(ast, &global);
+    // Evaluar AST completo
+    printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
+    Valor resultado = eval(ast, &global);
 
-    // // Liberar memoria
-    // free_tokens(tokens);
-    // liberar_ast(ast);
-    // liberar_entorno(&global);
-    // free(codigo);
+    // Liberar memoria
+    free_tokens(tokens);
+    liberar_ast(ast);
+    liberar_entorno(&global);
+    free(codigo);
 
     return 0;
 }
