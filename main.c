@@ -2,7 +2,10 @@
 #include "./lexer/lexer.h"
 #include "./parser/parser.h"
 #include "./ast/evaluador.h"
-
+#include "./fsm/regex_parser.h"
+#include "./fsm/nfa.h"
+#include "./fsm/dfa_converter.h"
+#include "./fsm/codegen.h"
 // Colores
 #define RESET_COLOR   "\x1b[0m"
 #define RED_COLOR     "\x1b[31m"
@@ -72,14 +75,51 @@ const char* nombre_token(TokenType tipo) {
 }
 
 int main() {
-    // Leer el código fuente desde archivo
+
+     // Expresión regular compatible con tu parser: ([a-z]|[A-Z])([a-z]|[A-Z]|[0-9]|_)*
+    //  const char* regex = "[a-zA-Z_][a-zA-Z0-9_]*";
+
+    //  // Paso 1: Parsear la regex
+    //  Nodo* arbol = parsear_regex(regex);
+    //  if (!arbol) {
+    //      fprintf(stderr, "Error al parsear la regex\n");
+    //      return 1;
+    //  }
+ 
+    //  // Paso 2: Construir el NFA
+    //  NFA nfa = construir_nfa(arbol);
+ 
+    //  // Paso 3: Construir el DFA
+    //  construir_dfa(nfa.inicio, nfa.fin);
+ 
+    //  // Paso 4: Generar el código C
+    //  FILE* f = fopen("regex_identifier.c", "w");
+    //  if (!f) {
+    //      perror("fopen");
+    //      return 1;
+    //  }
+    //  generar_codigo_dfa("acepta_identifier", f);
+    //  fclose(f);
+ 
+    //  printf("Código generado correctamente en 'regex_identifier.c'\n");
+ 
+    //  // Limpieza
+    //  liberar_regex(arbol);
+    //  return 0;
+    //Leer el código fuente desde archivo
     char* codigo = leer_archivo("script.hulk");
 
     // Tokenizar
-    Token* tokens = tokenize(codigo);
+    tokenize(codigo);  // rellena tokens y cantidad
 
-    // Mostrar tokens (debug)
-    for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+    for (int i = 0; tokens && i < cantidad; i++) {
+        if (&tokens[i] == NULL) {
+            fprintf(stderr, "Token %d es NULL\n", i);
+            continue;
+        }
+    
+        if (tokens[i].type == TOKEN_EOF) break;
+    
         if (tokens[i].type == TOKEN_ERROR) {
             printf("%s[ERROR LEXICO] Linea %d: texto no reconocido '%s'%s\n",
                    RED_COLOR, tokens[i].line, tokens[i].lexeme, RESET_COLOR);
@@ -88,30 +128,30 @@ int main() {
                    nombre_token(tokens[i].type), tokens[i].lexeme, tokens[i].line);
         }
     }
+    
+    // // Parsear tokens a AST
+    // NodoAST* ast = parsear(tokens);
 
-    // Parsear tokens a AST
-    NodoAST* ast = parsear(tokens);
+    // // Mostrar AST
+    // printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
+    // imprimir_ast(ast, 0);
 
-    // Mostrar AST
-    printf("\n--- %sAST GENERADO%s ---\n", BLUE_COLOR, RESET_COLOR);
-    imprimir_ast(ast, 0);
-
-    // Crear entorno global
-    Entorno global;
-    global.variables = NULL;
-    global.funciones = NULL;
-    global.anterior = NULL;
+    // // Crear entorno global
+    // Entorno global;
+    // global.variables = NULL;
+    // global.funciones = NULL;
+    // global.anterior = NULL;
 
 
-    // Evaluar AST completo
-    printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
-    Valor resultado = eval(ast, &global);
+    // // Evaluar AST completo
+    // printf("\n--- %sEJECUCION%s ---\n", GREEN_COLOR, RESET_COLOR);
+    // Valor resultado = eval(ast, &global);
 
-    // Liberar memoria
-    free_tokens(tokens);
-    liberar_ast(ast);
-    liberar_entorno(&global);
-    free(codigo);
+    // // Liberar memoria
+    // free_tokens(tokens);
+    // liberar_ast(ast);
+    // liberar_entorno(&global);
+    // free(codigo);
 
     return 0;
 }
@@ -135,6 +175,7 @@ char* leer_archivo(const char* nombre_archivo) {
 
     fread(buffer, 1, tamanio, archivo);
     buffer[tamanio] = '\0';
+    
     fclose(archivo);
     return buffer;
 }

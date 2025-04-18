@@ -14,7 +14,6 @@ typedef struct Funcion {
     struct Funcion* siguiente;
 } Funcion;
 
-// Definición de la estructura 'Valor' y demás tipos
 typedef enum {
     VALOR_NUMERO,
     VALOR_BOOL,

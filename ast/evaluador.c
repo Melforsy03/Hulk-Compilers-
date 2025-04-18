@@ -271,7 +271,6 @@ Valor eval(NodoAST* nodo, Entorno* env) {
                 return eval(f->cuerpo, nuevo);
             }
             
-    
             case NODO_BINARIO: {
                 Valor izq = eval(nodo->binario.izquierdo, env);
                 Valor der = eval(nodo->binario.derecho, env);

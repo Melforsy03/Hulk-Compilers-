@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "lexer.h"
+#include"lexer_modulo.h"
 #ifndef _WIN32
 #else
 
@@ -17,22 +18,22 @@ char* strndup(const char* s, size_t n) {
 }
 #endif
 
-typedef struct {
-    const char* inicio;
-    const char* actual;
-    int linea;
-} AnalizadorLexico;
 
 AnalizadorLexico lexer;
 Token* tokens = NULL;
-int capacidad = 0;
-int cantidad = 0;
+ extern int cantidad ;
+ extern int capacidad ;
 
 // Añadir un token a la lista de tokens
 void agregar_token(TokenType tipo, const char* inicio, int longitud) {
     if (cantidad >= capacidad) {
         capacidad = capacidad == 0 ? 16 : capacidad * 2;
-        tokens = realloc(tokens, sizeof(Token) * capacidad);
+        Token* nuevo = realloc(tokens, sizeof(Token) * capacidad);
+        if (!nuevo) {
+            fprintf(stderr, "Error crítico: realloc falló\n");
+            exit(1);
+        }
+        tokens = nuevo;
     }
 
     Token token;
@@ -41,6 +42,7 @@ void agregar_token(TokenType tipo, const char* inicio, int longitud) {
     token.line = lexer.linea;
     tokens[cantidad++] = token;
 }
+
 // Ignoramos espacios en blanco y salto de lineas
 void saltar_espacios() {
     while (1) {
@@ -69,78 +71,41 @@ int coincidir(char esperado) {
 // Avanza y devuelve el carácter actual
 char avanzar() {
     return *lexer.actual++;
+    
 }
-
 // Mira el carácter actual sin avanzar
 char mirar() {
     return *lexer.actual;
 }
-
 // Mira el carácter siguiente
 char mirar_siguiente() {
     if (mirar() == '\0') return '\0';
     return lexer.actual[1];
 }
-
 // Verifica si se llegó al final del texto
 int fin_de_codigo() {
     return *lexer.actual == '\0';
 }
-
-// Detecta palabras clave y las convierte en tokens específicos#include <string.h>
-
-TokenType tipo_identificador(const char* inicio, int longitud) {
-    switch (longitud) {
-        case 2:
-            if (memcmp(inicio, "in", 2) == 0) return TOKEN_IN;
-            if (memcmp(inicio, "if", 2) == 0) return TOKEN_IF;
-            break;
-
-        case 3:
-            if (memcmp(inicio, "let", 3) == 0) return TOKEN_LET;
-            if (memcmp(inicio, "for", 3) == 0) return TOKEN_FOR;
-            if (memcmp(inicio, "new", 3) == 0) return TOKEN_NEW;
-            break;
-
-        case 4:
-            if (memcmp(inicio, "base", 4) == 0) return TOKEN_BASE;
-            if (memcmp(inicio, "elif", 4) == 0) return TOKEN_ELIF;
-            if (memcmp(inicio, "else", 4) == 0) return TOKEN_ELSE;
-            if (memcmp(inicio, "type", 4) == 0) return TOKEN_TYPE;
-            if (memcmp(inicio, "self", 4) == 0) return TOKEN_SELF;
-            if (memcmp(inicio, "true", 4) == 0) return TOKEN_TRUE;
-            if (memcmp(inicio, "then", 4) == 0) return TOKEN_THEN;
-            break;
-
-        case 5:
-            if (memcmp(inicio, "Print", 5) == 0) return TOKEN_PRINT;
-            if (memcmp(inicio, "false", 5) == 0) return TOKEN_FALSE;
-            if (memcmp(inicio, "while", 5) == 0) return TOKEN_WHILE;
-            if (memcmp(inicio, "range", 5) == 0) return TOKEN_RANGE;
-            break;
-
-        case 6:
-            if (memcmp(inicio, "return", 6) == 0) return TOKEN_RETURN;
-            break;
-
-        case 8:
-            if (memcmp(inicio, "function", 8) == 0) return TOKEN_FUNCTION;
-            if (memcmp(inicio, "inherits", 8) == 0) return TOKEN_INHERITS;
-            break;
-    }
-
-    return TOKEN_IDENTIFIER;
-}
-
 
 // Analiza identificadores y palabras clave
 void analizar_identificador() {
     const char* inicio = lexer.actual - 1;
     while (isalnum(mirar()) || mirar() == '_') avanzar();
     int longitud = lexer.actual - inicio;
-    agregar_token(tipo_identificador(inicio, longitud), inicio, longitud);
-}
 
+    char* lexema = strndup(inicio, longitud);
+    Token resultado = analizar(lexema);
+  
+    if (resultado.type != TOKEN_ERROR) {
+        agregar_token(resultado.type, inicio, longitud);
+    } else if (acepta_identifier(lexema)) {
+        agregar_token(TOKEN_IDENTIFIER, inicio, longitud);
+    } else {
+        agregar_token(TOKEN_ERROR, inicio, longitud);
+    }
+
+    free(lexema);
+}
 // Analiza números enteros o decimales
 void analizar_numero() {
     const char* inicio = lexer.actual - 1;
@@ -150,16 +115,22 @@ void analizar_numero() {
         while (isdigit(mirar())) avanzar();
     }
     int longitud = lexer.actual - inicio;
-    agregar_token(TOKEN_NUMBER, inicio, longitud);
+    char* lexema = strndup(inicio, longitud);
+    if (acepta_number(lexema)) {
+        agregar_token(TOKEN_NUMBER, inicio, longitud);
+    } else {
+        agregar_token(TOKEN_ERROR, inicio, longitud);
+    }
+    free(lexema);
+    
 }
-
 // Analiza cadenas de texto, incluyendo secuencias de escape
 void analizar_cadena() {
     const char* inicio = lexer.actual;
     while (mirar() != '"' && !fin_de_codigo()) {
         if (mirar() == '\n') lexer.linea++;
         if (mirar() == '\\' && mirar_siguiente() == '"') {
-            lexer.actual += 2; // saltar \" escapado
+            lexer.actual += 2; 
         } else {
             avanzar();
         }
@@ -169,16 +140,75 @@ void analizar_cadena() {
         agregar_token(TOKEN_ERROR, inicio, lexer.actual - inicio);
         return;
     }
-
     avanzar(); // consumir comilla de cierre
     int longitud = lexer.actual - inicio + 1;
-    agregar_token(TOKEN_STRING, inicio - 1, longitud);
+    char* lexema = strndup(inicio - 1, longitud);
+    if (acepta_string(lexema)) {
+        agregar_token(TOKEN_STRING, inicio - 1, longitud);
+    } else {
+        agregar_token(TOKEN_ERROR, inicio - 1, longitud);
+    }
+    free(lexema);
+    
+}
+int acepta_number(const char* texto) {
+    int estado = 0;
+    for (int i = 0; texto[i]; i++) {
+        char c = texto[i];
+        switch (estado) {
+            case 0:
+                if (c >= '0' && c <= '9') estado = 1;
+                else return 0;
+                break;
+            case 1:
+                if (c >= '0' && c <= '9') estado = 1;
+                else if (c == '.') estado = 2;
+                else return 0;
+                break;
+            case 2:
+                if (c >= '0' && c <= '9') estado = 3;
+                else return 0;
+                break;
+            case 3:
+                if (c >= '0' && c <= '9') estado = 3;
+                else return 0;
+                break;
+            default:
+                return 0;
+        }
+    }
+    return (estado == 1 || estado == 3);
+}
+int acepta_string(const char* texto) {
+    int estado = 0;
+    for (int i = 0; texto[i]; i++) {
+        char c = texto[i];
+        switch (estado) {
+            case 0:
+                if (c == '"') estado = 1;
+                else return 0;
+                break;
+            case 1:
+                if (c == '\\') estado = 2;         
+                else if (c == '"') estado = 3;      
+                else estado = 1;                     
+                break;
+            case 2:
+                estado = 1; 
+                break;
+            case 3:
+                return 0; 
+            default:
+                return 0;
+        }
+    }
+    return estado == 3;
 }
 
 // Analiza un token individual
 void escanear_token() {
     saltar_espacios();
-
+   
     if (fin_de_codigo()) return;
 
     char c = avanzar();
@@ -244,9 +274,14 @@ void escanear_token() {
         case '.': agregar_token(TOKEN_DOT, lexer.actual - 1, 1); break;
         case '"': analizar_cadena(); break;
         default:
-            if (isalpha(c)) analizar_identificador();
-            else if (isdigit(c)) analizar_numero();
-            else agregar_token(TOKEN_ERROR, lexer.actual - 1, 1);
+            if (isalpha(c)) {
+                analizar_identificador();
+               
+            } else if (isdigit(c)) {
+                analizar_numero();
+            } else {
+                agregar_token(TOKEN_ERROR, lexer.actual - 1, 1);
+            }
             break;
     }
 }
@@ -263,12 +298,13 @@ Token* tokenize(const char* codigo) {
     while (!fin_de_codigo()) {
         escanear_token();
     }
+    
+   agregar_token(TOKEN_EOF, lexer.actual, 0);
 
-    agregar_token(TOKEN_EOF, lexer.actual, 0);
+  
     return tokens;
 }
 
-// Liberar la memoria usada por los tokens
 void free_tokens(Token* tokens) {
     for (int i = 0; i < cantidad; i++) {
         free((char*)tokens[i].lexeme);
