@@ -51,5 +51,30 @@ clean:
 	@echo "==> Cleaning..."
 	@$(RM)
 
-# Incluir dependencias para recompilar si cambia un .h
--include $(DEP)
+# === FUNCIONALIDADES EXTRA PARA LLVM ===
+
+# Generar programa.ll en texto plano limpio
+programa.ll: build/hulk.exe
+	build\\hulk.exe > temp_programa.ll
+	type temp_programa.ll > programa.ll
+	del temp_programa.ll
+
+# Compilar runtime.c a objeto
+runtime.o: runtime.c
+	gcc -c runtime.c -o runtime.o
+
+# Compilar programa.ll a objeto
+programa.o: programa.ll
+	llc -filetype=obj programa.ll -o programa.o
+
+# Linkear programa.o + runtime.o en un ejecutable
+ejecutable.exe: programa.o runtime.o
+	gcc programa.o runtime.o -o ejecutable.exe
+
+# Flujo completo de generación, enlace y ejecución
+run: programa.ll programa.o runtime.o ejecutable.exe
+	./ejecutable.exe
+
+# Limpiar archivos de esta parte
+clean-runtime:
+	del /Q programa.ll temp_programa.ll programa.o runtime.o ejecutable.exe
