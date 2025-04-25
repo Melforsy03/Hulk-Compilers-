@@ -11,20 +11,22 @@ char* leer_archivo(const char* nombre_archivo);
 #define MAX_LINEA 1024
 
 int main() {
+    //para probar el parser 
+    // printf("; archivo LLVM generado\n"); // línea segura inicial
+    // printf("%%Point = type { i32, i32 }\n");
+    // printf("declare void @print(i32)\n\n");
+    // printf("define i32 @main() {\n");
+    // printf("entry:\n");
 
-    printf("; archivo LLVM generado\n"); // línea segura inicial
-    printf("%%Point = type { i32, i32 }\n");
-    printf("declare void @print(i32)\n\n");
-    printf("define i32 @main() {\n");
-    printf("entry:\n");
+    // Node* programa = parse();
+    // generar_codigo(programa);
 
-    Node* programa = parse();
-    generar_codigo(programa);
+    // printf("  ret i32 0\n");
+    // printf("}\n");
 
-    printf("  ret i32 0\n");
-    printf("}\n");
+    // return 0;
 
-    return 0;
+    //Para probar el lexer 
     // char linea[MAX_LINEA];
 
     // printf("Introduce una línea de código: ");

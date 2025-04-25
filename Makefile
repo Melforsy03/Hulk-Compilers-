@@ -71,8 +71,12 @@ ejecutable.exe: programa.o runtime.o
 	gcc programa.o runtime.o -o ejecutable.exe
 
 # Flujo completo de generación, enlace y ejecución
-run: programa.ll programa.o runtime.o ejecutable.exe
-	./ejecutable.exe
+
+run: build/hulk.exe
+	build\\hulk.exe
+#Para cuando ya este listo el parser 
+#programa.ll programa.o runtime.o ejecutable.exe
+#./ejecutable.exe
 
 # Limpiar archivos de esta parte
 clean-runtime:
