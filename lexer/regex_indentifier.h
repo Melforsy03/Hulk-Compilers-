@@ -1,1 +1,0 @@
-int acepta_identifier(const char* texto);

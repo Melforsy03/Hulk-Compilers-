@@ -1,6 +1,1 @@
-{
-let x = 0 in
-if x == 0 then Print("es cero")
-else if x == 1 then Print("es uno")
-else Print("otro");
-}
+let x = 5 in x = 4;

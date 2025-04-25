@@ -1,3 +1,5 @@
+# Makefile actualizado para compilación segura en 64 bits
+
 # Variables
 SCRIPT=script.hulk
 BUILD_DIR=build
@@ -7,8 +9,8 @@ DEP=$(OBJ:.o=.d)
 BIN=$(BUILD_DIR)/hulk
 
 CC=gcc
-# -I. para permitir includes como "lexer/lexer.h"
-CFLAGS=-Wall -Wextra -std=c99 -MMD -MP -I.
+ARCH_FLAGS=-m64 
+CFLAGS = -Wall -Wextra -std=c99 -MMD -MP -I. -m64
 
 # Comandos multiplataforma
 ifeq ($(OS),Windows_NT)
@@ -30,7 +32,7 @@ build: $(BIN)
 # Enlazar objetos en ejecutable final
 $(BIN): $(OBJ)
 	@echo "==> Linking..."
-	$(CC) $(OBJ) -o $(BIN)
+	$(CC) $(ARCH_FLAGS) $(OBJ) -o $(BIN)
 
 # Compilar .c a .o respetando estructura de carpetas
 $(BUILD_DIR)/%.o: %.c
