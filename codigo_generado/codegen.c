@@ -15,17 +15,23 @@ int nuevo_label() {
 
 // Nueva funcion auxiliar
 int get_valor(Node* n) {
-    int resultado;
+    if (!n) return -1;
+
+    // Comparaciones ya devuelven i1
+    if (n->tipo == NODE_EQ || n->tipo == NODE_NEQ ||
+        n->tipo == NODE_LT || n->tipo == NODE_LTE ||
+        n->tipo == NODE_GT || n->tipo == NODE_GTE) {
+        return generar_codigo(n);
+    }
 
     if (n->tipo == NODE_ACCESS) {
         int ptr = generar_codigo(n);
-        resultado = nuevo_temp();
+        int resultado = nuevo_temp();
         printf("  %%%d = load i32, i32* %%%d\n", resultado, ptr);
-    } else {
-        resultado = generar_codigo(n);
+        return resultado;
     }
 
-    return resultado;
+    return generar_codigo(n);
 }
 
 int generar_codigo(Node* n) {
@@ -107,9 +113,14 @@ int generar_codigo(Node* n) {
             } else {
                 printf("  %%%s = alloca i32\n", n->nombre);
             }
-            generar_codigo(n->der);
+        
+            if (n->der) {
+                int valor = generar_codigo(n->der); // genera el valor inicial
+                printf("  store i32 %%%d, i32* %%%s\n", valor, n->nombre);
+            }
             return -1;
         }
+        
         case NODE_BLOCK: {
             generar_codigo(n->izq);
             generar_codigo(n->der);
@@ -153,6 +164,60 @@ int generar_codigo(Node* n) {
             printf("L%d:\n", label_end);
             return -1;
         }
+        case NODE_NEQ: {  // Not Equal (!=)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+            int temp = nuevo_temp();
+            printf("  %%%d = icmp ne i32 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        case NODE_GT: {  // Greater Than (>)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+            int temp = nuevo_temp();
+            printf("  %%%d = icmp sgt i32 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        case NODE_GTE: { // Greater Than or Equal (>=)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+            int temp = nuevo_temp();
+            printf("  %%%d = icmp sge i32 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        case NODE_LTE: { // Less Than or Equal (<=)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+            int temp = nuevo_temp();
+            printf("  %%%d = icmp sle i32 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        case NODE_AND: { // Logical AND (&&)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+        
+            int temp = nuevo_temp();
+            printf("  %%%d = and i1 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        
+        case NODE_OR: { // Logical OR (||)
+            int izq = get_valor(n->izq);
+            int der = get_valor(n->der);
+        
+            int temp = nuevo_temp();
+            printf("  %%%d = or i1 %%%d, %%%d\n", temp, izq, der);
+            return temp;
+        }
+        
+        case NODE_NOT: { // Logical NOT (!)
+            int valor = get_valor(n->izq);
+        
+            int temp = nuevo_temp();
+            printf("  %%%d = xor i1 %%%d, true\n", temp, valor);
+            return temp;
+        }
+        
         case NODE_PRINT: {
             int valor = get_valor(n->izq);
             printf("  call void @print(i32 %%%d)\n", valor);

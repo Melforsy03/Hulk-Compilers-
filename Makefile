@@ -51,7 +51,6 @@ clean:
 	@echo "==> Cleaning..."
 	@$(RM)
 
-# === FUNCIONALIDADES EXTRA PARA LLVM ===
 
 # Generar programa.ll en texto plano limpio
 programa.ll: build/hulk.exe
@@ -65,9 +64,9 @@ runtime.o: runtime.c
 
 # Compilar programa.ll a objeto
 programa.o: programa.ll
-	llc -filetype=obj programa.ll -o programa.o
+	clang -c programa.ll -o programa.o
 
-# Linkear programa.o + runtime.o en un ejecutable
+# Enlazar programa.o + runtime.o en un ejecutable
 ejecutable.exe: programa.o runtime.o
 	gcc programa.o runtime.o -o ejecutable.exe
 
@@ -78,3 +77,7 @@ run: programa.ll programa.o runtime.o ejecutable.exe
 # Limpiar archivos de esta parte
 clean-runtime:
 	del /Q programa.ll temp_programa.ll programa.o runtime.o ejecutable.exe
+
+# Limpiar TODO
+clean-all: clean-runtime
+	del /Q build\\hulk.exe
