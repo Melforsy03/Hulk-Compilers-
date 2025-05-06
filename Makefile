@@ -40,11 +40,6 @@ $(BUILD_DIR)/%.o: %.c
 	@$(MKDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Ejecutar el programa
-run: build
-	@echo "==> Running..."
-	@if not exist $(SCRIPT) echo Error: El archivo '$(SCRIPT)' no existe. & exit /b 1
-	@./$(BIN) $(SCRIPT)
 
 # Limpiar todo lo compilado
 clean:
@@ -71,12 +66,10 @@ ejecutable.exe: programa.o runtime.o
 	gcc programa.o runtime.o -o ejecutable.exe
 
 # Flujo completo de generación, enlace y ejecución
-
-run: build/hulk.exe
-	build\\hulk.exe
-#Para cuando ya este listo el parser 
-#programa.ll programa.o runtime.o ejecutable.exe
-#./ejecutable.exe
+run: programa.ll programa.o runtime.o ejecutable.exe
+	./ejecutable.exe
+#build/hulk.exe
+#build\\hulk.exe
 
 # Limpiar archivos de esta parte
 clean-runtime:

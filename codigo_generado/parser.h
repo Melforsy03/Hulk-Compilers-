@@ -1,8 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "ast.h"
+#include "../ast_nodes/ast_nodes.h"
 
-Node* parse();
-
+ProgramNode* parse();
+ProgramNode* crear_programa();
 #endif

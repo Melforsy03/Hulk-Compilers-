@@ -1,11 +1,56 @@
+#ifndef AST_NODES_H
+#define AST_NODES_H
+
 #include <stdlib.h>
 #include <string.h>
-
+typedef enum {
+    NODE_PROGRAM,
+    NODE_LET,
+    NODE_FUNCTION_DEF,
+    NODE_TYPE_DEF,
+    NODE_INHERITS,
+    NODE_ASSIGN,
+    NODE_COLON_ASSIGN,
+    NODE_IF,
+    NODE_WHILE,
+    NODE_FOR,
+    NODE_RANGE,
+    NODE_RETURN,
+    NODE_PRINT,
+    NODE_ADD,
+    NODE_SUB,
+    NODE_MUL,
+    NODE_DIV,
+    NODE_POW,
+    NODE_EQ,
+    NODE_NEQ,
+    NODE_LT,
+    NODE_LTE,
+    NODE_GT,
+    NODE_GTE,
+    NODE_AND,
+    NODE_OR,
+    NODE_NOT,
+    NODE_CALL,
+    NODE_VAR,
+    NODE_NUMBER,
+    NODE_STRING,
+    NODE_SELF,
+    NODE_BASE,
+    NODE_BLOCK,
+    NODE_ACCESS,
+    NODE_MOD,
+    NODE_CALL_METHOD,
+    NODE_CALL_FUNC,
+    NODE_TYPE_INSTANTIATION,
+    NODE_BOOLEAN
+} NodeType;
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {
     int row;
     int column;
-    void* scope; // scope aun no esta definido
+    void* scope; 
+    NodeType tipo ;// scope aun no esta definido
 } Node;
 
 //--------------------------------------------Depth 1---------------------------------------------
@@ -92,7 +137,7 @@ typedef struct VarDeclarationNode {
 
 typedef struct ConditionalNode {
     ExpressionNode base;
-    void* default;         // ExpressionNode*
+    void* default_expre;         // ExpressionNode*
     void* conditions;      // Lista de ExpressionNode*
     void* expressions;     // Lista de ExpressionNode*
 } ConditionalNode;
@@ -174,6 +219,11 @@ typedef struct CheckTypeNode {
 typedef struct ArithmeticUnaryNode {
     UnaryNode base;
 } ArithmeticUnaryNode;
+
+typedef struct ReturnNode {
+    Node base; // tipo debe ser NODE_RETURN
+    ExpressionNode* expr; // lo que se retorna
+} ReturnNode;
 
 typedef struct BooleanUnaryNode {
     UnaryNode base;
@@ -343,3 +393,4 @@ typedef struct NumberNode {
 typedef struct StringNode {
     LiteralNode base;
 } StringNode;
+#endif
