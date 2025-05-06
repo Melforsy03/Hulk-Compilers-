@@ -294,13 +294,20 @@ int generar_codigo(ExpressionNode* expr) {
                 int valor = generar_codigo(arg);
         
                 VarType tipo = VAR_TYPE_INT;  // por defecto
-                NodeType node_tipo = ((Node*)arg)->tipo;
         
-                if (node_tipo == NODE_STRING) {
+                NodeType nodo_tipo = ((Node*)arg)->tipo;
+        
+                // Si es un literal string
+                if (nodo_tipo == NODE_STRING) {
                     tipo = VAR_TYPE_STRING;
-                } else if (node_tipo == NODE_VAR) {
-                    const char* varname = obtener_nombre_variable((VarNode*)arg);
-                    tipo = obtener_tipo_variable(varname); // usa la tabla de tipos
+                }
+                // Si es una variable, busca su tipo en la tabla
+                else if (nodo_tipo == NODE_VAR) {
+                    const char* nombre = obtener_nombre_variable((VarNode*)arg);
+                    tipo = obtener_tipo_variable(nombre);
+                }
+                else if (nodo_tipo == NODE_CONCAT) {
+                    tipo = VAR_TYPE_STRING;
                 }
         
                 if (tipo == VAR_TYPE_STRING) {
@@ -308,11 +315,40 @@ int generar_codigo(ExpressionNode* expr) {
                 } else {
                     printf("  call void @print_int(i32 %%%d)\n", valor);
                 }
+        
                 return -1;
             }
-        
         }
-               
+        
+        case NODE_CONCAT: {
+            BinaryNode* bin = (BinaryNode*)expr;
+            int left = generar_codigo(bin->left);
+            int right = generar_codigo(bin->right);
+        
+            // Detectar tipos de ambos lados
+            VarType tipo_izq = VAR_TYPE_STRING;
+            VarType tipo_der = VAR_TYPE_STRING;
+        
+            if (((Node*)bin->left)->tipo == NODE_VAR)
+                tipo_izq = obtener_tipo_variable(obtener_nombre_variable((VarNode*)bin->left));
+            if (((Node*)bin->right)->tipo == NODE_VAR)
+                tipo_der = obtener_tipo_variable(obtener_nombre_variable((VarNode*)bin->right));
+        
+            if (((Node*)bin->right)->tipo == NODE_NUMBER)
+                tipo_der = VAR_TYPE_INT;
+        
+            // Si right es int → convertir a string
+            if (tipo_der == VAR_TYPE_INT) {
+                int conv = nuevo_temp();
+                printf("  %%%d = call i8* @int_to_string(i32 %%%d)\n", conv, right);
+                right = conv;
+            }
+        
+            int temp = nuevo_temp();
+            printf("  %%%d = call i8* @strcat2(i8* %%%d, i8* %%%d)\n", temp, left, right);
+            return temp;
+        }
+             
         case NODE_CALL_METHOD: {
             CallMethodNode* call = (CallMethodNode*)expr;
             int obj = get_valor(call->inst_name);
@@ -442,6 +478,8 @@ void declare_extern_functions() {
     printf("declare i32 @llvm.pow.i32(i32, i32)\n");
     printf("declare void @print_int(i32)\n");
     printf("declare void @print_str(i8*)\n\n");
+    printf("declare i8* @int_to_string(i32)\n");  
+    printf("declare i8* @strcat2(i8*, i8*)\n\n");
 }
 
 void generar_programa(ProgramNode* program) {

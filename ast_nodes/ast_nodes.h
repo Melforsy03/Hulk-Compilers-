@@ -43,7 +43,8 @@ typedef enum {
     NODE_CALL_METHOD,
     NODE_CALL_FUNC,
     NODE_TYPE_INSTANTIATION,
-    NODE_BOOLEAN
+    NODE_BOOLEAN,
+    NODE_CONCAT,
 } NodeType;
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {
@@ -191,6 +192,7 @@ typedef struct UnaryNode {
 typedef struct BooleanBinaryNode {
     BinaryNode base;
 } BooleanBinaryNode;
+
 
 typedef struct ComparisonBinaryNode {
     BinaryNode base;
