@@ -5,12 +5,16 @@
 Production* create_production(Symbol* left, Symbol** right, int right_len) 
 {
     Production* p = (Production*)malloc(sizeof(Production));
+    
+    static int prod_counter = 0;
     p->left = left;
     p->right = (Symbol**)malloc(sizeof(Symbol*) * right_len);
     for (int i = 0; i < right_len; ++i) 
         p->right[i] = right[i];
     
     p->right_len = right_len;
+    p->number = prod_counter++;
+
     return p;
 }
 

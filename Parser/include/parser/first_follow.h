@@ -13,4 +13,6 @@ ContainerSet** compute_follows(Grammar* grammar, ContainerSet** firsts);
 // Función auxiliar para imprimir conjuntos FIRST o FOLLOW
 void print_sets(Grammar* grammar, ContainerSet** sets, const char* title);
 
+void free_sets(ContainerSet** sets, int count);
+
 #endif

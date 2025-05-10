@@ -1,6 +1,9 @@
 #include "parser.h"
+#include "grammar.h"
+#include "slr1_table.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 // Estructura para la pila
 typedef struct StackNode 
@@ -10,7 +13,7 @@ typedef struct StackNode
 } StackNode;
 
 // Funciones auxiliares para manejar la pila
-void push(StackNode** stack, int state) 
+void stack_push(StackNode** stack, int state) 
 {
     StackNode* node = (StackNode*)malloc(sizeof(StackNode));
     node->state = state;
@@ -24,7 +27,7 @@ int top(StackNode* stack)
     return stack->state;
 }
 
-void pop(StackNode** stack) 
+void stack_pop(StackNode** stack) 
 {
     if (!*stack) return;
     StackNode* node = *stack;
@@ -42,14 +45,18 @@ void clear_stack(StackNode* stack)
     }
 }
 
-// Función principal de parsing
-int parse(SLR1Table* table, Symbol** input_tokens, int token_count) 
+int parse(SLR1Table* table, Symbol** input_tokens, int token_count, ActionEntrySLR** actions, int* action_count)
 {
     StackNode* stack = NULL;
-    push(&stack, 0);  // Estado inicial 0
+    stack_push(&stack, 0);  
 
     int input_pos = 0;
     Symbol* lookahead = input_tokens[input_pos];
+
+    // Nueva: reservar espacio para las acciones
+    int max_actions = 1000;
+    ActionEntrySLR* action_list = malloc(sizeof(ActionEntrySLR) * max_actions);
+    int action_index = 0;
 
     while (1) 
     {
@@ -70,6 +77,7 @@ int parse(SLR1Table* table, Symbol** input_tokens, int token_count)
         {
             printf("Error: símbolo '%s' no reconocido en la tabla.\n", lookahead->name);
             clear_stack(stack);
+            free(action_list);
             return 0;
         }
 
@@ -77,10 +85,19 @@ int parse(SLR1Table* table, Symbol** input_tokens, int token_count)
 
         printf("Estado actual: %d, símbolo: '%s' -> ", state, lookahead->name);
 
+        // Guardar la acción
+        if (action_index >= max_actions) {
+            printf("Error: se excedió el límite de acciones permitidas.\n");
+            clear_stack(stack);
+            free(action_list);
+            return 0;
+        }
+        action_list[action_index++] = action;
+
         if (action.action == ACTION_SHIFT) 
         {
             printf("Acción: SHIFT a estado %d\n", action.value);
-            push(&stack, action.value);
+            stack_push(&stack, action.value);
             input_pos++;
             if (input_pos < token_count)
                 lookahead = input_tokens[input_pos];
@@ -93,7 +110,7 @@ int parse(SLR1Table* table, Symbol** input_tokens, int token_count)
 
             // Buscar producción a partir del número
             Production* prod = NULL;
-            for (int i = 0; i < table->grammar->productions_count; ++i) 
+            for (int i = 0; i < table->grammar->production_count; ++i) 
             {
                 if (table->grammar->productions[i]->number == action.value) 
                 {
@@ -106,13 +123,14 @@ int parse(SLR1Table* table, Symbol** input_tokens, int token_count)
             {
                 printf("Error: producción %d no encontrada.\n", action.value);
                 clear_stack(stack);
+                free(action_list);
                 return 0;
             }
 
             // Hacer POP según la longitud de la derecha de la producción
             for (int i = 0; i < prod->right_len; ++i) 
             {
-                pop(&stack);
+                stack_pop(&stack);
             }
 
             // GOTO
@@ -132,24 +150,30 @@ int parse(SLR1Table* table, Symbol** input_tokens, int token_count)
             {
                 printf("Error: no se encontró el no terminal '%s'.\n", prod->left->name);
                 clear_stack(stack);
+                free(action_list);
                 return 0;
             }
 
             int next_state = table->goto_table[state][nonterm_idx];
             printf("GOTO a estado %d por '%s'\n", next_state, prod->left->name);
-            push(&stack, next_state);
+            stack_push(&stack, next_state);
         } 
         else if (action.action == ACTION_ACCEPT) 
         {
             printf("Acción: ACCEPT\n");
             clear_stack(stack);
-            return 1;  // Cadena aceptada
+
+            // Guardar resultado
+            *actions = action_list;
+            *action_count = action_index;
+            return 1;  
         } 
         else 
         {
             printf("Acción: ERROR\n");
             clear_stack(stack);
-            return 0;  // Cadena rechazada
+            free(action_list);
+            return 0;
         }
     }
 }

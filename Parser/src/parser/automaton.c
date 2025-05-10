@@ -1,4 +1,5 @@
 #include "automaton.h"
+#include "grammar.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -55,7 +56,8 @@ State* find_existing_state(State** states, int state_count, Item** items, int it
 
 State* build_LR0_automaton(Grammar* grammar) 
 {
-    Production* start_prod = grammar->startSymbol->productions[0];
+    Production* start_prod = grammar->productions[0];
+
     Item* start_item = create_item(start_prod, 0);
 
     Item* initial_items[] = { start_item };

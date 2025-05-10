@@ -7,6 +7,7 @@ typedef struct Production
 {
     Symbol* left;
     Symbol** right;
+    int number; 
     int right_len;
 } Production;
 
@@ -15,5 +16,8 @@ Production* create_production(Symbol* left, Symbol** right, int right_len);
 
 // Imprime una producción
 void print_production(Production* p);
+
+void free_production(Production* p);
+
 
 #endif

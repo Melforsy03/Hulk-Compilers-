@@ -17,24 +17,43 @@ Grammar* create_grammar()
 
 Symbol* add_symbol(Grammar* g, const char* name, SymbolType type) 
 {
-    // Buscar si ya existe
     for (int i = 0; i < g->symbol_count; ++i) 
         if (strcmp(g->symbols[i]->name, name) == 0) 
             return g->symbols[i];
-        
+
     Symbol* s = create_symbol(name, type);
     g->symbols[g->symbol_count++] = s;
+
+    if (type == TERMINAL)
+        g->terminals[g->terminals_count++] = s;
+    else if (type == NON_TERMINAL)
+        g->nonterminals[g->nonterminals_count++] = s;
+
     return s;
 }
 
+
 Symbol* find_symbol(Grammar* g, const char* name) 
 {
-    for (int i = 0; i < g->symbol_count; ++i) 
+    for (int i = 0; i < g->symbol_count; ++i){
+        printf("g = '%s'\n", g->symbols[i]->name);
         if (strcmp(g->symbols[i]->name, name) == 0) 
             return g->symbols[i];
-        
+    }
     return NULL;
 }
+
+Symbol* get_terminal(Grammar* grammar, const char* name) 
+{
+    for (int i = 0; i < grammar->symbol_count; ++i) 
+    {
+        Symbol* sym = grammar->symbols[i];
+        if (sym->type == TERMINAL && strcmp(sym->name, name) == 0) 
+            return sym;
+    }
+    return NULL;
+}
+
 
 void add_production(Grammar* g, Symbol* left, Symbol** right, int right_len) 
 {

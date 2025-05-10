@@ -12,6 +12,12 @@ typedef struct Grammar
     Symbol* symbols[MAX_SYMBOLS];
     int symbol_count;
 
+    Symbol* terminals[MAX_SYMBOLS];
+    int terminals_count;
+
+    Symbol* nonterminals[MAX_SYMBOLS];
+    int nonterminals_count;
+
     Production* productions[MAX_PRODUCTIONS];
     int production_count;
 
@@ -35,7 +41,11 @@ void add_production(Grammar* grammar, Symbol* left, Symbol** right, int right_le
 // Imprimir gramática
 void print_grammar(Grammar* grammar);
 
+Symbol* get_terminal(Grammar* grammar, const char* name);
+
 // Cargar gramática desde archivo
 void load_grammar_from_file(Grammar* grammar, const char* filename);
+
+void free_grammar(Grammar* g);
 
 #endif

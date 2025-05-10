@@ -1,4 +1,5 @@
 #include "slr1_table.h"
+#include "grammar.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -93,7 +94,7 @@ SLR1Table* build_slr1_table(State* start, Grammar* grammar, ContainerSet** follo
 
             if (is_reduce_item(item)) 
             {
-                if (strcmp(item->production->left->name, grammar->startSymbol->name) == 0) 
+                if (strcmp(item->production->left->name, grammar->start_symbol->name) == 0) 
                 {
                     // ACCEPT
                     int dollar_idx = index_of_symbol_slr(grammar->terminals, grammar->terminals_count, grammar->eof);

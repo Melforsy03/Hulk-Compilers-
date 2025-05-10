@@ -24,4 +24,6 @@ int symbol_equals(Symbol* a, Symbol* b);
 // Imprime un símbolo
 void print_symbol(Symbol* symbol);
 
+void free_symbol(Symbol* s);
+
 #endif

@@ -63,12 +63,6 @@ int containerset_hard_update(ContainerSet* target, ContainerSet* source)
     return changed;
 }
 
-void free_containerset(ContainerSet* set) 
-{
-    free(set->symbols);
-    free(set);
-}
-
 void print_containerset(ContainerSet* set, const char* label) 
 {
     printf("%s: { ", label);
