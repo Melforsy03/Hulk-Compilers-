@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 // Crea el conjunto FIRST para una secuencia de símbolos (alpha)
-ContainerSet* compute_local_first(ContainerSet** firsts, Symbol** alpha, int alpha_size) 
+ContainerSet* compute_local_first(Grammar* grammar, ContainerSet** firsts, Symbol** alpha, int alpha_size) 
 {
     ContainerSet* first_alpha = create_containerset();
 
@@ -16,13 +16,26 @@ ContainerSet* compute_local_first(ContainerSet** firsts, Symbol** alpha, int alp
     int add_epsilon = 1;
     for (int i = 0; i < alpha_size; i++) 
     {
-        ContainerSet* first_sym = firsts[alpha[i]->type == EPSILON ? 0 : i]; // cuidado
-        containerset_update(first_alpha, first_sym);
-
-        if (!first_sym->contains_epsilon) 
+        int index = -1;
+        for (int j = 0; j < grammar->symbol_count; ++j) 
         {
-            add_epsilon = 0;
-            break;
+            if (symbol_equals(grammar->symbols[j], alpha[i])) 
+            {
+                index = j;
+                break;
+            }
+        }
+
+        if (index >= 0) 
+        {
+            ContainerSet* first_sym = firsts[index];
+            containerset_update(first_alpha, first_sym);
+
+            if (!first_sym->contains_epsilon) 
+            {
+                add_epsilon = 0;
+                break;
+            }
         }
     }
 
@@ -70,7 +83,7 @@ ContainerSet** compute_firsts(Grammar* grammar)
             }
 
             ContainerSet* first_left = firsts[left_index];
-            ContainerSet* local_first = compute_local_first(firsts, p->right, p->right_len);
+            ContainerSet* local_first = compute_local_first(grammar,firsts, p->right, p->right_len);
 
             changed |= containerset_hard_update(first_left, local_first);
             free_containerset(local_first);
@@ -127,7 +140,7 @@ ContainerSet** compute_follows(Grammar* grammar, ContainerSet** firsts)
                     Symbol** beta = &symbols[j + 1];
                     int beta_len = len - (j + 1);
 
-                    ContainerSet* first_beta = compute_local_first(firsts, beta, beta_len);
+                    ContainerSet* first_beta = compute_local_first(grammar,firsts, beta, beta_len);
                     ContainerSet* follow_B = follows[B_index];
 
                     // FIRST(beta) - {ε} se agrega a FOLLOW(B)

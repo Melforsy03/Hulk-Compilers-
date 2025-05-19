@@ -7,12 +7,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main() {
+int main() 
+{
     printf("=== Cargando Gramática ===\n");
     Grammar* grammar = create_grammar();
     printf("=== Cargo Gramática ===\n");
     load_grammar_from_file(grammar, "producciones.txt");
-    print_grammar(grammar);
+
+    // Después de cargar producciones
+    Symbol* augmented = create_symbol("S'", NON_TERMINAL);
+    grammar->nonterminals[grammar->nonterminals_count++] = augmented;
+
+    Symbol** right = malloc(sizeof(Symbol*));
+    right[0] = grammar->start_symbol;
+
+    Production* augmented_prod = create_production(augmented, right, 1);
+    augmented_prod->number = -1;
+
+    augmented_prod->right[0] = grammar->start_symbol;
+    augmented_prod->right_len = 1;
+
+    grammar->productions[grammar->production_count++] = augmented_prod;
 
     printf("\n=== Calculando FIRST y FOLLOW ===\n");
     ContainerSet** firsts = compute_firsts(grammar);
@@ -30,14 +45,19 @@ int main() {
     print_slr1_table(slr_table);
 
     // === Simulación manual de símbolos (tokens) ===
-    // Por ejemplo: num + num * num $
+    // Por ejemplo: id + id * id $
 
-    Symbol* num = get_terminal(grammar, "num");
-    Symbol* plus = get_terminal(grammar, "+");
-    Symbol* star = get_terminal(grammar, "*");
-    Symbol* dollar = get_terminal(grammar, "$");
+    Symbol* function_kw = get_terminal(grammar, "function");
+    Symbol* id = get_terminal(grammar, "id");
+    Symbol* lparen = get_terminal(grammar, "(");
+    Symbol* rparen = get_terminal(grammar, ")");
+    Symbol* arrow = get_terminal(grammar, "=>");
+    Symbol* semicolon = get_terminal(grammar, ";");
+    Symbol* dollar = get_terminal(grammar,"$");
 
-    Symbol* input_symbols[] = {num, plus, num, star, num, dollar};
+    Symbol* input_symbols[] = {
+        function_kw, id, lparen, rparen, arrow, id, semicolon, dollar
+    };
     int token_count = sizeof(input_symbols) / sizeof(Symbol*);
 
     printf("\n=== Analizando cadena ===\n");

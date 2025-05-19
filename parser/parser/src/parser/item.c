@@ -48,3 +48,9 @@ void free_item(Item* item)
     if (item) 
         free(item);
 }
+Symbol* get_next_symbol(Item* item) {
+    if (item->pos < item->production->right_len) {
+        return item->production->right[item->pos];
+    }
+    return NULL;
+}

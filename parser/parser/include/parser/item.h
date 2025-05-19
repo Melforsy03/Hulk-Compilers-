@@ -27,5 +27,8 @@ void print_item(Item* item);
 
 // Liberar memoria de un item
 void free_item(Item* item);
+Symbol* get_next_symbol(Item* item);
+
+
 
 #endif
