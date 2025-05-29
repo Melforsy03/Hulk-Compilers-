@@ -6,7 +6,7 @@
 #include "automaton.h"
 #include "parser.h"
 #include "lr1_table.h"
-
+ 
 int main() {
     printf("=== Cargando Gramática ===\\n");
     Grammar* grammar = create_grammar("archivo.txt");
@@ -69,16 +69,16 @@ int main() {
 
     // === Simulación manual de símbolos (tokens) ===
     Symbol* num1 = get_terminal(grammar, "num");
-Symbol* plus = get_terminal(grammar, "+");
-Symbol* num2 = get_terminal(grammar, "num");
-Symbol* mult = get_terminal(grammar, "*");
-Symbol* num3 = get_terminal(grammar, "num");
-Symbol* semicolon = get_terminal(grammar, ";");
-Symbol* dollar = get_terminal(grammar, "$");
+    Symbol* plus = get_terminal(grammar, "+");
+    Symbol* num2 = get_terminal(grammar, "num");
+    Symbol* mult = get_terminal(grammar, "*");
+    Symbol* num3 = get_terminal(grammar, "num");
+    Symbol* semicolon = get_terminal(grammar, ";");
+    Symbol* dollar = get_terminal(grammar, "$");
 
-Symbol* input_symbols[] = {
-    num1, plus, num2, mult, num3, semicolon, dollar
-};
+    Symbol* input_symbols[] = {
+        num1, plus, num2, mult, num3, semicolon, dollar
+    };
     int token_count = sizeof(input_symbols) / sizeof(Symbol*);
 
     printf("\n=== Analizando cadena ===\n");
@@ -87,6 +87,14 @@ Symbol* input_symbols[] = {
     int action_count = 0;
 
     int accepted = parser(lr_table, input_symbols, token_count, &actions, &action_count);
+
+    //ASTNode* root = parse(table, grammar);
+    //if (root) {
+    //    print_ast(root, 0);
+    //    free_ast(root);
+    //} else {
+    //    fprintf(stderr, "Parsing fallido.\n");
+    //}
 
     if (accepted) {
         printf("\n=== Cadena ACEPTADA ===\n");

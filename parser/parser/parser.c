@@ -5,9 +5,57 @@
 #include <stdio.h>
 #include <string.h>
 
+//typedef struct {
+//    int state;
+//    ASTNode* node;
+//} StackEntry;
+//
+//ASTNode* parse(LR1Table* table, Grammar* grammar) {
+//    StackEntry stack[1024];
+//    int top = 0;
+//    stack[top].state = 0;
+//    stack[top].node = NULL;
+//
+//    Token token = get_next_token();
+//    while (1) {
+//        int current_state = stack[top].state;
+//        ActionEntrySLR action = table->action[current_state][token.id];
+//
+//        if (action.type == ACTION_SHIFT) {
+//            ++top;
+//            stack[top].state = action.target;
+//            stack[top].node = create_ast_leaf(token);
+//            token = get_next_token();
+//
+//        } else if (action.type == ACTION_REDUCE) {
+//            Production* prod = &grammar->productions[action.target];
+//            ASTNode* children[16];
+//
+//            for (int i = 0; i < prod->rhs_len; ++i) {
+//                children[prod->rhs_len - i - 1] = stack[top].node;
+//                --top;
+//            }
+//
+//            ASTNode* node = create_ast_node(prod->lhs, children, prod->rhs_len);
+//
+//            int goto_state = table->goto_table[stack[top].state][prod->lhs->id];
+//            ++top;
+//            stack[top].state = goto_state;
+//            stack[top].node = node;
+//
+//        } else if (action.type == ACTION_ACCEPT) {
+//            return stack[top].node;
+//        } else {
+//            fprintf(stderr, "Error: acción inválida en el parser. Token: %s\n", token.lexeme);
+//            return NULL;
+//        }
+//    }
+//}
+//
+
 // Estructura para la pila
 typedef struct StackNode 
-{
+{ 
     int state;                // Estado en la pila
     struct StackNode* next;
 } StackNode;

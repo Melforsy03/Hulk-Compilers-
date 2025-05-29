@@ -10,7 +10,7 @@ void collect_states_lr1(State* start, State** states, int* state_count) {
     int visited_capacity = 1000;
     int visited_count = 0;
     states[visited_count++] = start;
-
+ 
     for (int i = 0; i < visited_count; ++i) {
         State* current = states[i];
         Transition* t = current->transitions;
