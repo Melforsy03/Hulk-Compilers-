@@ -3,20 +3,47 @@
 #include <stdlib.h>
 #include <string.h>
 
-Grammar* create_grammar() 
-{
-    Grammar* g = (Grammar*)malloc(sizeof(Grammar));
+Grammar* create_grammar() {
+    Grammar* g = malloc(sizeof(Grammar));
+    if (!g) return NULL;
+
+    // Inicializar todos los campos
     g->symbol_count = 0;
     g->production_count = 0;
+    g->terminals_count = 0;
+    g->nonterminals_count = 0;
     g->start_symbol = NULL;
 
+    // Inicializar arrays
+    for (int i = 0; i < MAX_SYMBOLS; i++) {
+        g->symbols[i] = NULL;
+        g->terminals[i] = NULL;
+        g->nonterminals[i] = NULL;
+    }
+    
+    for (int i = 0; i < MAX_PRODUCTIONS; i++) {
+        g->productions[i] = NULL;
+    }
+
+    // Símbolos especiales
     g->epsilon = create_symbol("epsilon", EPSILON);
     g->eof = create_symbol("$", EOF_SYM);
+    
+    if (!g->epsilon || !g->eof) {
+        free(g);
+        return NULL;
+    }
+
     return g;
 }
 
 Symbol* add_symbol(Grammar* g, const char* name, SymbolType type) 
 {
+    if (g->symbol_count >= MAX_SYMBOLS) {
+    fprintf(stderr, "Error: Máximo número de símbolos alcanzado.\n");
+    return NULL;
+    }
+
     for (int i = 0; i < g->symbol_count; ++i) 
         if (strcmp(g->symbols[i]->name, name) == 0) 
             return g->symbols[i];
@@ -32,13 +59,13 @@ Symbol* add_symbol(Grammar* g, const char* name, SymbolType type)
     return s;
 }
 
+Symbol* find_symbol(Grammar* g, const char* name) {
+    if (!g || !name) return NULL;
 
-Symbol* find_symbol(Grammar* g, const char* name) 
-{
-    for (int i = 0; i < g->symbol_count; ++i){
-        printf("g = '%s'\n", g->symbols[i]->name);
-        if (strcmp(g->symbols[i]->name, name) == 0) 
+    for (int i = 0; i < g->symbol_count; ++i) {
+        if (g->symbols[i] && strcmp(g->symbols[i]->name, name) == 0) {
             return g->symbols[i];
+        }
     }
     return NULL;
 }
@@ -78,17 +105,20 @@ void print_grammar(Grammar* g)
     }
 }
 
-void free_grammar(Grammar* g)
-{
+void free_grammar(Grammar* g) {
     if (!g) return;
 
-    for (int i = 0; i < g->symbol_count; ++i) 
+    // Liberar símbolos (pero no el array symbols[])
+    for (int i = 0; i < g->symbol_count; ++i) {
         free_symbol(g->symbols[i]);
-    
-    for (int i = 0; i < g->production_count; ++i) 
+    }
+
+    // Liberar producciones (pero no el array productions[])
+    for (int i = 0; i < g->production_count; ++i) {
         free_production(g->productions[i]);
+    }
 
     free_symbol(g->epsilon);
     free_symbol(g->eof);
-    free(g);
+    free(g);  // Liberar la estructura Grammar
 }

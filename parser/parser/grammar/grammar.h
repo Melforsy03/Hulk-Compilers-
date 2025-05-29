@@ -7,23 +7,20 @@
 #define MAX_SYMBOLS 300
 #define MAX_PRODUCTIONS 1050
 
-typedef struct Grammar 
-{
+typedef struct {
     Symbol* symbols[MAX_SYMBOLS];
-    int symbol_count;
-
     Symbol* terminals[MAX_SYMBOLS];
-    int terminals_count;
-
     Symbol* nonterminals[MAX_SYMBOLS];
-    int nonterminals_count;
-
     Production* productions[MAX_PRODUCTIONS];
-    int production_count;
 
+    int symbol_count;
+    int terminals_count;
+    int nonterminals_count;
+    int production_count;
+    
     Symbol* start_symbol;
-    Symbol* epsilon;  // símbolo epsilon
-    Symbol* eof;      // símbolo fin de archivo $
+    Symbol* epsilon;
+    Symbol* eof;
 } Grammar;
 
 // Crear una gramática vacía

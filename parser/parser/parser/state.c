@@ -3,26 +3,49 @@
 #include <stdio.h>
 #include <string.h>
 
-State* create_state(Item** items, int item_count) 
-{
-    State* state = (State*)malloc(sizeof(State));
-    state->items = (Item**)malloc(sizeof(Item*) * item_count);
-    for (int i = 0; i < item_count; ++i) 
-        state->items[i] = items[i];
+State* create_state(Item** items, int item_count) {
+    if (!items || item_count <= 0) {
+        fprintf(stderr, "Error: Intento de crear estado con items inválidos\n");
+        return NULL;
+    }
+
+    static int state_counter = 0;
+    State* state = malloc(sizeof(State));
+    state->items = malloc(sizeof(Item*) * item_count);
     
+    for (int i = 0; i < item_count; i++) {
+        if (!items[i]) {
+            fprintf(stderr, "Error: Item nulo en creación de estado\n");
+            free(state->items);
+            free(state);
+            return NULL;
+        }
+        state->items[i] = items[i];
+    }
+
     state->item_count = item_count;
     state->transitions = NULL;
+    state->id = state_counter++;
     state->is_final = 0;
     return state;
 }
 
-void add_transition(State* from, Symbol* symbol, State* to) 
-{
-    Transition* t = (Transition*)malloc(sizeof(Transition));
-    t->symbol = symbol;
-    t->next_state = to;
-    t->next = from->transitions;
-    from->transitions = t;
+void add_transition(State* from, Symbol* symbol, State* to) {
+    // Verificar si la transición ya existe
+    Transition* t = from->transitions;
+    while (t) {
+        if (symbol_equals(t->symbol, symbol) && t->next_state == to) {
+            return; // La transición ya existe
+        }
+        t = t->next;
+    }
+    
+    // Crear nueva transición
+    Transition* new_t = (Transition*)malloc(sizeof(Transition));
+    new_t->symbol = symbol;
+    new_t->next_state = to;
+    new_t->next = from->transitions;
+    from->transitions = new_t;
 }
 
 State* get_transition(State* from, Symbol* symbol) 

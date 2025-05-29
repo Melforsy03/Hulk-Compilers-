@@ -23,7 +23,7 @@ void print_production(Production* p)
     print_symbol(p->left);
     printf(" -> ");
     if (p->right_len == 0) 
-        printf("ε");
+        printf("epsilon");
     else 
         for (int i = 0; i < p->right_len; ++i) 
             printf("%s ", p->right[i]->name);

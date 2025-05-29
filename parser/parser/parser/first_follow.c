@@ -96,70 +96,103 @@ ContainerSet** compute_firsts(Grammar* grammar)
 // Calcula FOLLOW para toda la gramática
 ContainerSet** compute_follows(Grammar* grammar, ContainerSet** firsts) 
 {
+    if (!grammar || !firsts) {
+        fprintf(stderr, "Error: Gramática o conjuntos FIRST nulos\n");
+        return NULL;
+    }
+
+    // Verificar que el símbolo EOF existe
+    if (!grammar->eof) {
+        fprintf(stderr, "Error: Símbolo EOF no inicializado\n");
+        return NULL;
+    }
+
     int n = grammar->symbol_count;
     ContainerSet** follows = (ContainerSet**)malloc(sizeof(ContainerSet*) * n);
+    if (!follows) {
+        fprintf(stderr, "Error: Memoria insuficiente para follows\n");
+        return NULL;
+    }
 
-    for (int i = 0; i < n; ++i) 
+    // Inicialización segura
+    for (int i = 0; i < n; ++i) {
         follows[i] = create_containerset();
-
-    // El símbolo inicial tiene $ en su FOLLOW
-    for (int i = 0; i < n; ++i) 
-        if (grammar->symbols[i] == grammar->start_symbol) 
-        {
-            add_symbol_to_set(follows[i], grammar->eof);
-            break;
-        }
-
-    int changed = 1;
-    while (changed) 
-    {
-        changed = 0;
-
-        for (int i = 0; i < grammar->production_count; ++i) 
-        {
-            Production* p = grammar->productions[i];
-            Symbol** symbols = p->right;
-            int len = p->right_len;
-
-            for (int j = 0; j < len; ++j) 
-            {
-                Symbol* B = symbols[j];
-
-                if (B->type == NON_TERMINAL) 
-                {
-                    int B_index = -1;
-                    int left_index = -1;
-
-                    for (int k = 0; k < n; ++k) 
-                    {
-                        if (grammar->symbols[k] == B) B_index = k;
-                        if (grammar->symbols[k] == p->left) left_index = k;
-                    }
-
-                    // beta = symbols after B
-                    Symbol** beta = &symbols[j + 1];
-                    int beta_len = len - (j + 1);
-
-                    ContainerSet* first_beta = compute_local_first(grammar,firsts, beta, beta_len);
-                    ContainerSet* follow_B = follows[B_index];
-
-                    // FIRST(beta) - {ε} se agrega a FOLLOW(B)
-                    for (int t = 0; t < first_beta->size; ++t) 
-                    {
-                        changed |= add_symbol_to_set(follow_B, first_beta->symbols[t]);
-                    }
-
-                    // Si FIRST(beta) contiene ε, agregamos FOLLOW(A) a FOLLOW(B)
-                    if (first_beta->contains_epsilon || beta_len == 0) 
-                    {
-                        changed |= containerset_update(follow_B, follows[left_index]);
-                    }
-
-                    free_containerset(first_beta);
-                }
-            }
+        if (!follows[i]) {
+            fprintf(stderr, "Error: No se pudo crear conjunto FOLLOW para %s\n", 
+                   grammar->symbols[i]->name);
+            free_sets(follows, i);
+            return NULL;
         }
     }
+
+    // Paso 1: Añadir $ al símbolo inicial
+    int start_found = 0;
+    for (int i = 0; i < n; ++i) {
+        if (grammar->symbols[i] == grammar->start_symbol) {
+            add_symbol_to_set(follows[i], grammar->eof);
+            start_found = 1;
+            break;
+        }
+    }
+    if (!start_found) {
+        fprintf(stderr, "Error: Símbolo inicial no encontrado\n");
+        free_sets(follows, n);
+        return NULL;
+    }
+
+    int changed;
+    do {
+        changed = 0;
+        for (int i = 0; i < grammar->production_count; ++i) {
+            Production* p = grammar->productions[i];
+            if (!p) continue;
+
+            // Encontrar índice del símbolo izquierdo
+            int A_index = -1;
+            for (int k = 0; k < n; ++k) {
+                if (grammar->symbols[k] == p->left) {
+                    A_index = k;
+                    break;
+                }
+            }
+            if (A_index == -1) continue;
+
+            for (int j = 0; j < p->right_len; ++j) {
+                Symbol* B = p->right[j];
+                if (!B || B->type != NON_TERMINAL) continue;
+
+                // Encontrar índice de B
+                int B_index = -1;
+                for (int k = 0; k < n; ++k) {
+                    if (grammar->symbols[k] == B) {
+                        B_index = k;
+                        break;
+                    }
+                }
+                if (B_index == -1) continue;
+
+                // Calcular FIRST de beta
+                Symbol** beta = p->right + j + 1;
+                int beta_len = p->right_len - j - 1;
+                ContainerSet* first_beta = compute_local_first(grammar, firsts, beta, beta_len);
+                if (!first_beta) continue;
+
+                // Paso 2: Añadir FIRST(beta)-{ε} a FOLLOW(B)
+                for (int t = 0; t < first_beta->size; ++t) {
+                    if (first_beta->symbols[t]->type != EPSILON) {
+                        changed |= add_symbol_to_set(follows[B_index], first_beta->symbols[t]);
+                    }
+                }
+
+                // Paso 3: Si ε ∈ FIRST(beta), añadir FOLLOW(A) a FOLLOW(B)
+                if (first_beta->contains_epsilon || beta_len == 0) {
+                    changed |= containerset_update(follows[B_index], follows[A_index]);
+                }
+
+                free_containerset(first_beta);
+            }
+        }
+    } while (changed);
 
     return follows;
 }

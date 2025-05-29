@@ -18,13 +18,17 @@ ContainerSet* create_containerset();
 int add_symbol_to_set(ContainerSet* set, Symbol* sym);
 
 // Verifica si contiene un símbolo
-int set_contains_symbol(ContainerSet* set, Symbol* sym);
+int set_contains_symbol(const ContainerSet* set, Symbol* sym);
 
 // Unir otro conjunto
 int containerset_update(ContainerSet* target, ContainerSet* source);
 
 // Unir y actualizar epsilon
 int containerset_hard_update(ContainerSet* target, ContainerSet* source);
+
+ContainerSet* copy_containerset(const ContainerSet* original);
+
+int containerset_equals(const ContainerSet* a, const ContainerSet* b);
 
 // Establecer epsilon
 void set_epsilon(ContainerSet* set);

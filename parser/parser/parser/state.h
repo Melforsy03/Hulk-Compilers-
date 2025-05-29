@@ -16,15 +16,13 @@ struct Transition
 };
 
 // Definición del struct State
-struct State 
-{
-    Item** items;        // Lista de Items del estado
+struct State {
+    int id;  
+    Item** items;
     int item_count;
-
-    Transition* transitions;  // Lista de transiciones
-    int is_final;             // Si el estado es final (opcional, pero útil)
+    Transition* transitions;
+    int is_final;
 };
-
 // Crear un nuevo estado con un conjunto de items
 State* create_state(Item** items, int item_count);
 

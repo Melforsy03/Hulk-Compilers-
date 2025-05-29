@@ -1,5 +1,5 @@
-#ifndef SLR1_TABLE_H
-#define SLR1_TABLE_H
+#ifndef LR1_TABLE_H
+#define LR1_TABLE_H
 
 #include "state.h"
 #include "grammar.h"
@@ -12,33 +12,37 @@ typedef enum
     ACTION_SHIFT,
     ACTION_REDUCE,
     ACTION_ACCEPT
-} ActionTypeSLR;
+} ActionTypeLR1;
 
 // Entrada de la tabla ACTION
 typedef struct 
 {
-    ActionTypeSLR action;
+    ActionTypeLR1 action;
     int value;  // Estado destino o número de producción
-} ActionEntrySLR;
+} ActionEntryLR1;
 
-// Estructura general de la tabla SLR(1)
+// Estructura general de la tabla LR(1)
 typedef struct 
 {
-    ActionEntrySLR** action;  // [estado][terminal]
+    ActionEntryLR1** action;  // [estado][terminal]
     int** goto_table;         // [estado][no_terminal]
     int state_count;
     int terminal_count;
     int nonterminal_count;
     Grammar* grammar;
-} SLR1Table;
+} LR1Table;
 
-// Construir la tabla SLR(1)
-SLR1Table* build_slr1_table(State* start, Grammar* grammar, ContainerSet** follows);
+// Construir la tabla LR(1)
+LR1Table* build_lr1_table(State* start, Grammar* grammar);
+
+void collect_states_lr1(State* start, State** states, int* state_count);
+
+int index_of_symbol(Symbol** list, int count, Symbol* s);
 
 // Imprimir la tabla
-void print_slr1_table(SLR1Table* table);
+void print_lr1_table(LR1Table* table);
 
 // Liberar memoria de la tabla
-void free_slr1_table(SLR1Table* table);
+void free_lr1_table(LR1Table* table);
 
 #endif

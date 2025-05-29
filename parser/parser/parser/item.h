@@ -2,16 +2,17 @@
 #define ITEM_H
 
 #include "production.h"
+#include "containerset.h"
 
-// Definición del struct Item
-typedef struct 
-{
-    Production* production; // Producción A → αβ
-    int pos;                // Posición del punto (cuántos símbolos ya hemos "leído")
+typedef struct Item {
+    Production* production;
+    int pos;
+    ContainerSet* lookaheads;  
 } Item;
 
+
 // Crear un nuevo item
-Item* create_item(Production* production, int pos);
+Item* create_item(Production* production, int pos, ContainerSet* lookaheads);
 
 // Avanzar el punto en un item
 Item* next_item(Item* item);

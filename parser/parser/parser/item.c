@@ -2,20 +2,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-Item* create_item(Production* production, int pos)
-{
-    Item* item = (Item*)malloc(sizeof(Item));
+Item* create_item(Production* production, int pos, ContainerSet* lookaheads) {
+    Item* item = malloc(sizeof(Item));
     item->production = production;
     item->pos = pos;
+    item->lookaheads = lookaheads ? copy_containerset(lookaheads) : create_containerset();
     return item;
 }
 
-Item* next_item(Item* item) 
-{
-    if (item->pos < item->production->right_len) 
-        return create_item(item->production, item->pos + 1);
-    
-    return NULL; // No se puede avanzar más
+Item* next_item(Item* item) {
+    if (item->pos < item->production->right_len) {
+        Item* new_item = create_item(item->production, item->pos + 1, item->lookaheads);
+        return new_item;
+    }
+    return NULL;
 }
 
 int is_reduce_item(Item* item) 
@@ -23,9 +23,16 @@ int is_reduce_item(Item* item)
     return item->pos >= item->production->right_len;
 }
 
-int compare_items(Item* a, Item* b) 
-{
-    return (a->production == b->production) && (a->pos == b->pos);
+int compare_items(Item* a, Item* b) {
+    if (a->pos != b->pos) return 0;
+    if (a->production->left != b->production->left) return 0;
+    if (a->production->right_len != b->production->right_len) return 0;
+
+    for (int i = 0; i < a->production->right_len; ++i) {
+        if (a->production->right[i] != b->production->right[i]) return 0;
+    }
+
+    return 1;
 }
 
 void print_item(Item* item) 
