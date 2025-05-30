@@ -37,7 +37,6 @@ void reset_temporales() {
     contador_temporales = 0;
 }
 
-
 // Función principal de generación de código
 int generar_codigo(ExpressionNode* expr) {
     if (!expr) return -1;
@@ -411,7 +410,6 @@ const char* nuevo_tmp() {
 const char* tmp_actual() {
     return last_tmp;
 }
-
 // Registrar una nueva variable
 void registrar_variables(ProgramNode* program) {
     VarDeclarationNode** decls = (VarDeclarationNode**)program->declarations;
@@ -471,7 +469,6 @@ void generar_constantes_globales(ProgramNode* program) {
                i, len + 1, str_val);
     }
 }
-
 
 void declare_extern_functions() {
     printf("declare i8* @strdup(i8*)\n");
