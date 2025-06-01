@@ -80,12 +80,12 @@ DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
     dfa.cantidad_estados = 1;
     dfa.estados[0].num_transiciones = 0;
     dfa.estados[0].es_final = 0;
-    dfa.estados[0].token_id = -1;
+    dfa.estados[0].id = -1;
 
     for (int i = 0; i < iniciales_count; i++) {
         if (iniciales[i]->es_final) {
             dfa.estados[0].es_final = 1;
-            dfa.estados[0].token_id = token_id;
+            dfa.estados[0].id = token_id;
             break;
         }
     }
@@ -127,12 +127,12 @@ DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
                 nuevo_estado->id = estado_dfa_id_global++;
                 nuevo_estado->num_transiciones = 0;
                 nuevo_estado->es_final = 0;
-                nuevo_estado->token_id = -1;
+                nuevo_estado->id = -1;
 
                 for (int i = 0; i < cerrados_count; i++) {
                     if (cerrados[i]->es_final) {
                         nuevo_estado->es_final = 1;
-                        nuevo_estado->token_id = token_id;
+                        nuevo_estado->id = token_id;
                         break;
                     }
                 }

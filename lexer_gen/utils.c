@@ -2,8 +2,17 @@
 #include "utils.h"
 #include <stdlib.h>
 #include <stdio.h> 
+#include <string.h>
+
 static int estado_id_global = 0;
 
+char* my_strndup(const char* src, size_t n) {
+    char* s = malloc(n + 1);
+    if (!s) return NULL;
+    strncpy(s, src, n);
+    s[n] = '\0';
+    return s;
+}
 EstadoNFA* nuevo_estado() {
     EstadoNFA* e = malloc(sizeof(EstadoNFA));
     e->id = estado_id_global++;
