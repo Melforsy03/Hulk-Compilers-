@@ -16,7 +16,11 @@
     } HulkError;
 
     // Implementación de HulkErrorList
-
+    typedef struct HulkErrorList {
+        HulkError** errors;
+        int count;
+        int capacity;
+    } HulkErrorList;
     HulkErrorList* HulkErrorList_create() {
         HulkErrorList* list = (HulkErrorList*)malloc(sizeof(HulkErrorList));
         if (!list) return NULL;
