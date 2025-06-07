@@ -43,21 +43,34 @@ typedef enum {
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACE,
+    TOKEN_RBRACKET,
     TOKEN_RBRACE,
     TOKEN_COMMA,
+    TOKEN_AT_AT,
     TOKEN_SEMICOLON,
     TOKEN_IDENTIFIER,
     TOKEN_NUMBER,
     TOKEN_STRING,
+    TOKEN_DSTAR,
+    TOKEN_LBRACKET,
+
     TOKEN_EOF,
+    TOKEN_WHITESPACE,
     TOKEN_ERROR
 } TokenType;
 
-typedef struct { int destino; char simbolo; } Transicion;
 
-typedef struct {
-    int id; int num_transiciones; Transicion transiciones[128];
-    int final; TokenType tipo;
+typedef struct Transicion {
+    int destino;
+    char simbolo;
+} Transicion;
+
+typedef struct EstadoDFA {
+    int id;
+    int num_transiciones;
+    Transicion transiciones[128];
+    int es_final;
+    TokenType tipo;
 } EstadoDFA;
 
 typedef struct {
@@ -66,7 +79,7 @@ typedef struct {
     int length;
 } Token;
 
-Token next_token(const char* input);
+Token next_token(const char** input);
 void print_token(Token t);
 
 #endif

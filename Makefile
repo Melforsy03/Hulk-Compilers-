@@ -1,80 +1,76 @@
-# Makefile actualizado para compilación segura en 64 bits
+# Carpetas
+LEXER_GEN_DIR = lexer_gen
+SRC_DIR = src
+LEXER_DIR = lexer
+BUILD_DIR = build
 
-# Variables
-SCRIPT=script.hulk
-BUILD_DIR=build
-SRC=$(wildcard */*.c) $(wildcard *.c)
-OBJ=$(patsubst %.c, $(BUILD_DIR)/%.o, $(SRC))
-DEP=$(OBJ:.o=.d)
-BIN=$(BUILD_DIR)/hulk
+# Archivos fuente
+LEXER_GEN_SRC = $(LEXER_GEN_DIR)/generar_lexer.c \
+                $(LEXER_GEN_DIR)/regex_to_dfa.c \
+                $(LEXER_GEN_DIR)/nfa_to_dfa.c \
+				$(LEXER_GEN_DIR)/regex_parser.c \
+                $(LEXER_GEN_DIR)/utils.c
 
-CC=gcc
-ARCH_FLAGS=-m64 
-CFLAGS = -Wall -Wextra -std=c99 -MMD -MP -I. -m64
+SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
+SRC_FILES += $(LEXER_DIR)/lexer.c  # ✅ Incluir lexer.c
 
-# Comandos multiplataforma
-ifeq ($(OS),Windows_NT)
-	RM = cmd /C "if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)"
-	MKDIR = cmd /C "if not exist $(subst /,\\,$(dir $@)) mkdir $(subst /,\\,$(dir $@))"
-else
-	RM = rm -rf $(BUILD_DIR)
-	MKDIR = mkdir -p $(dir $@)
-endif
+# Archivos objeto en build/
+OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(filter $(SRC_DIR)/%.c, $(SRC_FILES)))
+OBJ_FILES += $(BUILD_DIR)/lexer.o  # ✅ Incluir lexer.o explícitamente
 
-.PHONY: all build run clean
+# Ejecutables
+GENERATOR_EXE = generar_lexer.exe
+FINAL_EXE = compilador.exe
+
+# Compilador
+CC = gcc
+CFLAGS = -Wall -O2 -mconsole
+
+.PHONY: all lexer run clean lexer-clean
 
 # Compilar todo
-all: build
+all: lexer $(FINAL_EXE)
 
-# Construir binario
-build: $(BIN)
+# Ejecutable del compilador principal
+$(FINAL_EXE): $(OBJ_FILES) 
+	$(CC) $(CFLAGS) $^ -o $@
 
-# Enlazar objetos en ejecutable final
-$(BIN): $(OBJ)
-	@echo "==> Linking..."
-	$(CC) $(ARCH_FLAGS) $(OBJ) -o $(BIN)
-
-# Compilar .c a .o respetando estructura de carpetas
-$(BUILD_DIR)/%.o: %.c
-	@echo "==> Compiling $<..."
-	@$(MKDIR)
+# Compilar cada .c de src/ a .o dentro de build/
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Compilar lexer.c a lexer.o
+$(BUILD_DIR)/lexer.o: $(LEXER_DIR)/lexer.c
+	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Limpiar todo lo compilado
+# Generar lexer.c y guardarlo en /lexer
+lexer: $(GENERATOR_EXE)
+	if not exist $(LEXER_DIR) mkdir $(LEXER_DIR)
+	./$(GENERATOR_EXE)
+	move lexer.c $(LEXER_DIR)\lexer.c
+	@echo ✅ Lexer generado en $(LEXER_DIR)\lexer.c
+
+# Compilar generador del lexer con main exclusivo
+$(GENERATOR_EXE): $(LEXER_GEN_SRC)
+	$(CC) $(CFLAGS) -DGENERAR_LEXER_MAIN -o $@ $^
+
+# Eliminar el lexer generado explícitamente
+lexer-clean:
+	@echo 🧹 Eliminando lexer generado...
+	-del /q $(LEXER_DIR)\lexer.c 2>nul
+	@echo ✅ Lexer eliminado.
+
+# Ejecutar el compilador principal
+run: $(FINAL_EXE)
+	./$(FINAL_EXE) archivo_entrada.txt
+
+
+# Limpiar binarios y objetos pero conservar lexer.c
 clean:
-	@echo "==> Cleaning..."
-	@$(RM)
-
-
-# Generar programa.ll en texto plano limpio
-programa.ll: build/hulk.exe
-	build\\hulk.exe > temp_programa.ll
-	type temp_programa.ll > programa.ll
-	del temp_programa.ll
-
-# Compilar runtime.c a objeto
-runtime.o: runtime.c
-	gcc -c runtime.c -o runtime.o
-
-# Compilar programa.ll a objeto
-programa.o: programa.ll
-	clang -c programa.ll -o programa.o
-
-# Enlazar programa.o + runtime.o en un ejecutable
-ejecutable.exe: programa.o runtime.o
-	gcc programa.o runtime.o -o ejecutable.exe
-
-# Flujo completo de generación, enlace y ejecución
-run: programa.ll programa.o runtime.o ejecutable.exe
-	./ejecutable.exe
-#build/hulk.exe
-#build\\hulk.exe
-
-# Limpiar archivos de esta parte
-clean-runtime:
-	del /Q programa.ll temp_programa.ll programa.o runtime.o ejecutable.exe
-
-# Limpiar TODO
-clean-all: clean-runtime
-	del /Q build\\hulk.exe
+	@echo 🧹 Limpiando binarios y objetos...
+	-del /s /q *.exe 2>nul
+	-del /s /q $(BUILD_DIR)\*.o 2>nul
+	-rd /s /q $(BUILD_DIR) 2>nul
+	@echo ✅ Limpieza completada (lexer.c preservado)

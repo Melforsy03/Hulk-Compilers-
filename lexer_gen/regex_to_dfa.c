@@ -8,20 +8,6 @@
 
 // ---------- NFA DEFINITIONS ---------- //
 
-typedef struct EstadoNFA EstadoNFA;
-
-struct EstadoNFA {
-    int id;
-    EstadoNFA* transiciones[128];
-    EstadoNFA* epsilon1;
-    EstadoNFA* epsilon2;
-    int es_final;
-};
-
-typedef struct {
-    EstadoNFA* inicio;
-    EstadoNFA* fin;
-} FragmentoNFA;
 
 static int id_estado = 0;
 
@@ -113,8 +99,8 @@ DFA compilar_regex(char* regex, int token_id) {
             agregar_transicion(s, buffer[i], 1);
         EstadoDFA* s1 = &d.estados[d.cantidad_estados++];
         s1->id = 1;
-        s1->final = true;
-        s1->token_id = token_id;
+        s1->es_final = true;
+        s1->id = token_id;
         return d;
     }
 
@@ -122,15 +108,15 @@ DFA compilar_regex(char* regex, int token_id) {
     int len = strlen(regex);
     for (int i = 0; i <= len; i++) {
         dfa.estados[i].id = i;
-        dfa.estados[i].cantidad_transiciones = 0;
-        dfa.estados[i].final = false;
-        dfa.estados[i].token_id = -1;
+        dfa.estados[i].num_transiciones = 0;
+        dfa.estados[i].es_final = false;
+        dfa.estados[i].id = -1;
         dfa.cantidad_estados++;
     }
     for (int i = 0; i < len; i++) {
         agregar_transicion(&dfa.estados[i], regex[i], i + 1);
     }
-    dfa.estados[len].final = true;
-    dfa.estados[len].token_id = token_id;
+    dfa.estados[len].es_final = true;
+    dfa.estados[len].id = token_id;
     return dfa;
 }
