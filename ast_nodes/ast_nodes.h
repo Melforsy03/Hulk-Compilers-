@@ -3,55 +3,86 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 typedef enum {
-    NODE_PROGRAM,
-    NODE_LET,
-    NODE_FUNCTION_DEF,
-    NODE_TYPE_DEF,
-    NODE_INHERITS,
-    NODE_ASSIGN,
-    NODE_COLON_ASSIGN,
-    NODE_IF,
-    NODE_WHILE,
-    NODE_FOR,
-    NODE_RANGE,
-    NODE_RETURN,
-    NODE_PRINT,
-    NODE_ADD,
-    NODE_SUB,
-    NODE_MUL,
-    NODE_DIV,
-    NODE_POW,
-    NODE_EQ,
-    NODE_NEQ,
-    NODE_LT,
-    NODE_LTE,
-    NODE_GT,
-    NODE_GTE,
-    NODE_AND,
-    NODE_OR,
-    NODE_NOT,
-    NODE_CALL,
-    NODE_VAR,
-    NODE_NUMBER,
-    NODE_STRING,
-    NODE_SELF,
-    NODE_BASE,
-    NODE_BLOCK,
-    NODE_ACCESS,
-    NODE_MOD,
-    NODE_CALL_METHOD,
-    NODE_CALL_FUNC,
-    NODE_TYPE_INSTANTIATION,
-    NODE_BOOLEAN,
-    NODE_CONCAT,
+    // Nodo raíz del programa
+    NODE_PROGRAM,        // Contiene declaraciones y una expresión principal
+    
+    // Declaraciones
+    NODE_LET,            // Declaración de variable (let)
+    NODE_FUNCTION_DEF,   // Declaración de función
+    NODE_TYPE_DEF,       // Declaración de tipo
+    NODE_INHERITS,       // Herencia entre tipos (no usado directamente)
+    NODE_ASSIGN,         // Asignación (=)
+    NODE_COLON_ASSIGN,   // Asignación con tipo (:=)
+    
+    // Estructuras de control
+    NODE_IF,             // Condicional if
+    NODE_LET_IN,
+    NODE_WHILE,          // Bucle while
+    NODE_FOR,            // Bucle for
+    NODE_RANGE,          // Rango (para bucles)
+    NODE_RETURN,         // Retorno de función
+    NODE_PRINT,          // Impresión en consola
+    
+    // Operadores binarios
+    NODE_ADD,            // Suma (+)
+    NODE_SUB,            // Resta (-)
+    NODE_MUL,            // Multiplicación (*)
+    NODE_DIV,            // División (/)
+    NODE_POW,            // Potenciación (^)
+    NODE_MOD,            // Módulo (%)
+    NODE_EQ,             // Igualdad (==)
+    NODE_NEQ,            // Desigualdad (!=)
+    NODE_LT,             // Menor que (<)
+    NODE_LTE,            // Menor o igual que (<=)
+    NODE_GT,             // Mayor que (>)
+    NODE_GTE,            // Mayor o igual que (>=)
+    NODE_AND,            // AND lógico (&&)
+    NODE_OR,             // OR lógico (||)
+    NODE_IS,
+    NODE_NOT,            // NOT lógico (!)
+    NODE_POSITIVE,
+    NODE_NEGATIVE,
+    NODE_CONCAT,         // Concatenación de strings (++)
+    
+    // Llamadas
+    NODE_CALL,           // Llamada genérica (obsoleto)
+    NODE_CALL_FUNC,      // Llamada a función
+    NODE_CALL_METHOD,    // Llamada a método
+    NODE_CALL_TYPE_ATTRIBUTE,
+
+    // Accesos
+    NODE_ACCESS,         // Acceso a atributo/método
+    
+    // Literales y átomos
+    NODE_VAR,            // Referencia a variable
+    NODE_NUMBER,         // Literal numérico
+    NODE_STRING,         // Literal de string
+    NODE_BOOLEAN,        // Literal booleano
+    NODE_SELF,           // Referencia a self
+    NODE_BASE,           // Referencia a base
+    
+    // Estructuras
+    NODE_BLOCK,          // Bloque de expresiones
+    NODE_TYPE_INSTANTIATION, // Instanciación de tipo
+    
+    // Vectores
+    NODE_EXPLICIT_VECTOR, // Vector explícito [...]
+    NODE_IMPLICIT_VECTOR, // Vector implícito [for x in y -> expr]
+    
+    // Operaciones específicas
+    NODE_CAST,           // Casting de tipos
+    NODE_CHECK_TYPE,     // Verificación de tipo (is)
+    NODE_INDEX           // Indexación (obsoleto, usar NODE_ACCESS)
 } NodeType;
+
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {
     int row;
     int column;
     void* scope; 
-    NodeType tipo ;// scope aun no esta definido
+    NodeType tipo ;
 } Node;
 
 //--------------------------------------------Depth 1---------------------------------------------
