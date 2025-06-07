@@ -39,6 +39,8 @@ void collect_states_lr1(State* start, State** states, int* state_count);
 
 int index_of_symbol(Symbol** list, int count, Symbol* s);
 
+int is_operator(Symbol* sym);
+
 // Imprimir la tabla
 void print_lr1_table(LR1Table* table);
 

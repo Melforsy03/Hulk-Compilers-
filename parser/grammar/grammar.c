@@ -67,6 +67,7 @@ Symbol* find_symbol(Grammar* g, const char* name) {
             return g->symbols[i];
         }
     }
+    printf("Falta el simbolo en los no terminales o los terminales de la gramatia");
     return NULL;
 }
 
