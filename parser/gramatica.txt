@@ -4,7 +4,7 @@ Concat Arithmetic Term Pow Factor Conditional Cond_other_case Let_expr Assignmen
 Atom Call_func Member Params Method_signature Inline_form Full_form Func Arguments 
 While_loop For_loop Cast_type Check_type Sign Type_block Type_member_list Type_member_item 
 Type Type_dec Type_inst Protocol_block Method_dec_list Protocol Vector Vector_exp Vector_imp 
-Vector_item_list Index_object
+Vector_item_list Index_object Arguments1
  
 Terminals:
 {  } ; ( ) ,  : Dot := => [ ] || | & == != > >= < <= ! = 
@@ -16,7 +16,20 @@ StartSymbol:Program
 Productions:
 Program ->Expr_item_list $
 Expr_item_list ->Expr ;
-Expr ->Check_type
+Expr ->Conditional
+Expr ->While_loop
+Expr ->For_loop
+Expr ->Or_expr
+Conditional ->if ( Expr ) Expr Cond_other_case
+Cond_other_case ->elif ( Expr ) Expr Cond_other_case
+Cond_other_case ->else Expr
+While_loop ->while ( Expr ) Expr
+For_loop ->for ( id in Expr ) Expr
+Or_expr ->Or_expr | And_expr
+Or_expr ->And_expr
+And_expr ->And_expr & Check_type
+And_expr ->Check_type
+Check_type ->Aritm_comp
 Check_type ->Check_type is id
 Check_type ->Aritm_comp
 Aritm_comp ->Aritm_comp == Concat

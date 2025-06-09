@@ -2,7 +2,7 @@
 #define LR1_TABLE_H
 
 #include "state.h"
-#include "grammar.h"
+#include "grammar/grammar.h"
 #include "containerset.h"
 
 // Tipos de acciones en la tabla

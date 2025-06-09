@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "grammar.h"
-#include "first_follow.h"
-#include "automaton.h"
-#include "parser.h"
-#include "lr1_table.h"
+#include "grammar/grammar.h"
+#include "parser/first_follow.h"
+#include "parser/automaton.h"
+#include "parser/parser.h"
+#include "parser/lr1_table.h"
 
 int main() {
     printf("=== Cargando Gramática ===\\n");
@@ -68,15 +68,18 @@ int main() {
     print_lr1_table(lr_table);
 
     // === Simulación manual de símbolos (tokens) ===
-    Symbol* num1 = get_terminal(grammar, "string");
-    Symbol* num2 = get_terminal(grammar, ">");
-    Symbol* num4 = get_terminal(grammar, "-");
-    Symbol* num5 = get_terminal(grammar, "num");
+    Symbol* num1 = get_terminal(grammar, "if");
+    Symbol* exp1 = get_terminal(grammar, "(");
+    Symbol* num2 = get_terminal(grammar, "num");
+    Symbol* exp2 = get_terminal(grammar, ")");
+    Symbol* num3 = get_terminal(grammar, "string");
+    Symbol* exp3= get_terminal(grammar, "else");
+    Symbol* num4 = get_terminal(grammar, "bool");
     Symbol* semicolon = get_terminal(grammar, ";");
     Symbol* dollar = get_terminal(grammar, "$");
 
     Symbol* input_symbols[] = {
-       num1, num2, num4, num5, semicolon, dollar
+       num1, exp1, num2, exp2, num3, exp3, num4,semicolon, dollar
     };
     int token_count = sizeof(input_symbols) / sizeof(Symbol*);
 

@@ -1,11 +1,11 @@
 
 #include "automaton.h"
-#include "grammar.h"
+#include "grammar/grammar.h"
 #include "first_follow.h"
 #include "item.h"
 #include "lr1_table.h"
 #include "state.h"
-#include "symbol.h"
+#include "grammar/symbol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -450,7 +450,7 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
 
             // Calcular clausura LR(1) de los items movidos
             moved_items = closure(moved_items, &moved_count, grammar, firsts);
-
+            
             if (!moved_items || moved_count == 0) {
                 printf("Advertencia: Clausura vacía para símbolo '%s'\n", sym->name);
                 if (moved_items) free(moved_items);

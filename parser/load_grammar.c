@@ -3,9 +3,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "grammar.h"
-#include "symbol.h"
-#include "production.h"
+#include "grammar/grammar.h"
+#include "grammar/symbol.h"
+#include "grammar/production.h"
 
 #define MAX_LINE 1024
 #define MAX_TOKENS 100

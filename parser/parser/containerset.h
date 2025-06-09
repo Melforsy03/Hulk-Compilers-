@@ -1,7 +1,7 @@
 #ifndef CONTAINERSET_H
 #define CONTAINERSET_H
 
-#include "symbol.h"
+#include "grammar/symbol.h"
 
 typedef struct ContainerSet 
 {
