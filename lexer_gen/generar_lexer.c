@@ -181,6 +181,7 @@ void generar_lexer_c() {
 
     fclose(out);
 }
+
 // int main() {
 //     leer_tokens("tokens.def");
 //     generar_lexer_c();
