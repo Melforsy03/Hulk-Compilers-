@@ -15,6 +15,18 @@ StringConst constantes_string[MAX_STRING_CONSTS];
 int num_strings = 0;
 Variable variables_usadas[MAX_VARIABLES];  // ← aquí defines
 int num_variables = 0;  
+int retorno_emitido = 0;
+Constante entorno_constantes[MAX_CONST_ENV];
+int num_constantes = 0;
+const char* obtener_valor_constante(const char* nombre) {
+    for (int i = 0; i < num_constantes; i++) {
+        if (strcmp(entorno_constantes[i].nombre, nombre) == 0) {
+            return entorno_constantes[i].valor;
+        }
+    }
+    return NULL;
+}
+
 VarType obtener_tipo_variable(const char* nombre) {
     for (int i = 0; i < num_variables; i++) {
         if (strcmp(variables_usadas[i].nombre, nombre) == 0) {
@@ -43,6 +55,7 @@ void reset_temporales() {
 // Función principal de generación de código
 int generar_codigo(ExpressionNode* expr) {
     if (!expr) return -1;
+    expr = optimizar_constantes(expr);  // <- ¡Esto aplica la optimización!
 
     // Accedemos al tipo a través de la estructura base
     NodeType tipo = ((Node*)expr)->tipo;
@@ -235,54 +248,79 @@ int generar_codigo(ExpressionNode* expr) {
             return temp;
         }
 
-        // Control de flujo
-        case NODE_IF: {
-                ConditionalNode* cond = (ConditionalNode*)expr;
+                case NODE_IF: {
+                    ConditionalNode* cond = (ConditionalNode*)expr;
 
-                // ✅ Corrige: usar solo la primera condición
-                ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
-                int cond_val = generar_codigo(conditions[0]);
+                    ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
+                    int cond_val = generar_codigo(conditions[0]);
+                    NodeType cond_tipo = ((Node*)conditions[0])->tipo;
+                    int cond_final = cond_val;
 
-                int label_then = nuevo_label();
-                int label_else = nuevo_label();
-                int label_end = nuevo_label();
+                    if (cond_tipo != NODE_EQ && cond_tipo != NODE_NEQ &&
+                        cond_tipo != NODE_LT && cond_tipo != NODE_LTE &&
+                        cond_tipo != NODE_GT && cond_tipo != NODE_GTE &&
+                        cond_tipo != NODE_BOOLEAN) {
+                        cond_final = nuevo_temp();
+                        fprintf(salida_llvm, "  %%%d = icmp ne i32 %%%d, 0\n", cond_final, cond_val);
+                    }
 
-                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond_val, label_then, label_else);
+                    int label_then = nuevo_label();
+                    int label_else = nuevo_label();
+                    int label_end = nuevo_label();
 
-                // THEN
-                fprintf(salida_llvm, "L%d:\n", label_then);
-                ExpressionNode** thens = (ExpressionNode**)cond->expressions;
-                for (int i = 0; thens && thens[i]; i++) {
-                    generar_codigo(thens[i]);
+                    fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n",
+                        cond_final, label_then, label_else);
+
+                    // THEN
+                    fprintf(salida_llvm, "L%d:\n", label_then);
+                    ExpressionNode** thens = (ExpressionNode**)cond->expressions;
+                    for (int i = 0; thens && thens[i]; i++) {
+                        generar_codigo(thens[i]);
+                    }
+                    fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+
+                    // ELSE
+                    fprintf(salida_llvm, "L%d:\n", label_else);
+                    if (cond->default_expre)
+                        generar_codigo(cond->default_expre);
+                    fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+
+                    // END
+                    fprintf(salida_llvm, "L%d:\n", label_end);
+                    return -1;
                 }
-                fprintf(salida_llvm, "  br label %%L%d\n", label_end);
 
-                // ELSE
-                fprintf(salida_llvm, "L%d:\n", label_else);
-                if (cond->default_expre)
-                    generar_codigo(cond->default_expre);
-                fprintf(salida_llvm, "  br label %%L%d\n", label_end);
-
-                // END
-                fprintf(salida_llvm, "L%d:\n", label_end);
-                return -1;
-            }
-
-        case NODE_WHILE: {
+                        case NODE_WHILE: {
                 WhileNode* wh = (WhileNode*)expr;
                 int label_start = nuevo_label();
                 int label_body = nuevo_label();
                 int label_end = nuevo_label();
 
+                // Salto al inicio para evaluar la condición
                 fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+
+                // Bloque START: evalúa la condición
                 fprintf(salida_llvm, "L%d:\n", label_start);
 
-                int cond = get_valor(wh->condition);
-                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
+                int cond_val = generar_codigo(wh->condition);
+                NodeType cond_tipo = ((Node*)wh->condition)->tipo;
+                int cond_final = cond_val;
 
+                // Solo envolvemos en icmp si no es ya una comparación (que produce i1)
+                if (cond_tipo != NODE_EQ && cond_tipo != NODE_NEQ &&
+                    cond_tipo != NODE_LT && cond_tipo != NODE_LTE &&
+                    cond_tipo != NODE_GT && cond_tipo != NODE_GTE &&
+                    cond_tipo != NODE_BOOLEAN) {
+                    cond_final = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = icmp ne i32 %%%d, 0\n", cond_final, cond_val);
+                }
+
+                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n",
+                    cond_final, label_body, label_end);
+
+                // BODY
                 fprintf(salida_llvm, "L%d:\n", label_body);
-                
-               if (((Node*)wh->body)->tipo == NODE_BLOCK) {
+                if (((Node*)wh->body)->tipo == NODE_BLOCK) {
                     ExpressionBlockNode* block = (ExpressionBlockNode*)wh->body;
                     ExpressionNode** exprs = (ExpressionNode**)block->expressions;
                     for (int i = 0; exprs && exprs[i]; i++) {
@@ -292,11 +330,14 @@ int generar_codigo(ExpressionNode* expr) {
                     generar_codigo(wh->body);
                 }
 
-
+                // Vuelta al inicio
                 fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+
+                // END
                 fprintf(salida_llvm, "L%d:\n", label_end);
                 return -1;
             }
+
             case NODE_FOR: {
                 ForNode* fr = (ForNode*)expr;
 
@@ -358,12 +399,15 @@ int generar_codigo(ExpressionNode* expr) {
                 }
 
                 // Generar cuerpo de la función
-                int retorno = generar_codigo(func->body);
-                if (retorno != -1) {
-                    fprintf(salida_llvm, "  ret i32 %%%d\n", retorno);
-                } else {
-                    fprintf(salida_llvm, "  ret i32 0\n");  // Valor por defecto si no hay return
-                }
+                  retorno_emitido = 0;
+                    int retorno = generar_codigo(func->body);
+                    if (!retorno_emitido) {
+                        if (retorno >= 0) {
+                            fprintf(salida_llvm, "  ret i32 %%%d\n", retorno);
+                        } else {
+                            fprintf(salida_llvm, "  ret i32 0\n");
+                        }
+                    }
 
                 fprintf(salida_llvm, "}\n\n");
                 return -1;  // Las definiciones de función no devuelven un valor
@@ -523,12 +567,18 @@ int generar_codigo(ExpressionNode* expr) {
                 return -1;
             }
 
-        case NODE_RETURN: {
-            ReturnNode* ret = (ReturnNode*)expr;
-            int val = get_valor(ret->expr); // genera la expresión
-            fprintf(salida_llvm, "  ret i32 %%%d\n", val);
-            return -1; // nada se guarda, se sale
-        }
+                case NODE_RETURN: {
+                ReturnNode* ret = (ReturnNode*)expr;
+                int val = get_valor(ret->expr);
+                if (val >= 0) {
+                    fprintf(salida_llvm, "  ret i32 %%%d\n", val);
+                } else {
+                    fprintf(salida_llvm, "  ret i32 0\n");
+                }
+                retorno_emitido = 1;
+                return -1;
+            }
+
         
         case NODE_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
@@ -585,12 +635,29 @@ int get_valor(ExpressionNode* node) {
     return generar_codigo(node);
 }
 
-// Función auxiliar para generar código de expresiones binarias
 int generar_binario(BinaryNode* bin, const char* opcode) {
+    Node* izq_n = (Node*)bin->left;
+    Node* der_n = (Node*)bin->right;
+
+    if (izq_n->tipo == NODE_NUMBER && der_n->tipo == NODE_NUMBER) {
+        int v1 = atoi(((LiteralNode*)bin->left)->lex);
+        int v2 = atoi(((LiteralNode*)bin->right)->lex);
+        int resultado = 0;
+        if (strcmp(opcode, "add") == 0) resultado = v1 + v2;
+        else if (strcmp(opcode, "sub") == 0) resultado = v1 - v2;
+        else if (strcmp(opcode, "mul") == 0) resultado = v1 * v2;
+        else if (strcmp(opcode, "sdiv") == 0) resultado = v1 / v2;
+        else if (strcmp(opcode, "srem") == 0) resultado = v1 % v2;
+
+        int temp = nuevo_temp();
+        fprintf(salida_llvm, "  %%%d = add i32 0, %d\n", temp, resultado);  // ✅ CORREGIDO
+        return temp;
+    }
+
     int izq = get_valor(bin->left);
     int der = get_valor(bin->right);
     int temp = nuevo_temp();
-    fprintf(salida_llvm, "  %%%d = %s i32 %%%d, %%%d\n", temp, opcode, izq, der);
+    fprintf(salida_llvm, "  %%%d = %s i32 %%%d, %%%d\n", temp, opcode, izq, der);  // ✅ CORREGIDO
     return temp;
 }
 
@@ -674,12 +741,13 @@ void generar_programa(ProgramNode* program) {
     registrar_variables(program);
     generar_declaraciones_variables();
 
+   if (!strstr(last_tmp, "ret")) {  // verifica si ya se emitió un ret
     int last_temp = generar_codigo(program->expression);
-
     if (last_temp != -1) {
         fprintf(salida_llvm, "  ret i32 %%%d\n", last_temp);
     } else {
         fprintf(salida_llvm, "  ret i32 0\n");
+    }
     }
 
     fprintf(salida_llvm, "}\n");
@@ -841,5 +909,166 @@ void generar_funciones(ExpressionNode* expr) {
 
         default:
             break;
+    }
+}
+ExpressionNode* crear_nodo_constante(const char* valor) {
+    NumberNode* nodo = calloc(1, sizeof(NumberNode));
+    nodo->base.base.base.base.tipo = NODE_NUMBER;
+    nodo->base.lex = strdup(valor);
+    return (ExpressionNode*)nodo;
+}
+
+ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
+    if (!expr) return NULL;
+
+    NodeType tipo = ((Node*)expr)->tipo;
+
+    switch (tipo) {
+        // OPT: Binarias con constantes
+        case NODE_ADD: case NODE_SUB:
+        case NODE_MUL: case NODE_DIV:
+        case NODE_MOD: case NODE_EQ: case NODE_NEQ:
+        case NODE_LT:  case NODE_LTE:
+        case NODE_GT:  case NODE_GTE: {
+            BinaryNode* bin = (BinaryNode*)expr;
+            bin->left = optimizar_constantes(bin->left);
+            bin->right = optimizar_constantes(bin->right);
+            Node* izq = (Node*)bin->left;
+            Node* der = (Node*)bin->right;
+
+            // Constant folding
+            if (izq->tipo == NODE_NUMBER && der->tipo == NODE_NUMBER) {
+                int val_izq = atoi(((LiteralNode*)bin->left)->lex);
+                int val_der = atoi(((LiteralNode*)bin->right)->lex);
+                int resultado;
+                int is_valid = 1;
+
+                switch (tipo) {
+                    case NODE_ADD: resultado = val_izq + val_der; break;
+                    case NODE_SUB: resultado = val_izq - val_der; break;
+                    case NODE_MUL: resultado = val_izq * val_der; break;
+                    case NODE_DIV: 
+                        if (val_der != 0) resultado = val_izq / val_der;
+                        else is_valid = 0;
+                        break;
+                    case NODE_MOD:
+                        if (val_der != 0) resultado = val_izq % val_der;
+                        else is_valid = 0;
+                        break;
+                    case NODE_EQ:  resultado = (val_izq == val_der); break;
+                    case NODE_NEQ: resultado = (val_izq != val_der); break;
+                    case NODE_LT:  resultado = (val_izq <  val_der); break;
+                    case NODE_LTE: resultado = (val_izq <= val_der); break;
+                    case NODE_GT:  resultado = (val_izq >  val_der); break;
+                    case NODE_GTE: resultado = (val_izq >= val_der); break;
+                    default: is_valid = 0; break;
+                }
+
+                if (is_valid) {
+                    char* buf = malloc(16);
+                    snprintf(buf, 16, "%d", resultado);
+                    NumberNode* reemplazo = calloc(1, sizeof(NumberNode));
+                    reemplazo->base.base.base.base.tipo = NODE_NUMBER;
+                    reemplazo->base.lex = buf;
+                    return (ExpressionNode*)reemplazo;
+                } else {
+                    fprintf(stderr, "[WARN] División o módulo por cero evitado.\n");
+                    return expr;
+                }
+            }
+
+            // Simplificación algebraica con constantes
+            if (der->tipo == NODE_NUMBER) {
+                int v = atoi(((LiteralNode*)bin->right)->lex);
+                if ((tipo == NODE_ADD || tipo == NODE_SUB) && v == 0)
+                    return bin->left;
+                if (tipo == NODE_MUL && v == 1)
+                    return bin->left;
+                if (tipo == NODE_MUL && v == 0)
+                    return crear_nodo_constante("0");
+                if (tipo == NODE_DIV && v == 1)
+                    return bin->left;
+            }
+
+            if (izq->tipo == NODE_NUMBER) {
+                int v = atoi(((LiteralNode*)bin->left)->lex);
+                if (tipo == NODE_ADD && v == 0)
+                    return bin->right;
+                if (tipo == NODE_MUL && v == 1)
+                    return bin->right;
+                if (tipo == NODE_MUL && v == 0)
+                    return crear_nodo_constante("0");
+            }
+
+            return expr;
+        }
+
+        // OPT: Bloques, LET y RETURN
+        case NODE_BLOCK: {
+            ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
+            ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+            for (int i = 0; exprs && exprs[i]; i++)
+                exprs[i] = optimizar_constantes(exprs[i]);
+            return expr;
+        }
+        case NODE_LET:
+        case NODE_LET_IN: {
+            LetInNode* let = (LetInNode*)expr;
+            VarDeclarationNode** decls = (VarDeclarationNode**)let->variables;
+            for (int i = 0; decls && decls[i]; i++) {
+                if (decls[i]->value)
+                    decls[i]->value = optimizar_constantes(decls[i]->value);
+
+                // Si es una constante numérica, registrarla
+                if (decls[i]->value && ((Node*)decls[i]->value)->tipo == NODE_NUMBER) {
+                    if (num_constantes < MAX_CONST_ENV) {
+                        entorno_constantes[num_constantes].nombre = strdup(decls[i]->name);
+                        entorno_constantes[num_constantes].valor = strdup(((LiteralNode*)decls[i]->value)->lex);
+                        num_constantes++;
+                    }
+                }
+            }
+            let->body = optimizar_constantes(let->body);
+            return expr;
+        }
+
+        case NODE_RETURN: {
+            ReturnNode* ret = (ReturnNode*)expr;
+            if (ret->expr)
+                ret->expr = optimizar_constantes(ret->expr);
+            return expr;
+        }
+
+        // OPT: Unarias (como NOT)
+        case NODE_PRINT:
+        case NODE_NOT: {
+            UnaryNode* un = (UnaryNode*)expr;
+            un->operand = optimizar_constantes(un->operand);
+            return expr;
+        }
+
+        // OPT: IF y WHILE
+        case NODE_IF: {
+            ConditionalNode* cond = (ConditionalNode*)expr;
+            ExpressionNode** conds = (ExpressionNode**)cond->conditions;
+            ExpressionNode** exprs = (ExpressionNode**)cond->expressions;
+            for (int i = 0; conds && conds[i]; i++)
+                conds[i] = optimizar_constantes(conds[i]);
+            for (int i = 0; exprs && exprs[i]; i++)
+                exprs[i] = optimizar_constantes(exprs[i]);
+            if (cond->default_expre)
+                cond->default_expre = optimizar_constantes(cond->default_expre);
+            return expr;
+        }
+        case NODE_WHILE: {
+            WhileNode* w = (WhileNode*)expr;
+           w->condition = optimizar_constantes(w->condition);
+            w->body = optimizar_constantes(w->body);
+            return expr;
+        }
+        
+
+        default:
+            return expr;
     }
 }

@@ -17,6 +17,13 @@ typedef struct {
     VarType tipo;
     int inicializada;
 } Variable;
+#define MAX_CONST_ENV 100
+
+typedef struct {
+    char* nombre;
+    char* valor;  // almacenamos la cadena del número ("5", "42", etc.)
+} Constante;
+
 
 #define MAX_VARIABLES 100
 extern Variable variables_usadas[MAX_VARIABLES];
@@ -35,29 +42,5 @@ int generar_comparacion(BinaryNode* bin, const char* cmp);
 int registrar_string_global(const char* texto);
 void recorrer_ast_para_strings(ExpressionNode* expr);
 void generar_funciones(ExpressionNode* expr);
+ExpressionNode* optimizar_constantes(ExpressionNode* expr);
 #endif
-// int main() {
-//     fprintf(stderr, "[INFO] Creando AST de prueba...\n");
-
-//     ProgramNode* prog = crear_programa_de_prueba();
-//     if (!prog) {
-//         fprintf(stderr, "[ERROR] AST no fue creado correctamente (prog == NULL)\n");
-//         return 1;
-//     }
-
-//     // Abrimos el archivo de salida LLVM
-//     salida_llvm = fopen("prueba.ll", "w");
-//     if (!salida_llvm) {
-//         fprintf(stderr, "[ERROR] No se pudo abrir el archivo de salida 'prueba.ll'\n");
-//         return 1;
-//     }
-
-//     fprintf(stderr, "[INFO] AST creado exitosamente. Iniciando generación de código...\n");
-
-//     generar_programa(prog);
-
-//     fprintf(stderr, "[INFO] Generación completada. Código escrito en 'prueba.ll'\n");
-
-//     fclose(salida_llvm);
-//     return 0;
-// }
