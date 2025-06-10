@@ -1,8 +1,8 @@
+// ast_nodes.h
 #ifndef AST_NODES_H
 #define AST_NODES_H
 
-#include <stdlib.h>
-#include <string.h>
+#include "grammar/symbol.h"  
 
 typedef enum {
     // Nodo raíz del programa
@@ -81,7 +81,11 @@ typedef enum {
 typedef struct Node {
     int row;
     int column;
-    void* scope; 
+    void* scope;
+    Symbol* symbol; 
+    struct Node** children;
+    int child_count;
+    char* lexeme;
     NodeType tipo ;
 } Node;
 
@@ -426,4 +430,11 @@ typedef struct NumberNode {
 typedef struct StringNode {
     LiteralNode base;
 } StringNode;
+
+// Constructor y liberación genéricos
+Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);
+void print_ast_root(Node* root); // imprime y libera
+void free_ast(Node* node);
+void print_ast(Node* root);
+
 #endif

@@ -43,7 +43,7 @@ int main() {
     // Parser
     ActionEntryLR1* actions = NULL;
     int action_count = 0;
-    int accepted = parser(table, input_symbols, input_len, &actions, &action_count);
+    Node accepted = parser(table, input_symbols, input_len, &actions, &action_count);
 
     printf("\n=== Resultado: %s ===\n", accepted ? "ACEPTADA" : "RECHAZADA");
 

@@ -50,12 +50,12 @@ static Production* get_production_by_number(Grammar*g,int num){
     return (num >= 0 && num < g->production_count)? g->productions[num] : NULL;
 }
 
-int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int* actc){
+Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int* actc){
 
     if(!table||!input||toks<1||!acts||!actc) 
     {
         fprintf(stderr, "Error: Parámetros inválidos para parse\n");
-        return 0;
+        return NULL;
     }
 
     StackNode* st=NULL;
@@ -68,7 +68,7 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
     Symbol* look = input[pos];
     *actc = 0; 
     *acts = malloc(table->state_count*sizeof(**acts));
-    if (!*acts) return 0;
+    if (!*acts) return NULL;
 
     while(1){
         int s = stack_top(st);
@@ -76,7 +76,7 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
             fprintf(stderr, "Error: Estado %d fuera de rango\n", s);
             clear_stack(st);
             free(*acts);
-            return 0;
+            return NULL;
         }
 
         int tidx = symbol_index(table->grammar,look);
@@ -84,7 +84,7 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
             fprintf(stderr, "Error: Símbolo '%s' no encontrado en terminales\n", look->name);
             clear_stack(st);
             free(*acts);
-            return 0;
+            return NULL;
         }
 
         // Verificar límites de la tabla ACTION
@@ -92,7 +92,7 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
             fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", tidx);
             clear_stack(st);
             free(*acts);
-            return 0;
+            return NULL;
         }
 
         ActionEntryLR1 a = table->action[s][tidx]; 
@@ -131,8 +131,9 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
             case ACTION_ACCEPT:{
                 printf("ACCEPT\n");
                 print_ast_root(ast[0]);
+                Node* root = ast[0];
+                return root;
                 clear_stack(st);
-                return 1;
             }
             case ACTION_ERROR:
             default:
@@ -148,7 +149,7 @@ int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int
                 }
                 clear_stack(st);
                 free(*acts);
-                return 0;
+                return NULL;
         }
     }
 }
