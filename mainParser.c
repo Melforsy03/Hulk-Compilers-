@@ -7,6 +7,7 @@
 #include "parser/automaton.h"
 #include "parser/parser.h"
 #include "parser/lr1_table.h"
+#include "ast_nodes/ast_nodes.h"
 #include "lexer/lexer.h"
 #include "lexer/func_aux_lexer.h"
 #include "ast_nodes/ast_nodes.h"
@@ -14,8 +15,17 @@ int main() {
     Grammar* grammar = create_grammar("archivo.txt");
     load_grammar_from_file(grammar, "gramatica.txt");
 
+    Symbol* program_sym = NULL;
     // Buscar símbolo inicial
-    Symbol* program_sym = get_non_terminal(grammar, "Program");
+    Symbol* program_sym = NULL;
+    for (int i = 0; i < grammar->symbol_count; ++i) {
+        if (strcmp(grammar->symbols[i]->name, "Program") == 0 &&
+            grammar->symbols[i]->type == NON_TERMINAL) {
+            program_sym = grammar->symbols[i];
+            break;
+        }
+    }
+
     Symbol* start_prime = create_symbol("S'", NON_TERMINAL);
     grammar->symbols[grammar->symbol_count++] = start_prime;
 
@@ -44,8 +54,7 @@ int main() {
     // Parser
     ActionEntryLR1* actions = NULL;
     int action_count = 0;
-    Node accepted = parser(table, input_symbols, input_len, &actions, &action_count);
-
+    Node* accepted = parser(table, input_symbols, input_len, &actions, &action_count);
 
 
     // Limpieza
@@ -57,6 +66,7 @@ int main() {
     free_lr1_table(table);
     return 0;
 }
+
 Symbol** lexer_parse_file_to_symbols(const char* filename, Grammar* grammar, int* out_count) {
     // Leer archivo fuente
     FILE* f = fopen(filename, "rb");
