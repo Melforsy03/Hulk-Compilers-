@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": ".",
-      "program": "build/Debug/outDebug",
+      "cwd": "/home/olivia/Descargas/Telegram Desktop/parser (3)/parser",
+      "program": "/home/olivia/Descargas/Telegram Desktop/parser (3)/parser/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

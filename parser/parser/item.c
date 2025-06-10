@@ -12,7 +12,7 @@ Item* create_item(Production* production, int pos, ContainerSet* lookaheads) {
 
 Item* next_item(Item* item) {
     if (item->pos < item->production->right_len) {
-        Item* new_item = create_item(item->production, item->pos + 1, item->lookaheads);
+        Item* new_item = create_item(item->production, item->pos + 1, copy_containerset(item->lookaheads));
         return new_item;
     }
     return NULL;

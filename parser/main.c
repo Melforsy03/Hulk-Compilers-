@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "grammar.h"
-#include "first_follow.h"
-#include "automaton.h"
-#include "parser.h"
-#include "lr1_table.h"
- 
+#include "grammar/grammar.h"
+#include "parser/first_follow.h"
+#include "parser/automaton.h"
+#include "parser/parser.h"
+#include "parser/lr1_table.h"
+
 int main() {
     printf("=== Cargando Gramática ===\\n");
     Grammar* grammar = create_grammar("archivo.txt");
-    load_grammar_from_file(grammar, "producciones.txt");
+    load_grammar_from_file(grammar, "gramatica.txt");
     printf("=== Gramática cargada ===\\n");
 
     // Buscar el símbolo original 'Program'
@@ -68,16 +68,18 @@ int main() {
     print_lr1_table(lr_table);
 
     // === Simulación manual de símbolos (tokens) ===
-    Symbol* num1 = get_terminal(grammar, "num");
-    Symbol* plus = get_terminal(grammar, "+");
+    Symbol* num1 = get_terminal(grammar, "if");
+    Symbol* exp1 = get_terminal(grammar, "(");
     Symbol* num2 = get_terminal(grammar, "num");
-    Symbol* mult = get_terminal(grammar, "*");
-    Symbol* num3 = get_terminal(grammar, "num");
+    Symbol* exp2 = get_terminal(grammar, ")");
+    Symbol* num3 = get_terminal(grammar, "string");
+    Symbol* exp3= get_terminal(grammar, "else");
+    Symbol* num4 = get_terminal(grammar, "bool");
     Symbol* semicolon = get_terminal(grammar, ";");
     Symbol* dollar = get_terminal(grammar, "$");
 
     Symbol* input_symbols[] = {
-        num1, plus, num2, mult, num3, semicolon, dollar
+       num1, exp1, num2, exp2, num3, exp3, num4,semicolon, dollar
     };
     int token_count = sizeof(input_symbols) / sizeof(Symbol*);
 
@@ -87,14 +89,6 @@ int main() {
     int action_count = 0;
 
     int accepted = parser(lr_table, input_symbols, token_count, &actions, &action_count);
-
-    //ASTNode* root = parse(table, grammar);
-    //if (root) {
-    //    print_ast(root, 0);
-    //    free_ast(root);
-    //} else {
-    //    fprintf(stderr, "Parsing fallido.\n");
-    //}
 
     if (accepted) {
         printf("\n=== Cadena ACEPTADA ===\n");
@@ -109,7 +103,7 @@ int main() {
     free_sets(follows, grammar->symbol_count);
     free_grammar(grammar);
     free_lr1_table(lr_table);
-
+    
     // Finalizar
     return 0;
 }

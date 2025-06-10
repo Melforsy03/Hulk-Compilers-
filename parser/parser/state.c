@@ -48,16 +48,19 @@ void add_transition(State* from, Symbol* symbol, State* to) {
     from->transitions = new_t;
 }
 
-State* get_transition(State* from, Symbol* symbol) 
-{
+State* get_transition(State* from, Symbol* symbol) {
     Transition* t = from->transitions;
-    while (t) 
-    {
-        if (strcmp(t->symbol->name, symbol->name) == 0) 
+    while (t) {
+        if (strcmp(t->symbol->name, symbol->name) == 0) {
+            printf("Transición válida: %s -> estado %d\n", 
+                  symbol->name, t->next_state->id);
             return t->next_state;
+        }
         t = t->next;
     }
-    return NULL;
+    printf("ERROR: No hay transición para %s desde estado %d\n", 
+          symbol->name, from->id);
+    return NULL;  // Devuelve NULL en lugar de fallar
 }
 
 void print_state(State* state) 
@@ -70,7 +73,7 @@ void print_state(State* state)
     Transition* t = state->transitions;
     while (t) 
     {
-        printf("  with symbol '%s' -> next state %p\n", t->symbol->name, (void*)t->next_state);
+        printf("  con el simbolo '%s' -> siguente estado %p\n", t->symbol->name, (void*)t->next_state);
         t = t->next;
     }
     printf("\n");

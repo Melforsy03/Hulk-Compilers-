@@ -177,14 +177,14 @@ ContainerSet** compute_follows(Grammar* grammar, ContainerSet** firsts)
                 ContainerSet* first_beta = compute_local_first(grammar, firsts, beta, beta_len);
                 if (!first_beta) continue;
 
-                // Paso 2: Añadir FIRST(beta)-{ε} a FOLLOW(B)
+                // Paso 2: Añadir FIRST(beta)-{epsilon} a FOLLOW(B)
                 for (int t = 0; t < first_beta->size; ++t) {
                     if (first_beta->symbols[t]->type != EPSILON) {
                         changed |= add_symbol_to_set(follows[B_index], first_beta->symbols[t]);
                     }
                 }
 
-                // Paso 3: Si ε ∈ FIRST(beta), añadir FOLLOW(A) a FOLLOW(B)
+                // Paso 3: Si epsilon ∈ FIRST(beta), añadir FOLLOW(A) a FOLLOW(B)
                 if (first_beta->contains_epsilon || beta_len == 0) {
                     changed |= containerset_update(follows[B_index], follows[A_index]);
                 }

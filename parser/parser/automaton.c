@@ -1,10 +1,11 @@
 
 #include "automaton.h"
-#include "grammar.h"
+#include "grammar/grammar.h"
 #include "first_follow.h"
 #include "item.h"
+#include "lr1_table.h"
 #include "state.h"
-#include "symbol.h"
+#include "grammar/symbol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -44,7 +45,7 @@ bool add_unique_item(Item*** items, int* count, Item* new_item) {
     return true;
 }
 
-// ==== Clausura LR(1) - Versión Segura ====
+// ==== Clausura LR(1) ====
 Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts) {
     if (!items || !count || !grammar || !firsts) {
         fprintf(stderr, "Error: Parámetros inválidos para closure\n");
@@ -54,32 +55,15 @@ Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts
     Item** closure_items = NULL;
     int total = 0;
 
-    // Copiar items iniciales con verificación de NULL
+    // Copiar items iniciales
     for (int i = 0; i < *count; i++) {
-        if (!items[i]) {
-            fprintf(stderr, "Error: Item nulo en posición %d\n", i);
-            continue;
-        }
+        if (!items[i]) continue;
         
-        // Crear copia segura del item
-        ContainerSet* lookaheads_copy = NULL;
-        if (items[i]->lookaheads) {
-            lookaheads_copy = copy_containerset(items[i]->lookaheads);
-            if (!lookaheads_copy) {
-                fprintf(stderr, "Error: No se pudieron copiar lookaheads\n");
-                continue;
-            }
-        } else {
-            lookaheads_copy = create_containerset();
-            if (!lookaheads_copy) {
-                fprintf(stderr, "Error: No se pudo crear conjunto de lookaheads\n");
-                continue;
-            }
-        }
+        ContainerSet* lookaheads_copy = copy_containerset(items[i]->lookaheads);
+        if (!lookaheads_copy) continue;
 
         Item* new_item = create_item(items[i]->production, items[i]->pos, lookaheads_copy);
         if (!new_item) {
-            fprintf(stderr, "Error: No se pudo crear item\n");
             free_containerset(lookaheads_copy);
             continue;
         }
@@ -88,112 +72,156 @@ Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts
             free_item(new_item);
         }
     }
-    
-    printf("\n=== Entra en DO WHILE ===\n");
+
+    printf("\n=== INICIO CLAUSURA ===\n");
+    for (int i = 0; i < *count; i++) {
+        if (items[i]) {
+            printf("Item inicial %d: ", i);
+            print_item(items[i]);
+            printf("Lookaheads: ");
+            print_containerset(items[i]->lookaheads, "Lookaheads originales");
+        }
+    }
+
     bool changed;
     do {
         changed = false;
+        Item* padre = items[0];
         for (int i = 0; i < total; i++) {
-            if (!closure_items[i]) continue;
-            
-            Symbol* next = get_next_symbol(closure_items[i]);
-            if (next && next->type == NON_TERMINAL) {
-                // Cálculo seguro de FIRST(beta)
-                Symbol** beta = closure_items[i]->production->right + closure_items[i]->pos + 1;
-                int beta_len = closure_items[i]->production->right_len - closure_items[i]->pos - 1;
-                if (beta_len < 0) beta_len = 0;
+            Item* item = closure_items[i];
+            Symbol* next = get_next_symbol(item);
 
+            printf("\n===Item actual: ");
+            print_item(item);
+            printf("Lookaheads padres: ");
+            print_containerset(padre->lookaheads, "item->lookaheads");
+
+            if (!next) continue;
+            if( next->type == NON_TERMINAL) {
+                // Calcular FIRST(beta a)
+                printf("\n=== CÁLCULO DE BETA ===\n");
+                Symbol** beta = item->production->right + item->pos + 1;
+                int beta_len = item->production->right_len - item->pos - 1;
+
+                printf("\nLongitud de beta: %d\n", beta_len);
                 ContainerSet* first_beta = compute_local_first(grammar, firsts, beta, beta_len);
 
-// Impresión detallada de first_beta
-printf("\n=== DEBUG first_beta ===\n");
-printf("Dirección de memoria: %p\n", (void*)first_beta);
-
-if (first_beta == NULL) {
-    printf("first_beta es NULL\n");
-} else {
-    printf("first_beta no es NULL\n");
-    printf("capacity: %d\n", first_beta->capacity);
-    printf("symbols array en: %p\n", (void*)first_beta->symbols);
-    printf("contains_epsilon: %d\n", first_beta->contains_epsilon);
-    printf("size: %d\n", first_beta->size);
-    
-    if (first_beta->symbols == NULL) {
-        printf("symbols es NULL\n");
-    } else {
-        printf("Símbolos contenidos (%d):\n", first_beta->size);
-        for (int i = 0; i < first_beta->size; i++) {
-            if (first_beta->symbols[i] == NULL) {
-                printf("  [%d] NULL\n", i);
-            } else {
-                printf("  [%d] %s (type: ", i, first_beta->symbols[i]->name);
-                switch (first_beta->symbols[i]->type) {
-                    case TERMINAL: printf("TERMINAL"); break;
-                    case NON_TERMINAL: printf("NON_TERMINAL"); break;
-                    case EPSILON: printf("EPSILON"); break;
-                    case EOF_SYM: printf("EOF"); break;
-                    default: printf("UNKNOWN"); break;
+                if (beta_len <= 0) {
+                    printf("ε (epsilon)");
                 }
-                printf(")\n");
-            }
-        }
-    }
-    
-    // Verificación de integridad
-    if (first_beta->size > first_beta->capacity) {
-        printf("¡ADVERTENCIA! size > capacity (%d > %d)\n", 
-              first_beta->size, first_beta->capacity);
-    }
-    if (first_beta->size < 0) {
-        printf("¡ADVERTENCIA! size negativo (%d)\n", first_beta->size);
-    }
-}
-printf("=== FIN DEBUG first_beta ===\n\n");
-                
-                // Verificación de estructura first_beta
-                bool first_beta_valid = (first_beta->symbols != NULL && first_beta->capacity > 0 && first_beta->size >= 0);
-
-                bool should_update = false;
-                if (beta_len == 0) {
-                    should_update = true;
-                }
-                else if (first_beta_valid) {
-                    should_update = first_beta->contains_epsilon;
-                }
-
-                printf("\n=== Entra en should_update ===\n");
-                if (should_update) {
-                    if (!closure_items[i]->lookaheads) {
-                        fprintf(stderr, "Error: lookaheads es NULL para el item %d\n", i);
-                        free_containerset(first_beta);
-                        continue;
+                else{
+                    printf("Beta :");
+                    for (int k = 0; k < beta_len; k++) {
+                        printf(" %s", beta[k]->name);
                     }
-                    printf("\n=== Entra en containerset_update ===\n");
-                    if (!containerset_update(first_beta, closure_items[i]->lookaheads)) {
-                        fprintf(stderr, "Error: Fallo al actualizar lookaheads\n");
-                        free_containerset(first_beta);
-                        continue;
-                    }
-
-                    printf("\n=== sale de containerset_update ===\n");
                 }
-                
-                // Añadir producciones de next con estos lookaheads
-                for (int j = 0; j < grammar->production_count; j++) {
-                    if (grammar->productions[j] && grammar->productions[j]->left == next) {
-                        Item* new_item = create_item(grammar->productions[j], 0, first_beta);
-                        if (add_unique_item(&closure_items, &total, new_item)) {
-                            changed = true;
-                        } else {
-                            free_item(new_item);
+
+                printf("\nProcesando item:");
+                print_item(item);
+                printf("Símbolo después del punto: %s\n", next->name);
+                printf("FIRST(beta): ");
+                print_containerset(first_beta, "FIRST(beta) calculado");
+
+
+                // Si beta puede derivar epsilon, añadir los lookaheads del item original
+                if (beta_len == 0 || (first_beta && first_beta->contains_epsilon)) {
+                    if (padre->lookaheads) {
+                        first_beta = padre->lookaheads;
+                    }
+                    printf("Beta deriva epsilon, añadiendo lookaheads originales\n");
+                    printf("Lookaheads antes de añadir: ");
+                    print_containerset(first_beta, "first_beta");
+                    printf("Lookaheads a añadir: ");
+                    print_containerset(padre->lookaheads, "item->lookaheads");
+                }
+
+                if(beta_len > 0)
+                if(first_beta->symbols[0]->type == TERMINAL)   // Si lo q esta en lookahead ahora es  un operador.
+                for (int j = 0; j < total; j++) 
+                {
+                    if (symbol_equals(grammar->productions[j]->left, next)) {
+
+                        printf("\n=== CÁLCULO DE BETA DE LA COINCIDENCIA ===\n");
+                        print_production(grammar->productions[j]);
+                        ContainerSet* alt_lookaheads = copy_containerset(first_beta);
+                        Symbol** beta_ = grammar->productions[j]->right + item->pos + 1;
+                        int beta_len_ = grammar->productions[j]->right_len - item->pos - 1;
+                        
+                        ContainerSet* first_betaC = compute_local_first(grammar, firsts, beta_, beta_len_);
+                        print_containerset(first_betaC, "FIRST(beta) coincidencia calculado");
+                        if (beta_len_ <= 0) {
+                            printf("ε (epsilon)");
                         }
+                        else{
+                            if(beta_[0]->type == NON_TERMINAL) continue;
+                            printf("Beta_ :");
+                            for (int k = 0; k < beta_len_; k++) {
+                                printf(" %s", beta_[k]->name);
+                            }
+                        }
+                        printf("first_betaC = padre->lookaheads;");
+                        // Si beta puede derivar epsilon, añadir los lookaheads del item original
+                        if (beta_len_ == 0 || (first_betaC && first_betaC->contains_epsilon)) {
+                            if (padre->lookaheads) {
+                                printf("first_betaC = padre->lookaheads;");
+                                first_betaC = padre->lookaheads;
+                            }
+                        }
+
+                        containerset_update(alt_lookaheads,first_betaC);
+                        first_beta = alt_lookaheads;
+                        // if (item->pos+1 < grammar->productions[j]->right_len && grammar->productions[j]->right_len > 0)
+                        // {
+                        //     if (is_operator(grammar->productions[j]->right[item->pos + 1])){
+                        //         add_symbol_to_set(alt_lookaheads, grammar->productions[j]->right[item->pos+1]);
+                        //     }
+
+                            
+                        //     Item* new_item = create_item(grammar->productions[j], 0, alt_lookaheads);
+                        //     if (add_unique_item(&closure_items, &total, new_item)) {
+                        //     changed = true;
+                        //     } else {
+                        //     free_item(new_item);
+                        //     }
+                        // }
                     }
                 }
-                
-                // No liberamos first_beta aquí porque ahora pertenece al nuevo item
+                printf("Lookaheads despues  de buscar coincidencia : ");
+                print_containerset(first_beta, "first_beta");
+                print_containerset(padre->lookaheads , "padre->lookaheads ");
+                containerset_update(padre->lookaheads, first_beta);
+                //padre->lookaheads = first_beta;
+
+                //containerset_update(item->lookaheads, item->lookaheads);
+                // Añadir producciones del no terminal con estos lookaheads
+                for(int j = 0; j < grammar->production_count; j++) {
+                    if(grammar->productions[j]->left == next) {
+                        printf("\n=== Hubo coincidencia de  productions[j]->left == next:\n ");
+                        Item* new_item = create_item(grammar->productions[j], 0, first_beta);
+                        print_item(new_item);
+
+                        if(add_unique_item(&closure_items, &total, new_item)) {
+                            printf("\n=== Es unico ===\n");
+                            changed = true;
+                        }
+                        else {
+                           free_item(new_item);
+                        }
+                        containerset_update(item->lookaheads, new_item->lookaheads);
+                    }
+                }
             }
         }
     } while (changed);
+
+    printf("\n=== FIN CLAUSURA ===\n");
+    printf("Items resultantes (%d):\n", total);
+    for (int i = 0; i < total; i++) {
+        Item* item = closure_items[i];
+        printf("Item %d: ", i);
+        print_item(item);
+        print_containerset(item->lookaheads, "Lookaheads finales");
+    }
 
     *count = total;
     return closure_items;
@@ -219,7 +247,15 @@ State* find_existing_lr1_state(State** states, int state_count, Item** items, in
 }
 
 int compare_lr1_items(Item* a, Item* b) {
+    if (!a || !b) return 0;
     if (!compare_items(a, b)) return 0;
+    
+    // Ambos tienen lookaheads NULL
+    if (!a->lookaheads && !b->lookaheads) return 1;
+    
+    // Solo uno tiene lookaheads NULL
+    if (!a->lookaheads || !b->lookaheads) return 0;
+    
     return containerset_equals(a->lookaheads, b->lookaheads);
 }
 
@@ -291,8 +327,12 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
     return NULL;
     }
 
+    printf("\n=== ITEM INICIAL ===\n");
+    print_item(start_item);
+    print_containerset(start_item->lookaheads, "Lookaheads iniciales");
+
     add_symbol_to_set(start_item->lookaheads, grammar->eof);
-    
+
     // Clausura inicial LR(1)
     int initial_count = 1;
     Item** initial_items = malloc(sizeof(Item*));
@@ -302,10 +342,17 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
     }
     initial_items[0] = start_item;
 
+    printf("\n=== CLAUSURA INICIAL ===\n");
+    for (int i = 0; i < initial_count; i++) {
+        printf("Item %d: ", i);
+        print_item(initial_items[i]);
+        print_containerset(initial_items[i]->lookaheads, "Lookaheads");
+    }
+
     printf("\n=== Calculando clausura LR(1) inicial ===\n");
     initial_items = closure(initial_items, &initial_count, grammar, firsts);
     printf("=== Clausura inicial completada con %d items ===\n", initial_count);
-                                    
+                        
     if (initial_count == 0) {
         fprintf(stderr, "Error: Clausura inicial vacía\n");
         free(initial_items);
@@ -340,7 +387,18 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
         State* current = pop(&pending);
         if (!current) continue;
 
-        printf("\nProcesando estado %d con %d items:\n", current->id, current->item_count);
+        printf("\n=== PROCESANDO ESTADO %d ===\n", current->id);
+        
+        for (int i = 0; i < current->item_count; ++i) {
+            printf("Item %d: ", i);
+            print_item(current->items[i]);
+            print_containerset(current->items[i]->lookaheads, "Lookaheads");
+            
+            if (is_reduce_item(current->items[i])) {
+                printf("  (REDUCE usando producción %d)\n", 
+                      current->items[i]->production->number);
+            }
+        }
         
         // Verificar conflictos y marcar estados finales
         for (int i = 0; i < current->item_count; ++i) {
@@ -365,8 +423,6 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
             if (!sym) continue;
 
             printf("\nProcesando transición con '%s'\n", sym->name);
-
-    
 
             // Mover items con este símbolo
             Item** moved_items = NULL;
@@ -429,7 +485,8 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
                 visited_states[visited_count++] = next_state;
                 push(&pending, next_state);
                 printf("Nuevo estado creado: %d\n", next_state->id);
-            } else {
+            } 
+            else {
                 printf("Estado existente %d encontrado para '%s'\n", next_state->id, sym->name);
                 for (int k = 0; k < moved_count; ++k) free_item(moved_items[k]);
                 free(moved_items);

@@ -1,224 +1,153 @@
 #include "parser.h"
-#include "grammar.h"
+#include "grammar/grammar.h"
 #include "lr1_table.h"
+#include "ast_nodes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-//typedef struct {
-//    int state;
-//    ASTNode* node;
-//} StackEntry;
-//
-//ASTNode* parse(LR1Table* table, Grammar* grammar) {
-//    StackEntry stack[1024];
-//    int top = 0;
-//    stack[top].state = 0;
-//    stack[top].node = NULL;
-//
-//    Token token = get_next_token();
-//    while (1) {
-//        int current_state = stack[top].state;
-//        ActionEntrySLR action = table->action[current_state][token.id];
-//
-//        if (action.type == ACTION_SHIFT) {
-//            ++top;
-//            stack[top].state = action.target;
-//            stack[top].node = create_ast_leaf(token);
-//            token = get_next_token();
-//
-//        } else if (action.type == ACTION_REDUCE) {
-//            Production* prod = &grammar->productions[action.target];
-//            ASTNode* children[16];
-//
-//            for (int i = 0; i < prod->rhs_len; ++i) {
-//                children[prod->rhs_len - i - 1] = stack[top].node;
-//                --top;
-//            }
-//
-//            ASTNode* node = create_ast_node(prod->lhs, children, prod->rhs_len);
-//
-//            int goto_state = table->goto_table[stack[top].state][prod->lhs->id];
-//            ++top;
-//            stack[top].state = goto_state;
-//            stack[top].node = node;
-//
-//        } else if (action.type == ACTION_ACCEPT) {
-//            return stack[top].node;
-//        } else {
-//            fprintf(stderr, "Error: acción inválida en el parser. Token: %s\n", token.lexeme);
-//            return NULL;
-//        }
-//    }
-//}
-//
+#define AST_STACK_SIZE 1000
 
-// Estructura para la pila
-typedef struct StackNode 
-{ 
-    int state;                // Estado en la pila
-    struct StackNode* next;
+typedef struct StackNode {
+    int state;
+    struct StackNode*next;
 } StackNode;
 
-// Funciones auxiliares para manejar la pila
-void stack_push(StackNode** stack, int state) 
-{
-    StackNode* node = (StackNode*)malloc(sizeof(StackNode));
-    node->state = state;
-    node->next = *stack;
-    *stack = node;
+static void stack_push(StackNode**s,int st){
+    StackNode*n = malloc(sizeof* n);
+    n->state=st;
+    n->next=*s;
+    *s=n;
+}
+static int stack_top(StackNode*s){
+    return s ? s->state: -1;
+}
+static void stack_pop(StackNode**s){
+    if(!*s)return;
+    StackNode*t = *s;
+    *s = t->next;
+    free(t);
+}  
+static void clear_stack(StackNode* s){
+    while(s){StackNode*t=s->next;free(s);s=t;}
 }
 
-int top(StackNode* stack) 
-{
-    if (!stack) return -1;
-    return stack->state;
-}
-
-void stack_pop(StackNode** stack) 
-{
-    if (!*stack) return;
-    StackNode* node = *stack;
-    *stack = node->next;
-    free(node);
-}
-
-void clear_stack(StackNode* stack) 
-{
-    while (stack) 
+// Índices
+static int symbol_index(Grammar* g,Symbol* s){
+    for(int i = 0; i < g->terminals_count; i++) 
     {
-        StackNode* next = stack->next;
-        free(stack);
-        stack = next;
+        if(strcmp(g->terminals[i]->name, s->name) == 0) return i;
     }
+        
+    return -1;
+}
+static int nonterm_index(Grammar*g,Symbol*s){
+    for(int i=0;i<g->nonterminals_count;i++) if(g->nonterminals[i]==s)return i;
+    return -1;
+}
+// obtener producción
+static Production* get_production_by_number(Grammar*g,int num){
+    return (num >= 0 && num < g->production_count)? g->productions[num] : NULL;
 }
 
-int parser(LR1Table* table, Symbol** input_tokens, int token_count, ActionEntryLR1** actions, int* action_count) {
-    // Validaciones iniciales
-    if (!table || !input_tokens || token_count <= 0 || !actions || !action_count) {
+int parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int* actc){
+
+    if(!table||!input||toks<1||!acts||!actc) 
+    {
         fprintf(stderr, "Error: Parámetros inválidos para parse\n");
         return 0;
     }
 
-    StackNode* stack = NULL;
-    stack_push(&stack, 0); // Estado inicial
+    StackNode* st=NULL;
+    stack_push(&st,0);
 
-    int input_pos = 0;
-    Symbol* lookahead = input_tokens[input_pos];
-    *action_count = 0;
-    *actions = malloc(sizeof(ActionEntryLR1) * 1000); // Tamaño inicial
-    if (!*actions) return 0;
+    Node* ast[AST_STACK_SIZE];
+    int top = 0;
 
-    while (1) {
-        int state = top(stack);
-        if (state < 0 || state >= table->state_count) {
-            fprintf(stderr, "Error: Estado %d fuera de rango\n", state);
-            clear_stack(stack);
-            free(*actions);
+    int pos = 0; 
+    Symbol* look = input[pos];
+    *actc = 0; 
+    *acts = malloc(table->state_count*sizeof(**acts));
+    if (!*acts) return 0;
+
+    while(1){
+        int s = stack_top(st);
+        if (s < 0 || s >= table->state_count) {
+            fprintf(stderr, "Error: Estado %d fuera de rango\n", s);
+            clear_stack(st);
+            free(*acts);
             return 0;
         }
 
-        // Buscar símbolo en terminales
-        int symbol_idx = -1;
-        for (int i = 0; i < table->terminal_count; ++i) {
-            if (strcmp(table->grammar->terminals[i]->name, lookahead->name) == 0) {
-                symbol_idx = i;
-                break;
-            }
-        }
-
-        if (symbol_idx == -1) {
-            fprintf(stderr, "Error: Símbolo '%s' no encontrado en terminales\n", lookahead->name);
-            clear_stack(stack);
-            free(*actions);
+        int tidx = symbol_index(table->grammar,look);
+        if (tidx == -1) {
+            fprintf(stderr, "Error: Símbolo '%s' no encontrado en terminales\n", look->name);
+            clear_stack(st);
+            free(*acts);
             return 0;
         }
 
         // Verificar límites de la tabla ACTION
-        if (symbol_idx >= table->terminal_count) {
-            fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", symbol_idx);
-            clear_stack(stack);
-            free(*actions);
+        if (tidx >= table->terminal_count) {
+            fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", tidx);
+            clear_stack(st);
+            free(*acts);
             return 0;
         }
 
-        ActionEntryLR1 action = table->action[state][symbol_idx];
-        (*actions)[(*action_count)++] = action;
+        ActionEntryLR1 a = table->action[s][tidx]; 
+        (*acts)[(*actc)++]=a;
 
-        printf("Estado %d, Símbolo '%s': ", state, lookahead->name);
-        
-        switch (action.action) {
-            case ACTION_SHIFT:
-                printf("SHIFT a %d\n", action.value);
-                if (action.value < 0 || action.value >= table->state_count) {
-                    fprintf(stderr, "Error: Estado destino %d inválido\n", action.value);
-                    clear_stack(stack);
-                    free(*actions);
-                    return 0;
-                }
-                stack_push(&stack, action.value);
-                input_pos++;
-                lookahead = input_pos < token_count ? input_tokens[input_pos] : table->grammar->eof;
-                break;
-                
-            case ACTION_REDUCE: {
-                printf("REDUCE por producción %d\n", action.value);
-                Production* prod = NULL;
-                for (int i = 0; i < table->grammar->production_count; ++i) {
-                    if (table->grammar->productions[i]->number == action.value) {
-                        prod = table->grammar->productions[i];
-                        break;
-                    }
-                }
-                
-                if (!prod) {
-                    fprintf(stderr, "Error: Producción %d no encontrada\n", action.value);
-                    clear_stack(stack);
-                    free(*actions);
-                    return 0;
-                }
-                
-                for (int i = 0; i < prod->right_len; ++i) {
-                    if (!stack) {
-                        fprintf(stderr, "Error: Stack underflow\n");
-                        return 0;
-                    }
-                    stack_pop(&stack);
-                }
-                
-                state = top(stack);
-                int nonterm_idx = index_of_symbol(table->grammar->nonterminals, table->grammar->nonterminals_count, prod->left);
-                
-                if (nonterm_idx == -1) {
-                    fprintf(stderr, "Error: No terminal %s no encontrado\n", prod->left->name);
-                    clear_stack(stack);
-                    free(*actions);
-                    return 0;
-                }
-                
-                int goto_state = table->goto_table[state][nonterm_idx];
-                if (goto_state == -1) {
-                    fprintf(stderr, "Error: Entrada GOTO vacía para %s\n", prod->left->name);
-                    clear_stack(stack);
-                    free(*actions);
-                    return 0;
-                }
-                
-                stack_push(&stack, goto_state);
+        printf("Estado %d, %d, Símbolo '%s': ", s, tidx, look->name);
+
+        switch(a.action){
+            case ACTION_SHIFT:{
+                printf("SHIFT a %d\n", a.value);
+                ast[top++] = create_node(look,look->name,0,NULL);
+                stack_push(&st,a.value);
+                look = (++pos < toks)? input[pos] : table->grammar->eof;
                 break;
             }
-                
-            case ACTION_ACCEPT:
+            case ACTION_REDUCE:{
+                printf("REDUCE por producción %d\n", a.value);
+                Production*p = get_production_by_number(table->grammar,a.value);
+                int N = p->right_len;
+                Node* children[N];
+
+                for(int i = N-1;i>=0;i--) 
+                    children[i]=ast[--top];
+
+                Node* node = create_node(p->left,NULL,N,children);
+                ast[top++]=node;
+
+                for(int i=0; i < N;i++) 
+                    stack_pop(&st);
+
+                int nt = nonterm_index(table->grammar,p->left);
+                int gto = table->goto_table[stack_top(st)][nt];
+                stack_push(&st,gto);
+                break;
+            }
+            case ACTION_ACCEPT:{
                 printf("ACCEPT\n");
-                clear_stack(stack);
+                print_ast_root(ast[0]);
+                clear_stack(st);
                 return 1;
-                
+            }
             case ACTION_ERROR:
             default:
-                fprintf(stderr, "Error: Acción no válida\n");
-                clear_stack(stack);
-                free(*actions);
-                *actions = NULL;  
+                fprintf(stderr,"Error sintáctico en estado %d\n",s);
+                fprintf(stderr, "Posibles acciones en este estado:\n");
+                for (int k = 0; k < table->terminal_count; k++) {
+                    if (table->action[s][k].action != ACTION_ERROR) {
+                        fprintf(stderr, "  %s: %s %d\n", 
+                            table->grammar->terminals[k]->name,
+                            table->action[s][k].action == ACTION_SHIFT ? "SHIFT" : "REDUCE",
+                            table->action[s][k].value);
+                    }
+                }
+                clear_stack(st);
+                free(*acts);
                 return 0;
         }
     }
