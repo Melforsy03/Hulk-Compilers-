@@ -40,9 +40,6 @@ void print_grammar(Grammar* grammar);
 
 Symbol* get_terminal(Grammar* grammar, const char* name);
 
-// Cargar gramática desde archivo
-void load_grammar_from_file(Grammar* grammar, const char* filename);
-
 void free_grammar(Grammar* g);
 
 #endif

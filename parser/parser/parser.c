@@ -1,7 +1,7 @@
 #include "parser.h"
 #include "grammar/grammar.h"
 #include "lr1_table.h"
-#include "ast_nodes.h"
+#include "ast_nodes/ast_nodes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

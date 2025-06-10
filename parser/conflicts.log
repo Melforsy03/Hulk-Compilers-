@@ -74218,3 +74218,1113 @@
   - Símbolo: '&'
   - Producciones en conflicto: 408 vs 11
 
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 7
+  - Símbolo: 'as'
+  - Producciones en conflicto: 53 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 12
+  - Símbolo: '**'
+  - Producciones en conflicto: 65 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 12
+  - Símbolo: '^'
+  - Producciones en conflicto: 66 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 14
+  - Símbolo: '%'
+  - Producciones en conflicto: 67 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 14
+  - Símbolo: '/'
+  - Producciones en conflicto: 68 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 14
+  - Símbolo: '*'
+  - Producciones en conflicto: 69 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 15
+  - Símbolo: '-'
+  - Producciones en conflicto: 70 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 15
+  - Símbolo: '+'
+  - Producciones en conflicto: 71 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 16
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 16
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '<='
+  - Producciones en conflicto: 74 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '<'
+  - Producciones en conflicto: 75 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '>='
+  - Producciones en conflicto: 76 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '>'
+  - Producciones en conflicto: 77 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '!='
+  - Producciones en conflicto: 78 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 17
+  - Símbolo: '=='
+  - Producciones en conflicto: 79 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 18
+  - Símbolo: 'is'
+  - Producciones en conflicto: 80 vs 14
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 19
+  - Símbolo: '&'
+  - Producciones en conflicto: 81 vs 12
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 23
+  - Símbolo: '|'
+  - Producciones en conflicto: 85 vs 5
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 34
+  - Símbolo: 'as'
+  - Producciones en conflicto: 88 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 37
+  - Símbolo: '**'
+  - Producciones en conflicto: 90 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 37
+  - Símbolo: '^'
+  - Producciones en conflicto: 91 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 39
+  - Símbolo: '%'
+  - Producciones en conflicto: 92 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 39
+  - Símbolo: '/'
+  - Producciones en conflicto: 93 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 39
+  - Símbolo: '*'
+  - Producciones en conflicto: 94 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 40
+  - Símbolo: '-'
+  - Producciones en conflicto: 95 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 40
+  - Símbolo: '+'
+  - Producciones en conflicto: 96 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 41
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 41
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '<='
+  - Producciones en conflicto: 99 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '<'
+  - Producciones en conflicto: 100 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '>='
+  - Producciones en conflicto: 101 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '>'
+  - Producciones en conflicto: 102 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '!='
+  - Producciones en conflicto: 103 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 42
+  - Símbolo: '=='
+  - Producciones en conflicto: 104 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 43
+  - Símbolo: 'is'
+  - Producciones en conflicto: 105 vs 14
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 44
+  - Símbolo: '&'
+  - Producciones en conflicto: 106 vs 12
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 48
+  - Símbolo: '|'
+  - Producciones en conflicto: 110 vs 5
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 54
+  - Símbolo: 'as'
+  - Producciones en conflicto: 53 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 61
+  - Símbolo: 'as'
+  - Producciones en conflicto: 138 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 89
+  - Símbolo: 'as'
+  - Producciones en conflicto: 88 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 119
+  - Símbolo: 'as'
+  - Producciones en conflicto: 198 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 122
+  - Símbolo: '**'
+  - Producciones en conflicto: 200 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 122
+  - Símbolo: '^'
+  - Producciones en conflicto: 201 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 124
+  - Símbolo: '%'
+  - Producciones en conflicto: 202 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 124
+  - Símbolo: '/'
+  - Producciones en conflicto: 203 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 124
+  - Símbolo: '*'
+  - Producciones en conflicto: 204 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 125
+  - Símbolo: '-'
+  - Producciones en conflicto: 205 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 125
+  - Símbolo: '+'
+  - Producciones en conflicto: 206 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 126
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 126
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '<='
+  - Producciones en conflicto: 209 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '<'
+  - Producciones en conflicto: 210 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '>='
+  - Producciones en conflicto: 211 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '>'
+  - Producciones en conflicto: 212 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '!='
+  - Producciones en conflicto: 213 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 127
+  - Símbolo: '=='
+  - Producciones en conflicto: 214 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 128
+  - Símbolo: 'is'
+  - Producciones en conflicto: 215 vs 14
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 129
+  - Símbolo: '&'
+  - Producciones en conflicto: 216 vs 12
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 133
+  - Símbolo: '|'
+  - Producciones en conflicto: 220 vs 5
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 139
+  - Símbolo: 'as'
+  - Producciones en conflicto: 138 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 151
+  - Símbolo: '%'
+  - Producciones en conflicto: 67 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 151
+  - Símbolo: '/'
+  - Producciones en conflicto: 68 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 151
+  - Símbolo: '*'
+  - Producciones en conflicto: 69 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 152
+  - Símbolo: '%'
+  - Producciones en conflicto: 67 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 152
+  - Símbolo: '/'
+  - Producciones en conflicto: 68 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 152
+  - Símbolo: '*'
+  - Producciones en conflicto: 69 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 153
+  - Símbolo: '-'
+  - Producciones en conflicto: 70 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 153
+  - Símbolo: '+'
+  - Producciones en conflicto: 71 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 154
+  - Símbolo: '-'
+  - Producciones en conflicto: 70 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 154
+  - Símbolo: '+'
+  - Producciones en conflicto: 71 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 155
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 155
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 156
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 156
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 157
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 157
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 158
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 158
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 159
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 159
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 160
+  - Símbolo: '@@'
+  - Producciones en conflicto: 72 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 160
+  - Símbolo: '@'
+  - Producciones en conflicto: 73 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 162
+  - Símbolo: 'is'
+  - Producciones en conflicto: 80 vs 13
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 169
+  - Símbolo: '&'
+  - Producciones en conflicto: 81 vs 11
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 181
+  - Símbolo: '%'
+  - Producciones en conflicto: 92 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 181
+  - Símbolo: '/'
+  - Producciones en conflicto: 93 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 181
+  - Símbolo: '*'
+  - Producciones en conflicto: 94 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 182
+  - Símbolo: '%'
+  - Producciones en conflicto: 92 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 182
+  - Símbolo: '/'
+  - Producciones en conflicto: 93 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 182
+  - Símbolo: '*'
+  - Producciones en conflicto: 94 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 183
+  - Símbolo: '-'
+  - Producciones en conflicto: 95 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 183
+  - Símbolo: '+'
+  - Producciones en conflicto: 96 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 184
+  - Símbolo: '-'
+  - Producciones en conflicto: 95 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 184
+  - Símbolo: '+'
+  - Producciones en conflicto: 96 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 185
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 185
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 186
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 186
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 187
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 187
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 188
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 188
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 189
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 189
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 190
+  - Símbolo: '@@'
+  - Producciones en conflicto: 97 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 190
+  - Símbolo: '@'
+  - Producciones en conflicto: 98 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 192
+  - Símbolo: 'is'
+  - Producciones en conflicto: 105 vs 13
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 194
+  - Símbolo: '&'
+  - Producciones en conflicto: 106 vs 11
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 199
+  - Símbolo: 'as'
+  - Producciones en conflicto: 198 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 246
+  - Símbolo: '%'
+  - Producciones en conflicto: 202 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 246
+  - Símbolo: '/'
+  - Producciones en conflicto: 203 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 246
+  - Símbolo: '*'
+  - Producciones en conflicto: 204 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 247
+  - Símbolo: '%'
+  - Producciones en conflicto: 202 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 247
+  - Símbolo: '/'
+  - Producciones en conflicto: 203 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 247
+  - Símbolo: '*'
+  - Producciones en conflicto: 204 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 248
+  - Símbolo: '-'
+  - Producciones en conflicto: 205 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 248
+  - Símbolo: '+'
+  - Producciones en conflicto: 206 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 249
+  - Símbolo: '-'
+  - Producciones en conflicto: 205 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 249
+  - Símbolo: '+'
+  - Producciones en conflicto: 206 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 250
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 250
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 251
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 251
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 252
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 252
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 253
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 253
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 254
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 254
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 255
+  - Símbolo: '@@'
+  - Producciones en conflicto: 207 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 255
+  - Símbolo: '@'
+  - Producciones en conflicto: 208 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 257
+  - Símbolo: 'is'
+  - Producciones en conflicto: 215 vs 13
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 261
+  - Símbolo: '&'
+  - Producciones en conflicto: 216 vs 11
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 274
+  - Símbolo: 'as'
+  - Producciones en conflicto: 303 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 277
+  - Símbolo: '**'
+  - Producciones en conflicto: 305 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 277
+  - Símbolo: '^'
+  - Producciones en conflicto: 306 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 279
+  - Símbolo: '%'
+  - Producciones en conflicto: 307 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 279
+  - Símbolo: '/'
+  - Producciones en conflicto: 308 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 279
+  - Símbolo: '*'
+  - Producciones en conflicto: 309 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 280
+  - Símbolo: '-'
+  - Producciones en conflicto: 310 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 280
+  - Símbolo: '+'
+  - Producciones en conflicto: 311 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 281
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 281
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '<='
+  - Producciones en conflicto: 314 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '<'
+  - Producciones en conflicto: 315 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '>='
+  - Producciones en conflicto: 316 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '>'
+  - Producciones en conflicto: 317 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '!='
+  - Producciones en conflicto: 318 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 282
+  - Símbolo: '=='
+  - Producciones en conflicto: 319 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 283
+  - Símbolo: 'is'
+  - Producciones en conflicto: 320 vs 14
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 284
+  - Símbolo: '&'
+  - Producciones en conflicto: 321 vs 12
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 288
+  - Símbolo: '|'
+  - Producciones en conflicto: 325 vs 5
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 304
+  - Símbolo: 'as'
+  - Producciones en conflicto: 303 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 341
+  - Símbolo: 'as'
+  - Producciones en conflicto: 390 vs 42
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 344
+  - Símbolo: '**'
+  - Producciones en conflicto: 392 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 344
+  - Símbolo: '^'
+  - Producciones en conflicto: 393 vs 37
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 346
+  - Símbolo: '%'
+  - Producciones en conflicto: 394 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 346
+  - Símbolo: '/'
+  - Producciones en conflicto: 395 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 346
+  - Símbolo: '*'
+  - Producciones en conflicto: 396 vs 30
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 347
+  - Símbolo: '-'
+  - Producciones en conflicto: 397 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 347
+  - Símbolo: '+'
+  - Producciones en conflicto: 398 vs 27
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 348
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 348
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 24
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '<='
+  - Producciones en conflicto: 401 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '<'
+  - Producciones en conflicto: 402 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '>='
+  - Producciones en conflicto: 403 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '>'
+  - Producciones en conflicto: 404 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '!='
+  - Producciones en conflicto: 405 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 349
+  - Símbolo: '=='
+  - Producciones en conflicto: 406 vs 15
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 350
+  - Símbolo: 'is'
+  - Producciones en conflicto: 407 vs 14
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 351
+  - Símbolo: '&'
+  - Producciones en conflicto: 408 vs 12
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 355
+  - Símbolo: '|'
+  - Producciones en conflicto: 412 vs 5
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 369
+  - Símbolo: '%'
+  - Producciones en conflicto: 307 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 369
+  - Símbolo: '/'
+  - Producciones en conflicto: 308 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 369
+  - Símbolo: '*'
+  - Producciones en conflicto: 309 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 370
+  - Símbolo: '%'
+  - Producciones en conflicto: 307 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 370
+  - Símbolo: '/'
+  - Producciones en conflicto: 308 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 370
+  - Símbolo: '*'
+  - Producciones en conflicto: 309 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 371
+  - Símbolo: '-'
+  - Producciones en conflicto: 310 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 371
+  - Símbolo: '+'
+  - Producciones en conflicto: 311 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 372
+  - Símbolo: '-'
+  - Producciones en conflicto: 310 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 372
+  - Símbolo: '+'
+  - Producciones en conflicto: 311 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 373
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 373
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 374
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 374
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 375
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 375
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 376
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 376
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 377
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 377
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 378
+  - Símbolo: '@@'
+  - Producciones en conflicto: 312 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 378
+  - Símbolo: '@'
+  - Producciones en conflicto: 313 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 380
+  - Símbolo: 'is'
+  - Producciones en conflicto: 320 vs 13
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 384
+  - Símbolo: '&'
+  - Producciones en conflicto: 321 vs 11
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 391
+  - Símbolo: 'as'
+  - Producciones en conflicto: 390 vs 41
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 428
+  - Símbolo: '%'
+  - Producciones en conflicto: 394 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 428
+  - Símbolo: '/'
+  - Producciones en conflicto: 395 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 428
+  - Símbolo: '*'
+  - Producciones en conflicto: 396 vs 29
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 429
+  - Símbolo: '%'
+  - Producciones en conflicto: 394 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 429
+  - Símbolo: '/'
+  - Producciones en conflicto: 395 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 429
+  - Símbolo: '*'
+  - Producciones en conflicto: 396 vs 28
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 430
+  - Símbolo: '-'
+  - Producciones en conflicto: 397 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 430
+  - Símbolo: '+'
+  - Producciones en conflicto: 398 vs 26
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 431
+  - Símbolo: '-'
+  - Producciones en conflicto: 397 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 431
+  - Símbolo: '+'
+  - Producciones en conflicto: 398 vs 25
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 432
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 432
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 23
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 433
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 433
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 22
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 434
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 434
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 21
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 435
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 435
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 20
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 436
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 436
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 19
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 437
+  - Símbolo: '@@'
+  - Producciones en conflicto: 399 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 437
+  - Símbolo: '@'
+  - Producciones en conflicto: 400 vs 18
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 439
+  - Símbolo: 'is'
+  - Producciones en conflicto: 407 vs 13
+
+[2025-06-09 16:18:02] Conflicto SHIFT/REDUCE:
+  - Estado: 443
+  - Símbolo: '&'
+  - Producciones en conflicto: 408 vs 11
+

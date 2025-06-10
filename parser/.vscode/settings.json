@@ -62,6 +62,7 @@
     "production.h": "c",
     "automaton.h": "c",
     "parser.h": "c",
-    "lr1_table.h": "c"
+    "lr1_table.h": "c",
+    "ast_nodes.h": "c"
   }
 }
