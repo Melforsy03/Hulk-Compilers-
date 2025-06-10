@@ -1,3 +1,0 @@
-//para crear el archivo de salida de la generacion de codigo 
-./build/hulk | Out-File -Encoding ASCII program.ll
-lli program.ll
