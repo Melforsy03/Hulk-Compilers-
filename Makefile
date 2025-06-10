@@ -1,76 +1,45 @@
 # Carpetas
 LEXER_GEN_DIR = lexer_gen
-SRC_DIR = src
 LEXER_DIR = lexer
-BUILD_DIR = build
+SRC_DIR = src
 
 # Archivos fuente
-LEXER_GEN_SRC = $(LEXER_GEN_DIR)/generar_lexer.c \
-                $(LEXER_GEN_DIR)/regex_to_dfa.c \
-                $(LEXER_GEN_DIR)/nfa_to_dfa.c \
-				$(LEXER_GEN_DIR)/regex_parser.c \
-                $(LEXER_GEN_DIR)/utils.c
+GEN_LEXER_SRC = $(LEXER_GEN_DIR)/generar_lexer.c
+GEN_COMMON_SRC = \
+	$(LEXER_GEN_DIR)/utils.c \
+	$(LEXER_GEN_DIR)/regex_parser.c \
+	$(LEXER_GEN_DIR)/regex_to_dfa.c \
+	$(LEXER_GEN_DIR)/nfa_to_dfa.c
 
-SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
-SRC_FILES += $(LEXER_DIR)/lexer.c  # ✅ Incluir lexer.c
+LEXER_SRC = $(LEXER_DIR)/lexer.c
+MAIN_SRC = $(SRC_DIR)/main.c
 
-# Archivos objeto en build/
-OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(filter $(SRC_DIR)/%.c, $(SRC_FILES)))
-OBJ_FILES += $(BUILD_DIR)/lexer.o  # ✅ Incluir lexer.o explícitamente
+# Ejecutable
+EXEC = compilador
 
-# Ejecutables
-GENERATOR_EXE = generar_lexer.exe
-FINAL_EXE = compilador.exe
-
-# Compilador
+# Compilador y flags
 CC = gcc
-CFLAGS = -Wall -O2 -mconsole
+CFLAGS = -Wall -Wextra -std=c99 -I. -I$(LEXER_DIR) -I$(LEXER_GEN_DIR)
 
-.PHONY: all lexer run clean lexer-clean
+# Regla principal
+all: $(LEXER_SRC) $(EXEC)
 
-# Compilar todo
-all: lexer $(FINAL_EXE)
+# Generar lexer.c desde generar_lexer
+$(LEXER_SRC): $(GEN_LEXER_SRC) $(LEXER_GEN_DIR)/tokens.def
+	@echo "🔧 Generando lexer.c..."
+	$(CC) $(CFLAGS) -o generar_lexer $(GEN_LEXER_SRC) $(GEN_COMMON_SRC)
+	./generar_lexer
+	mv lexer.c $(LEXER_DIR)/lexer.c
+	rm -f generar_lexer
 
-# Ejecutable del compilador principal
-$(FINAL_EXE): $(OBJ_FILES) 
-	$(CC) $(CFLAGS) $^ -o $@
+# Compilar ejecutable
+$(EXEC): $(LEXER_SRC) $(MAIN_SRC) $(GEN_COMMON_SRC)
+	@echo "🔨 Compilando ejecutable..."
+	$(CC) $(CFLAGS) -o $(EXEC) $(LEXER_SRC) $(MAIN_SRC) $(GEN_COMMON_SRC)
 
-# Compilar cada .c de src/ a .o dentro de build/
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compilar lexer.c a lexer.o
-$(BUILD_DIR)/lexer.o: $(LEXER_DIR)/lexer.c
-	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Generar lexer.c y guardarlo en /lexer
-lexer: $(GENERATOR_EXE)
-	if not exist $(LEXER_DIR) mkdir $(LEXER_DIR)
-	./$(GENERATOR_EXE)
-	move lexer.c $(LEXER_DIR)\lexer.c
-	@echo ✅ Lexer generado en $(LEXER_DIR)\lexer.c
-
-# Compilar generador del lexer con main exclusivo
-$(GENERATOR_EXE): $(LEXER_GEN_SRC)
-	$(CC) $(CFLAGS) -DGENERAR_LEXER_MAIN -o $@ $^
-
-# Eliminar el lexer generado explícitamente
-lexer-clean:
-	@echo 🧹 Eliminando lexer generado...
-	-del /q $(LEXER_DIR)\lexer.c 2>nul
-	@echo ✅ Lexer eliminado.
-
-# Ejecutar el compilador principal
-run: $(FINAL_EXE)
-	./$(FINAL_EXE) archivo_entrada.txt
-
-
-# Limpiar binarios y objetos pero conservar lexer.c
+# Limpiar todo
 clean:
-	@echo 🧹 Limpiando binarios y objetos...
-	-del /s /q *.exe 2>nul
-	-del /s /q $(BUILD_DIR)\*.o 2>nul
-	-rd /s /q $(BUILD_DIR) 2>nul
-	@echo ✅ Limpieza completada (lexer.c preservado)
+	rm -f $(EXEC) generar_lexer
+	rm -f $(LEXER_SRC)
+
+.PHONY: all clean
