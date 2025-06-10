@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+FILE* salida_llvm = NULL;
+
 static int contador_temporales = 0;
 static int contador_etiquetas = 0;
 // Añadir variable solo si aún no existe
@@ -50,7 +52,7 @@ int generar_codigo(ExpressionNode* expr) {
             NumberNode* num = (NumberNode*)expr;
             int temp = nuevo_temp();
             // Usamos el campo 'lex' de LiteralNode
-            printf("  %%%d = add i32 0, %s\n", temp, ((LiteralNode*)num)->lex);
+            fprintf(salida_llvm, "  %%%d = add i32 0, %s\n", temp, ((LiteralNode*)num)->lex);
             return temp;
         }
         case NODE_LET: {
@@ -74,20 +76,20 @@ int generar_codigo(ExpressionNode* expr) {
                 
                 // Generar código según el tipo
                 if (var_tipo == VAR_TYPE_STRING) {
-                    printf("  %%%s = alloca i8*\n", decl->name); // Puntero a string
+                    fprintf(salida_llvm, "  %%%s = alloca i8*\n", decl->name); // Puntero a string
                     if (decl->value) {
                         int temp = generar_codigo(decl->value); // Genera el string
-                        printf("  store i8* %%%d, i8** %%%s\n", temp, decl->name);
+                        fprintf(salida_llvm, "  store i8* %%%d, i8** %%%s\n", temp, decl->name);
                     } else {
-                        printf("  store i8* null, i8** %%%s\n", decl->name); // Inicializar a NULL si no hay valor
+                        fprintf(salida_llvm, "  store i8* null, i8** %%%s\n", decl->name); // Inicializar a NULL si no hay valor
                     }
                 } else {
-                    printf("  %%%s = alloca i32\n", decl->name); // Entero
+                    fprintf(salida_llvm, "  %%%s = alloca i32\n", decl->name); // Entero
                     if (decl->value) {
                         int temp = generar_codigo(decl->value);
-                        printf("  store i32 %%%d, i32* %%%s\n", temp, decl->name);
+                        fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", temp, decl->name);
                     } else {
-                        printf("  store i32 0, i32* %%%s\n", decl->name); // Inicializar a 0 si no hay valor
+                        fprintf(salida_llvm, "  store i32 0, i32* %%%s\n", decl->name); // Inicializar a 0 si no hay valor
                     }
                 }
             }
@@ -102,9 +104,9 @@ int generar_codigo(ExpressionNode* expr) {
             
             int temp = nuevo_temp();
             if (tipo == VAR_TYPE_STRING) {
-                printf("  %%%d = load i8*, i8** %%%s\n", temp, var_name);
+                fprintf(salida_llvm, "  %%%d = load i8*, i8** %%%s\n", temp, var_name);
             } else {
-                printf("  %%%d = load i32, i32* %%%s\n", temp, var_name);
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", temp, var_name);
             }
             return temp;
         }
@@ -113,7 +115,7 @@ int generar_codigo(ExpressionNode* expr) {
             BooleanNode* bool_node = (BooleanNode*)expr;
             int temp = nuevo_temp();
             // Usamos el campo 'lex' de LiteralNode
-            printf("  %%%d = add i1 0, %s\n", temp, 
+            fprintf(salida_llvm, "  %%%d = add i1 0, %s\n", temp, 
                   (strcmp(((LiteralNode*)bool_node)->lex, "true") == 0) ? "1" : "0");
             return temp;
         }
@@ -127,7 +129,7 @@ int generar_codigo(ExpressionNode* expr) {
             int id = registrar_string_global(str_val); // usa un sistema para evitar duplicados
         
             // Generar llamada a strdup con el string global
-            printf("  %%%d = call i8* @strdup(i8* getelementptr inbounds ([%d x i8], [%d x i8]* @.str.%d, i32 0, i32 0))\n",
+            fprintf(salida_llvm, "  %%%d = call i8* @strdup(i8* getelementptr inbounds ([%d x i8], [%d x i8]* @.str.%d, i32 0, i32 0))\n",
                    temp, len + 1, len + 1, id);
         
             return temp;
@@ -144,7 +146,7 @@ int generar_codigo(ExpressionNode* expr) {
             int izq = get_valor(bin->left);
             int der = get_valor(bin->right);
             int temp = nuevo_temp();
-            printf("  %%%d = call i32 @llvm.pow.i32(i32 %%%d, i32 %%%d)\n", temp, izq, der);
+            fprintf(salida_llvm, "  %%%d = call i32 @llvm.pow.i32(i32 %%%d, i32 %%%d)\n", temp, izq, der);
             return temp;
         }
 
@@ -162,7 +164,7 @@ int generar_codigo(ExpressionNode* expr) {
             int izq = get_valor(bin->left);
             int der = get_valor(bin->right);
             int temp = nuevo_temp();
-            printf("  %%%d = and i1 %%%d, %%%d\n", temp, izq, der);
+            fprintf(salida_llvm, "  %%%d = and i1 %%%d, %%%d\n", temp, izq, der);
             return temp;
         }
         case NODE_OR: {
@@ -170,14 +172,14 @@ int generar_codigo(ExpressionNode* expr) {
             int izq = get_valor(bin->left);
             int der = get_valor(bin->right);
             int temp = nuevo_temp();
-            printf("  %%%d = or i1 %%%d, %%%d\n", temp, izq, der);
+            fprintf(salida_llvm, "  %%%d = or i1 %%%d, %%%d\n", temp, izq, der);
             return temp;
         }
         case NODE_NOT: {
             UnaryNode* un = (UnaryNode*)expr;
             int val = get_valor(un->operand);
             int temp = nuevo_temp();
-            printf("  %%%d = xor i1 %%%d, 1\n", temp, val);
+            fprintf(salida_llvm, "  %%%d = xor i1 %%%d, 1\n", temp, val);
             return temp;
         }
 
@@ -189,18 +191,18 @@ int generar_codigo(ExpressionNode* expr) {
             int label_end = nuevo_label();
 
             int cond_val = get_valor(cond->conditions);
-            printf("  br i1 %%%d, label %%L%d, label %%L%d\n", cond_val, label_then, label_else);
+            fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond_val, label_then, label_else);
 
-            printf("L%d:\n", label_then);
+            fprintf(salida_llvm, "L%d:\n", label_then);
             generar_codigo(cond->expressions);
-            printf("  br label %%L%d\n", label_end);
+            fprintf(salida_llvm, "  br label %%L%d\n", label_end);
 
-            printf("L%d:\n", label_else);
+            fprintf(salida_llvm, "L%d:\n", label_else);
             if (cond->default_expre)
                 generar_codigo(cond->default_expre);
-            printf("  br label %%L%d\n", label_end);
+            fprintf(salida_llvm, "  br label %%L%d\n", label_end);
 
-            printf("L%d:\n", label_end);
+            fprintf(salida_llvm, "L%d:\n", label_end);
             return -1;
         }
         case NODE_WHILE: {
@@ -209,17 +211,17 @@ int generar_codigo(ExpressionNode* expr) {
             int label_body = nuevo_label();
             int label_end = nuevo_label();
 
-            printf("  br label %%L%d\n", label_start);
-            printf("L%d:\n", label_start);
+            fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+            fprintf(salida_llvm, "L%d:\n", label_start);
 
             int cond = get_valor(wh->condition);
-            printf("  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
+            fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
 
-            printf("L%d:\n", label_body);
+            fprintf(salida_llvm, "L%d:\n", label_body);
             generar_codigo(wh->body);
-            printf("  br label %%L%d\n", label_start);
+            fprintf(salida_llvm, "  br label %%L%d\n", label_start);
 
-            printf("L%d:\n", label_end);
+            fprintf(salida_llvm, "L%d:\n", label_end);
             return -1;
         }
             case NODE_FOR: {
@@ -239,76 +241,76 @@ int generar_codigo(ExpressionNode* expr) {
                 int label_body  = nuevo_label();
                 int label_end   = nuevo_label();
 
-                printf("  %%%s = alloca i32\n", nombre);
-                printf("  store i32 %%%d, i32* %%%s\n", start, nombre);
-                printf("  br label %%L%d\n", label_start);
+                fprintf(salida_llvm, "  %%%s = alloca i32\n", nombre);
+                fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", start, nombre);
+                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
 
-                printf("L%d:\n", label_start);
+                fprintf(salida_llvm, "L%d:\n", label_start);
                 int current = nuevo_temp();
-                printf("  %%%d = load i32, i32* %%%s\n", current, nombre);
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", current, nombre);
 
                 int cond = nuevo_temp();
-                printf("  %%%d = icmp slt i32 %%%d, %%%d\n", cond, current, end);
-                printf("  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
+                fprintf(salida_llvm, "  %%%d = icmp slt i32 %%%d, %%%d\n", cond, current, end);
+                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
 
-                printf("L%d:\n", label_body);
+                fprintf(salida_llvm, "L%d:\n", label_body);
                 generar_codigo(fr->body);
 
                 int temp = nuevo_temp();
-                printf("  %%%d = load i32, i32* %%%s\n", temp, nombre);
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", temp, nombre);
                 int temp_inc = nuevo_temp();
-                printf("  %%%d = add i32 %%%d, 1\n", temp_inc, temp);
-                printf("  store i32 %%%d, i32* %%%s\n", temp_inc, nombre);
-                printf("  br label %%L%d\n", label_start);
+                fprintf(salida_llvm, "  %%%d = add i32 %%%d, 1\n", temp_inc, temp);
+                fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", temp_inc, nombre);
+                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
 
-                printf("L%d:\n", label_end);
+                fprintf(salida_llvm, "L%d:\n", label_end);
                 return -1;
             }
 
 
             case NODE_FUNCTION_DEF: {
                 FunctionDeclarationNode* func = (FunctionDeclarationNode*)expr;
-                printf("define i32 @%s(", func->name);
+                fprintf(salida_llvm, "define i32 @%s(", func->name);
 
                 VarDeclarationNode** params = (VarDeclarationNode**)func->params;
                 for (int i = 0; params && params[i]; i++) {
-                    if (i > 0) printf(", ");
-                    printf("i32 %%arg%d", i);
+                    if (i > 0) fprintf(salida_llvm, ", ");
+                    fprintf(salida_llvm, "i32 %%arg%d", i);
                 }
-                printf(") {\nentry:\n");
+                fprintf(salida_llvm, ") {\nentry:\n");
 
                 for (int i = 0; params && params[i]; i++) {
-                    printf("  %%%s = alloca i32\n", params[i]->name);
-                    printf("  store i32 %%arg%d, i32* %%%s\n", i, params[i]->name);
+                    fprintf(salida_llvm, "  %%%s = alloca i32\n", params[i]->name);
+                    fprintf(salida_llvm, "  store i32 %%arg%d, i32* %%%s\n", i, params[i]->name);
                 }
 
                 int retorno = generar_codigo(func->body);
                 if (retorno == -1) {
-                    printf("  ret i32 0\n");
+                    fprintf(salida_llvm, "  ret i32 0\n");
                 }
 
-                printf("}\n\n");
+                fprintf(salida_llvm, "}\n\n");
                 return -1;
             }
 
             case NODE_TYPE_DEF: {
             TypeDeclarationNode* type = (TypeDeclarationNode*)expr;
-            printf("%%%s = type { ", type->name);
+            fprintf(salida_llvm, "%%%s = type { ", type->name);
 
             TypeAttributeNode** attrs = (TypeAttributeNode**)type->attributes;
             for (int i = 0; attrs && attrs[i]; i++) {
-                if (i > 0) printf(", ");
+                if (i > 0) fprintf(salida_llvm, ", ");
                 VarType t = attrs[i]->type;
                 if (t == VAR_TYPE_INT) {
-                    printf("i32");
+                    fprintf(salida_llvm, "i32");
                 } else if (t == VAR_TYPE_STRING) {
-                    printf("i8*");
+                    fprintf(salida_llvm, "i8*");
                 } else {
-                    printf("i32"); // tipo por defecto si falta
+                    fprintf(salida_llvm, "i32"); // tipo por defecto si falta
                 }
             }
 
-            printf(" }\n");
+            fprintf(salida_llvm, " }\n");
 
             // (Opcional) Aquí podrías guardar información del tipo para uso futuro
             return -1;
@@ -332,21 +334,21 @@ int generar_codigo(ExpressionNode* expr) {
                     }
 
                     if (tipo == VAR_TYPE_STRING) {
-                        printf("  call void @print_str(i8* %%%d)\n", valor);
+                        fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
                     } else {
-                        printf("  call void @print_int(i32 %%%d)\n", valor);
+                        fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
                     }
                     return -1;
                 }
 
                 int temp = nuevo_temp();
-                printf("  %%%d = call i32 @%s(", temp, call->name);
+                fprintf(salida_llvm, "  %%%d = call i32 @%s(", temp, call->name);
                 for (int i = 0; args && args[i]; i++) {
-                    if (i > 0) printf(", ");
+                    if (i > 0) fprintf(salida_llvm, ", ");
                     int val = generar_codigo(args[i]);
-                    printf("i32 %%%d", val);
+                    fprintf(salida_llvm, "i32 %%%d", val);
                 }
-                printf(")\n");
+                fprintf(salida_llvm, ")\n");
                 return temp;
             }
 
@@ -370,17 +372,17 @@ int generar_codigo(ExpressionNode* expr) {
 
             if (tipo_izq == VAR_TYPE_INT) {
                 int conv = nuevo_temp();
-                printf("  %%%d = call i8* @int_to_string(i32 %%%d)\n", conv, left);
+                fprintf(salida_llvm, "  %%%d = call i8* @int_to_string(i32 %%%d)\n", conv, left);
                 left = conv;
             }
             if (tipo_der == VAR_TYPE_INT) {
                 int conv = nuevo_temp();
-                printf("  %%%d = call i8* @int_to_string(i32 %%%d)\n", conv, right);
+                fprintf(salida_llvm, "  %%%d = call i8* @int_to_string(i32 %%%d)\n", conv, right);
                 right = conv;
             }
 
             int temp = nuevo_temp();
-            printf("  %%%d = call i8* @strcat2(i8* %%%d, i8* %%%d)\n", temp, left, right);
+            fprintf(salida_llvm, "  %%%d = call i8* @strcat2(i8* %%%d, i8* %%%d)\n", temp, left, right);
             return temp;
         }
 
@@ -388,14 +390,14 @@ int generar_codigo(ExpressionNode* expr) {
             CallMethodNode* call = (CallMethodNode*)expr;
             int obj = get_valor(call->inst_name);
             int temp = nuevo_temp();
-            printf("  %%%d = call i32 @%s_%s(i32 %%%d", temp, call->inst_name, call->method_name, obj);
+            fprintf(salida_llvm, "  %%%d = call i32 @%s_%s(i32 %%%d", temp, call->inst_name, call->method_name, obj);
             // Implementación básica de argumentos
             if (call->method_args) {
                 // Asumimos un solo argumento
                 int arg = get_valor(call->method_args);
-                printf(", i32 %%%d", arg);
+                fprintf(salida_llvm, ", i32 %%%d", arg);
             }
-            printf(")\n");
+            fprintf(salida_llvm, ")\n");
             return temp;
         }
 
@@ -409,16 +411,16 @@ int generar_codigo(ExpressionNode* expr) {
             
             // Llamar a print_int o print_str según el tipo
             if (tipo_arg == NODE_STRING) {
-                printf("  call void @print_str(i8* %%%d)\n", valor);
+                fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
             } else {
-                printf("  call void @print_int(i32 %%%d)\n", valor);
+                fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
             }
             return -1;
         }
         case NODE_RETURN: {
             ReturnNode* ret = (ReturnNode*)expr;
             int val = get_valor(ret->expr); // genera la expresión
-            printf("  ret i32 %%%d\n", val);
+            fprintf(salida_llvm, "  ret i32 %%%d\n", val);
             return -1; // nada se guarda, se sale
         }
         
@@ -433,7 +435,7 @@ int generar_codigo(ExpressionNode* expr) {
         }
 
         default:
-            printf("; [TODO] Generación no implementada para tipo %d\n", tipo);
+            fprintf(salida_llvm, "; [TODO] Generación no implementada para tipo %d\n", tipo);
             return -1;
     }
 }
@@ -473,7 +475,7 @@ int generar_binario(BinaryNode* bin, const char* opcode) {
     int izq = get_valor(bin->left);
     int der = get_valor(bin->right);
     int temp = nuevo_temp();
-    printf("  %%%d = %s i32 %%%d, %%%d\n", temp, opcode, izq, der);
+    fprintf(salida_llvm, "  %%%d = %s i32 %%%d, %%%d\n", temp, opcode, izq, der);
     return temp;
 }
 
@@ -482,7 +484,7 @@ int generar_comparacion(BinaryNode* bin, const char* cmp) {
     int izq = get_valor(bin->left);
     int der = get_valor(bin->right);
     int temp = nuevo_temp();
-    printf("  %%%d = icmp %s i32 %%%d, %%%d\n", temp, cmp, izq, der);
+    fprintf(salida_llvm, "  %%%d = icmp %s i32 %%%d, %%%d\n", temp, cmp, izq, der);
     return temp;
 }
 
@@ -491,8 +493,8 @@ void generar_declaraciones_variables() {
     for (int i = 0; i < num_variables; i++) {
         // Asegurarse que el nombre no esté vacío
         if (variables_usadas[i].nombre && strlen(variables_usadas[i].nombre) > 0) {
-            printf("  %%var_%s = alloca i32\n", variables_usadas[i].nombre);
-            printf("  store i32 0, i32* %%var_%s\n", variables_usadas[i].nombre);
+            fprintf(salida_llvm, "  %%var_%s = alloca i32\n", variables_usadas[i].nombre);
+            fprintf(salida_llvm, "  store i32 0, i32* %%var_%s\n", variables_usadas[i].nombre);
         }
     }
 }
@@ -501,25 +503,25 @@ void generar_constantes_globales(ProgramNode* program) {
     for (int i = 0; i < num_strings; i++) {
         char* str_val = constantes_string[i].valor;
         int len = strlen(str_val);
-        printf("@.str.%d = private unnamed_addr constant [%d x i8] c\"%s\\00\"\n",
+        fprintf(salida_llvm, "@.str.%d = private unnamed_addr constant [%d x i8] c\"%s\\00\"\n",
                i, len + 1, str_val);
     }
 }
 
 void declare_extern_functions() {
-    printf("declare i8* @strdup(i8*)\n");
-    printf("declare i32 @llvm.pow.i32(i32, i32)\n");
-    printf("declare void @print_int(i32)\n");
-    printf("declare void @print_str(i8*)\n\n");
-    printf("declare i8* @int_to_string(i32)\n");  
-    printf("declare i8* @strcat2(i8*, i8*)\n\n");
+    fprintf(salida_llvm, "declare i8* @strdup(i8*)\n");
+    fprintf(salida_llvm, "declare i32 @llvm.pow.i32(i32, i32)\n");
+    fprintf(salida_llvm, "declare void @print_int(i32)\n");
+    fprintf(salida_llvm, "declare void @print_str(i8*)\n\n");
+    fprintf(salida_llvm, "declare i8* @int_to_string(i32)\n");  
+    fprintf(salida_llvm, "declare i8* @strcat2(i8*, i8*)\n\n");
 }
 void generar_programa(ProgramNode* program) {
-    printf("; Generado automáticamente por el compilador\n\n");
+    fprintf(salida_llvm, "; Generado automáticamente por el compilador\n\n");
     declare_extern_functions();
     generar_constantes_globales(program);
-    printf("define i32 @main() {\n");
-    printf("entry:\n");
+    fprintf(salida_llvm, "define i32 @main() {\n");
+    fprintf(salida_llvm, "entry:\n");
     
     // 1. Registrar todas las variables del programa
     registrar_variables(program);
@@ -531,15 +533,15 @@ void generar_programa(ProgramNode* program) {
     
     // 4. Retornar
     if (last_temp != -1) {
-        printf("  ret i32 %%%d\n", last_temp);
+        fprintf(salida_llvm, "  ret i32 %%%d\n", last_temp);
     } else {
-        printf("  ret i32 0\n");
+        fprintf(salida_llvm, "  ret i32 0\n");
     }
-    printf("}\n");
+    fprintf(salida_llvm, "}\n");
 }
 void asegurar_declaracion(const char* var_name) {
-    printf("  %%var_%s = alloca i32\n", var_name);
-    printf("  store i32 0, i32* %%var_%s\n", var_name);
+    fprintf(salida_llvm, "  %%var_%s = alloca i32\n", var_name);
+    fprintf(salida_llvm, "  store i32 0, i32* %%var_%s\n", var_name);
 }
 void recorrer_ast_para_strings(ExpressionNode* expr) {
     if (!expr) return;

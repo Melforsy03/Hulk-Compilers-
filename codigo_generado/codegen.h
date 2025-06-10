@@ -21,6 +21,7 @@ typedef struct {
 #define MAX_VARIABLES 100
 extern Variable variables_usadas[MAX_VARIABLES];
 extern int num_variables;
+extern FILE* salida_llvm;
 
 int generar_codigo(ExpressionNode* expr);
 int generar_etiqueta();
