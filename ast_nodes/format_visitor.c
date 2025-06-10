@@ -3,7 +3,6 @@
 #include <string.h>
 #include "ast_nodes.h"
 
-// Prototipos de funciones
 char* visit(Node* node, int tabs);
 char* visit_ProgramNode(ProgramNode* node, int tabs);
 char* visit_MethodSignatureNode(MethodSignatureNode* node, int tabs);
