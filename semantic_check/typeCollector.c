@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "semantic.h" 
-#include "errors.h" 
+#include "semanticErrors.h" 
 #include "ast_nodes.h"
 
 typedef struct TypeCollector {

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "errors.h"
+#include "semanticErrors.h"
 #include "semantic.h"
 #include "ast_nodes.h"
 
