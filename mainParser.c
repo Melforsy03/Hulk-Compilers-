@@ -9,6 +9,7 @@
 #include "parser/lr1_table.h"
 #include "lexer/lexer.h"
 #include "lexer/func_aux_lexer.h"
+#include "ast_nodes/ast_nodes.h"
 int main() {
     Grammar* grammar = create_grammar("archivo.txt");
     load_grammar_from_file(grammar, "gramatica.txt");
@@ -45,7 +46,7 @@ int main() {
     int action_count = 0;
     Node accepted = parser(table, input_symbols, input_len, &actions, &action_count);
 
-    printf("\n=== Resultado: %s ===\n", accepted ? "ACEPTADA" : "RECHAZADA");
+
 
     // Limpieza
     free(actions);
