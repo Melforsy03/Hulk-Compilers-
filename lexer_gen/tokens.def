@@ -17,6 +17,8 @@ BASE          base
 RETURN        return
 PRINT         Print
 RANGE         range
+PROTOCOL      protocol 
+EXTENDS       extends
 DSTAR         \*\*          
 ARROW         =>
 COLON_EQUAL   :=

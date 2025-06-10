@@ -996,6 +996,8 @@ void print_token(Token t) {
         "RETURN",
         "PRINT",
         "RANGE",
+        "PROTOCOL",
+        "EXTENDS"
         "DSTAR",
         "ARROW",
         "COLON_EQUAL",
