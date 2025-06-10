@@ -6,6 +6,7 @@
 #include "grammar.h"
 #include "symbol.h"
 #include "production.h"
+#include "load_grammar.h"
 
 #define MAX_LINE 1024
 #define MAX_TOKENS 100

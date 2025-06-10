@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "grammar/grammar.h"
+#include "grammar/load_grammar.h"
 #include "parser/first_follow.h"
 #include "parser/automaton.h"
 #include "parser/parser.h"
