@@ -4,7 +4,7 @@
 #include <string.h>
 #include "regex_parser.h"
 #include "utils.h"
-
+#include "regex_to_dfa.h"
 #define MAX_TOKENS 128
 
 typedef struct {
@@ -15,34 +15,72 @@ typedef struct {
 
 EntradaToken tokens[MAX_TOKENS];
 int num_tokens = 0;
-
 void leer_tokens(const char* archivo) {
     FILE* f = fopen(archivo, "r");
     if (!f) {
-        perror("tokens.def no encontrado");
+        perror("No se pudo abrir tokens.def");
         exit(1);
     }
 
     char linea[256];
+    int linea_num = 0;
+    num_tokens = 0;
+
+    printf("\n--- Depuración: Leyendo tokens.def ---\n");
+
     while (fgets(linea, sizeof(linea), f)) {
-        char* nombre = strtok(linea, " \t\r\n");
-        char* regex = strtok(NULL, "\r\n");
+        linea_num++;
+        printf("Línea %d: %s", linea_num, linea);  // Mostrar la línea original
 
-        // ✅ CORRECCIÓN: eliminar espacios iniciales del regex
-        while (regex && *regex == ' ') regex++;
-
-        if (nombre && regex) {
-            strncpy(tokens[num_tokens].nombre, nombre, 31);
-            tokens[num_tokens].regex = strdup(regex);
-            num_tokens++;
+        // Ignora líneas vacías o comentarios
+        if (linea[0] == '#' || linea[0] == '\n' || linea[0] == '\r') {
+            printf("Ignorado (comentario/vacío)\n");
+            continue;
         }
+
+        char nombre[32];
+        int offset = 0;
+
+        // Extrae el nombre (primera palabra)
+        if (sscanf(linea, "%31s%n", nombre, &offset) != 1) {
+            fprintf(stderr, "❌ Error en línea %d: No se pudo leer el nombre del token\n", linea_num);
+            exit(1);
+        }
+
+        // Apunta al inicio de la regex (después del nombre)
+        char* regex_inicio = linea + offset;
+        while (*regex_inicio && isspace(*regex_inicio)) {
+            regex_inicio++;
+        }
+
+        // Verifica si la regex está vacía
+        if (*regex_inicio == '\0') {
+            fprintf(stderr, "❌ Token '%s' (línea %d): Expresión regular vacía\n", nombre, linea_num);
+            exit(1);
+        }
+
+        // Elimina cualquier carácter de fin de línea o espacios finales
+        char* end = regex_inicio + strlen(regex_inicio) - 1;
+        while (end > regex_inicio && (isspace(*end) || *end == '\r' || *end == '\n')) {
+            *end = '\0';
+            end--;
+        }
+
+        printf("→ Guardando: nombre='%s', regex='%s'\n", nombre, regex_inicio);
+
+        strncpy(tokens[num_tokens].nombre, nombre, sizeof(tokens[num_tokens].nombre) - 1);
+        tokens[num_tokens].regex = strdup(regex_inicio);
+        num_tokens++;
     }
+
     fclose(f);
+    printf("--- Fin de lectura ---\n\n");
 }
 
 
+
 void generar_lexer_c() {
-    FILE* out = fopen("lexer.c", "w");
+FILE* out = fopen("lexer.c", "w");
     if (!out) { perror("No se pudo crear lexer.c"); exit(1); }
 
     // Cabecera del lexer
@@ -51,7 +89,15 @@ void generar_lexer_c() {
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <ctype.h>\n");
     fprintf(out, "#include \"lexer.h\"\n\n");
-    
+
+    // --- Inserta implementación local de my_strndup ---
+    fprintf(out, "static char* my_strndup(const char* src, size_t n) {\n");
+    fprintf(out, "    char* s = (char*)malloc(n + 1);\n");
+    fprintf(out, "    if (!s) return NULL;\n");
+    fprintf(out, "    strncpy(s, src, n);\n");
+    fprintf(out, "    s[n] = '\\0';\n");
+    fprintf(out, "    return s;\n");
+    fprintf(out, "}\n\n");
 
     // Función para coincidencia con DFA
     fprintf(out, "static int match_dfa(EstadoDFA* estados, int num_estados, const char* input, int* length) {\n");
@@ -72,19 +118,15 @@ void generar_lexer_c() {
     fprintf(out, "        }\n");
     fprintf(out, "        \n");
     fprintf(out, "        if (!encontrado) break;\n");
-    fprintf(out, "        \n");
     fprintf(out, "        match_length++;\n");
-    fprintf(out, "        \n");
     fprintf(out, "        if (estados[estado_actual].es_final) {\n");
     fprintf(out, "            last_final = match_length;\n");
     fprintf(out, "        }\n");
     fprintf(out, "    }\n");
-    fprintf(out, "    \n");
     fprintf(out, "    if (last_final > 0) {\n");
     fprintf(out, "        *length = last_final;\n");
     fprintf(out, "        return estados[estado_actual].tipo;\n");
     fprintf(out, "    }\n");
-    fprintf(out, "    \n");
     fprintf(out, "    return TOKEN_ERROR;\n");
     fprintf(out, "}\n\n");
 
@@ -147,13 +189,13 @@ void generar_lexer_c() {
     
     fprintf(out, "    \n");
     fprintf(out, "    if (max_len > 0) {\n");
-    fprintf(out, "        char* lexema = strndup(*input, max_len);\n");
+    fprintf(out, "        char* lexema = my_strndup(*input, max_len);\n");
     fprintf(out, "        *input += max_len;\n");
     fprintf(out, "        return (Token){tipo, lexema, max_len};\n");
     fprintf(out, "    }\n");
     fprintf(out, "    \n");
     fprintf(out, "    // Manejo de errores: avanzar un carácter\n");
-    fprintf(out, "    char* error_lexema = strndup(*input, 1);\n");
+    fprintf(out, "    char* error_lexema = my_strndup(*input, 1);\n");
     fprintf(out, "    (*input)++;\n");
     fprintf(out, "    return (Token){TOKEN_ERROR, error_lexema, 1};\n");
     fprintf(out, "}\n\n");
@@ -181,12 +223,13 @@ void generar_lexer_c() {
 
     fclose(out);
 }
-// int main() {
-//     leer_tokens("tokens.def");
-//     generar_lexer_c();
-//     printf("✅ lexer.c generado correctamente con regex_to_dfa.\n");
-//     return 0;
-// }
+
+int main() {
+    leer_tokens("lexer_gen/tokens.def");
+    generar_lexer_c();
+    printf("✅ lexer.c generado correctamente con regex_to_dfa.\n");
+    return 0;
+}
 
 
 

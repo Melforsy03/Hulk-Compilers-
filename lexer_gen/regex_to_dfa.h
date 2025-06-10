@@ -17,5 +17,5 @@ typedef struct {
 typedef struct DFA DFA;
 DFA compilar_regex(char* regex, int token_id);
 
-
+FragmentoNFA parse_literal(const char* regex);
 #endif
