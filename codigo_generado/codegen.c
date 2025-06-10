@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -55,6 +56,14 @@ int generar_codigo(ExpressionNode* expr) {
             fprintf(salida_llvm, "  %%%d = add i32 0, %s\n", temp, ((LiteralNode*)num)->lex);
             return temp;
         }
+        case NODE_PROGRAM: {
+            ProgramNode* prog = (ProgramNode*)expr;
+            if (prog->expression) {
+                return generar_codigo(prog->expression);
+            }
+            return -1;
+        }
+
         case NODE_LET: {
             LetInNode* let_in = (LetInNode*)expr;
             VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
@@ -97,6 +106,49 @@ int generar_codigo(ExpressionNode* expr) {
             // Generar el cuerpo del 'in'
             return generar_codigo(let_in->body);
         }
+        case NODE_LET_IN: {
+                LetInNode* let_in = (LetInNode*)expr;
+                VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
+
+                for (int i = 0; declarations && declarations[i] != NULL; i++) {
+                    VarDeclarationNode* decl = declarations[i];
+
+                    // Determinar el tipo de la variable (int o string)
+                    VarType var_tipo = VAR_TYPE_INT; // Por defecto
+                    if (decl->value && ((Node*)decl->value)->tipo == NODE_STRING) {
+                        var_tipo = VAR_TYPE_STRING;
+                    }
+
+                    // Registrar la variable en la tabla de símbolos
+                    variables_usadas[num_variables].nombre = strdup(decl->name);
+                    variables_usadas[num_variables].tipo = var_tipo;
+                    variables_usadas[num_variables].inicializada = 1;
+                    num_variables++;
+
+                    // Generar código de la variable
+                    if (var_tipo == VAR_TYPE_STRING) {
+                        fprintf(salida_llvm, "  %%%s = alloca i8*\n", decl->name);
+                        if (decl->value) {
+                            int temp = generar_codigo(decl->value);
+                            fprintf(salida_llvm, "  store i8* %%%d, i8** %%%s\n", temp, decl->name);
+                        } else {
+                            fprintf(salida_llvm, "  store i8* null, i8** %%%s\n", decl->name);
+                        }
+                    } else {
+                        fprintf(salida_llvm, "  %%%s = alloca i32\n", decl->name);
+                        if (decl->value) {
+                            int temp = generar_codigo(decl->value);
+                            fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", temp, decl->name);
+                        } else {
+                            fprintf(salida_llvm, "  store i32 0, i32* %%%s\n", decl->name);
+                        }
+                    }
+                }
+
+                // Generar el cuerpo del let-in
+                return generar_codigo(let_in->body);
+            }
+
         case NODE_VAR: {
             VarNode* var = (VarNode*)expr;
             const char* var_name = obtener_nombre_variable(var);
@@ -185,45 +237,66 @@ int generar_codigo(ExpressionNode* expr) {
 
         // Control de flujo
         case NODE_IF: {
-            ConditionalNode* cond = (ConditionalNode*)expr;
-            int label_then = nuevo_label();
-            int label_else = nuevo_label();
-            int label_end = nuevo_label();
+                ConditionalNode* cond = (ConditionalNode*)expr;
 
-            int cond_val = get_valor(cond->conditions);
-            fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond_val, label_then, label_else);
+                // ✅ Corrige: usar solo la primera condición
+                ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
+                int cond_val = generar_codigo(conditions[0]);
 
-            fprintf(salida_llvm, "L%d:\n", label_then);
-            generar_codigo(cond->expressions);
-            fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+                int label_then = nuevo_label();
+                int label_else = nuevo_label();
+                int label_end = nuevo_label();
 
-            fprintf(salida_llvm, "L%d:\n", label_else);
-            if (cond->default_expre)
-                generar_codigo(cond->default_expre);
-            fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond_val, label_then, label_else);
 
-            fprintf(salida_llvm, "L%d:\n", label_end);
-            return -1;
-        }
+                // THEN
+                fprintf(salida_llvm, "L%d:\n", label_then);
+                ExpressionNode** thens = (ExpressionNode**)cond->expressions;
+                for (int i = 0; thens && thens[i]; i++) {
+                    generar_codigo(thens[i]);
+                }
+                fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+
+                // ELSE
+                fprintf(salida_llvm, "L%d:\n", label_else);
+                if (cond->default_expre)
+                    generar_codigo(cond->default_expre);
+                fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+
+                // END
+                fprintf(salida_llvm, "L%d:\n", label_end);
+                return -1;
+            }
+
         case NODE_WHILE: {
-            WhileNode* wh = (WhileNode*)expr;
-            int label_start = nuevo_label();
-            int label_body = nuevo_label();
-            int label_end = nuevo_label();
+                WhileNode* wh = (WhileNode*)expr;
+                int label_start = nuevo_label();
+                int label_body = nuevo_label();
+                int label_end = nuevo_label();
 
-            fprintf(salida_llvm, "  br label %%L%d\n", label_start);
-            fprintf(salida_llvm, "L%d:\n", label_start);
+                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                fprintf(salida_llvm, "L%d:\n", label_start);
 
-            int cond = get_valor(wh->condition);
-            fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
+                int cond = get_valor(wh->condition);
+                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
 
-            fprintf(salida_llvm, "L%d:\n", label_body);
-            generar_codigo(wh->body);
-            fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                fprintf(salida_llvm, "L%d:\n", label_body);
+                
+               if (((Node*)wh->body)->tipo == NODE_BLOCK) {
+                    ExpressionBlockNode* block = (ExpressionBlockNode*)wh->body;
+                    ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+                    for (int i = 0; exprs && exprs[i]; i++) {
+                        generar_codigo(exprs[i]);
+                    }
+                } else {
+                    generar_codigo(wh->body);
+                }
 
-            fprintf(salida_llvm, "L%d:\n", label_end);
-            return -1;
-        }
+
+                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                fprintf(salida_llvm, "L%d:\n", label_end);
+                return -1;
+            }
             case NODE_FOR: {
                 ForNode* fr = (ForNode*)expr;
 
@@ -267,8 +340,7 @@ int generar_codigo(ExpressionNode* expr) {
                 return -1;
             }
 
-
-            case NODE_FUNCTION_DEF: {
+           case NODE_FUNCTION_DEF: {
                 FunctionDeclarationNode* func = (FunctionDeclarationNode*)expr;
                 fprintf(salida_llvm, "define i32 @%s(", func->name);
 
@@ -279,20 +351,31 @@ int generar_codigo(ExpressionNode* expr) {
                 }
                 fprintf(salida_llvm, ") {\nentry:\n");
 
+                // Almacenar parámetros en variables locales
                 for (int i = 0; params && params[i]; i++) {
                     fprintf(salida_llvm, "  %%%s = alloca i32\n", params[i]->name);
                     fprintf(salida_llvm, "  store i32 %%arg%d, i32* %%%s\n", i, params[i]->name);
                 }
 
+                // Generar cuerpo de la función
                 int retorno = generar_codigo(func->body);
-                if (retorno == -1) {
-                    fprintf(salida_llvm, "  ret i32 0\n");
+                if (retorno != -1) {
+                    fprintf(salida_llvm, "  ret i32 %%%d\n", retorno);
+                } else {
+                    fprintf(salida_llvm, "  ret i32 0\n");  // Valor por defecto si no hay return
                 }
 
                 fprintf(salida_llvm, "}\n\n");
-                return -1;
+                return -1;  // Las definiciones de función no devuelven un valor
             }
-
+            case NODE_ASSIGN: {
+                BinaryNode* bin = (BinaryNode*)expr;
+                int right_val = get_valor(bin->right);
+                const char* var_name = obtener_nombre_variable((VarNode*)bin->left);
+                
+                fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", right_val, var_name);
+                return right_val;
+            }
             case NODE_TYPE_DEF: {
             TypeDeclarationNode* type = (TypeDeclarationNode*)expr;
             fprintf(salida_llvm, "%%%s = type { ", type->name);
@@ -300,14 +383,16 @@ int generar_codigo(ExpressionNode* expr) {
             TypeAttributeNode** attrs = (TypeAttributeNode**)type->attributes;
             for (int i = 0; attrs && attrs[i]; i++) {
                 if (i > 0) fprintf(salida_llvm, ", ");
-                VarType t = attrs[i]->type;
-                if (t == VAR_TYPE_INT) {
-                    fprintf(salida_llvm, "i32");
-                } else if (t == VAR_TYPE_STRING) {
-                    fprintf(salida_llvm, "i8*");
+                VarType t;
+                if (attrs[i]->type != NULL && strcmp(attrs[i]->type, "string") == 0) {
+                    t = VAR_TYPE_STRING;
                 } else {
-                    fprintf(salida_llvm, "i32"); // tipo por defecto si falta
+                    t = VAR_TYPE_INT;
                 }
+
+                fprintf(salida_llvm, "%s", t == VAR_TYPE_STRING ? "i8*" : "i32");
+
+
             }
 
             fprintf(salida_llvm, " }\n");
@@ -341,16 +426,24 @@ int generar_codigo(ExpressionNode* expr) {
                     return -1;
                 }
 
-                int temp = nuevo_temp();
-                fprintf(salida_llvm, "  %%%d = call i32 @%s(", temp, call->name);
-                for (int i = 0; args && args[i]; i++) {
-                    if (i > 0) fprintf(salida_llvm, ", ");
-                    int val = generar_codigo(args[i]);
-                    fprintf(salida_llvm, "i32 %%%d", val);
-                }
-                fprintf(salida_llvm, ")\n");
-                return temp;
+                int arg_values[10];  // Asumimos como máximo 10 args por simplicidad
+            int arg_count = 0;
+
+            // Primero: evaluar argumentos y generar instrucciones por separado
+            for (int i = 0; args && args[i]; i++) {
+                arg_values[arg_count++] = generar_codigo(args[i]);
             }
+
+            // Segundo: emitir llamada con args ya evaluados
+            int temp = nuevo_temp();
+            fprintf(salida_llvm, "  %%%d = call i32 @%s(", temp, call->name);
+            for (int i = 0; i < arg_count; i++) {
+                if (i > 0) fprintf(salida_llvm, ", ");
+                fprintf(salida_llvm, "i32 %%%d", arg_values[i]);
+            }
+            fprintf(salida_llvm, ")\n");
+            return temp;
+                    }
 
         case NODE_CONCAT: {
             BinaryNode* bin = (BinaryNode*)expr;
@@ -388,7 +481,11 @@ int generar_codigo(ExpressionNode* expr) {
 
         case NODE_CALL_METHOD: {
             CallMethodNode* call = (CallMethodNode*)expr;
-            int obj = get_valor(call->inst_name);
+            VarNode* inst = calloc(1, sizeof(VarNode));
+            inst->base.base.base.base.tipo = NODE_VAR;
+            inst->base.lex = strdup(call->inst_name);
+            int obj = get_valor((ExpressionNode*)inst);
+
             int temp = nuevo_temp();
             fprintf(salida_llvm, "  %%%d = call i32 @%s_%s(i32 %%%d", temp, call->inst_name, call->method_name, obj);
             // Implementación básica de argumentos
@@ -402,21 +499,30 @@ int generar_codigo(ExpressionNode* expr) {
         }
 
         case NODE_PRINT: {
-            UnaryNode* un = (UnaryNode*)expr;
-            ExpressionNode* arg = (ExpressionNode*)un->operand;
-            
-            // Obtener el tipo del argumento (int o string)
-            NodeType tipo_arg = ((Node*)arg)->tipo;
-            int valor = generar_codigo(arg);
-            
-            // Llamar a print_int o print_str según el tipo
-            if (tipo_arg == NODE_STRING) {
-                fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
-            } else {
-                fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
+                UnaryNode* un = (UnaryNode*)expr;
+                ExpressionNode* arg = (ExpressionNode*)un->operand;
+
+                NodeType tipo_arg = ((Node*)arg)->tipo;
+                int valor = generar_codigo(arg);
+
+                VarType tipo = VAR_TYPE_INT;
+
+                if (tipo_arg == NODE_STRING || tipo_arg == NODE_CONCAT) {
+                    tipo = VAR_TYPE_STRING;
+                } else if (tipo_arg == NODE_VAR) {
+                    const char* nombre = obtener_nombre_variable((VarNode*)arg);
+                    tipo = obtener_tipo_variable(nombre);
+                }
+
+                if (tipo == VAR_TYPE_STRING) {
+                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
+                } else {
+                    fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
+                }
+
+                return -1;
             }
-            return -1;
-        }
+
         case NODE_RETURN: {
             ReturnNode* ret = (ReturnNode*)expr;
             int val = get_valor(ret->expr); // genera la expresión
@@ -426,13 +532,15 @@ int generar_codigo(ExpressionNode* expr) {
         
         case NODE_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
-            // Implementación básica de bloques
-            if (block->expressions) {
-                // Asumimos lista simple de expresiones
-                generar_codigo(block->expressions);
+            ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+            int ultimo = -1;
+            for (int i = 0; exprs && exprs[i]; i++) {
+                ultimo = generar_codigo(exprs[i]);
             }
-            return -1;
+            return ultimo;
         }
+
+
 
         default:
             fprintf(salida_llvm, "; [TODO] Generación no implementada para tipo %d\n", tipo);
@@ -450,11 +558,18 @@ const char* tmp_actual() {
 }
 // Registrar una nueva variable
 void registrar_variables(ProgramNode* program) {
+    if (!program || !program->declarations) return;
+
     VarDeclarationNode** decls = (VarDeclarationNode**)program->declarations;
-    for (int i = 0; decls && decls[i]; ++i) {
-        registrar_variables(decls[i]->name);
+    for (int i = 0; decls[i] != NULL; ++i) {
+        // Aquí podrías registrar el nombre si lo deseas
+        variables_usadas[num_variables].nombre = strdup(decls[i]->name);
+        variables_usadas[num_variables].tipo = VAR_TYPE_INT; // o detectar por tipo real
+        variables_usadas[num_variables].inicializada = 0;
+        num_variables++;
     }
 }
+
 // Verificar si una variable existe
 int variable_existe(const char* nombre) {
     for (int i = 0; i < num_variables; i++) {
@@ -499,7 +614,23 @@ void generar_declaraciones_variables() {
     }
 }
 void generar_constantes_globales(ProgramNode* program) {
-    recorrer_ast_para_strings((ExpressionNode*)program->expression);
+    // Recolectar strings en el cuerpo del programa
+        if (program->expression)
+            recorrer_ast_para_strings((ExpressionNode*)program->expression);
+
+        // Recolectar strings en las funciones también
+        if (program->declarations) {
+            DeclarationNode** decls = (DeclarationNode**)program->declarations;
+            for (int i = 0; decls[i]; i++) {
+                if (decls[i]->base.tipo == NODE_FUNCTION_DEF) {
+                    FunctionDeclarationNode* f = (FunctionDeclarationNode*)decls[i];
+                    if (f->body) {
+                        recorrer_ast_para_strings(f->body);
+                    }
+                }
+            }
+        }
+
     for (int i = 0; i < num_strings; i++) {
         char* str_val = constantes_string[i].valor;
         int len = strlen(str_val);
@@ -517,26 +648,40 @@ void declare_extern_functions() {
     fprintf(salida_llvm, "declare i8* @strcat2(i8*, i8*)\n\n");
 }
 void generar_programa(ProgramNode* program) {
+    if (!program) {
+        fprintf(stderr, "[ERROR] ProgramNode nulo\n");
+        return;
+    }
+
     fprintf(salida_llvm, "; Generado automáticamente por el compilador\n\n");
     declare_extern_functions();
     generar_constantes_globales(program);
+
+    // 1. Primero genera todas las funciones (declaraciones)
+    if (program->declarations) {
+        DeclarationNode** decls = (DeclarationNode**)program->declarations;
+        for (int i = 0; decls[i]; i++) {
+            if (decls[i]->base.tipo == NODE_FUNCTION_DEF) {
+                generar_codigo((ExpressionNode*)decls[i]);
+            }
+        }
+    }
+
+    // 2. Luego genera el main
     fprintf(salida_llvm, "define i32 @main() {\n");
     fprintf(salida_llvm, "entry:\n");
-    
-    // 1. Registrar todas las variables del programa
+
     registrar_variables(program);
-    
-    // 2. Generar declaraciones
     generar_declaraciones_variables();
-    // 3. Generar código principal
+
     int last_temp = generar_codigo(program->expression);
-    
-    // 4. Retornar
+
     if (last_temp != -1) {
         fprintf(salida_llvm, "  ret i32 %%%d\n", last_temp);
     } else {
         fprintf(salida_llvm, "  ret i32 0\n");
     }
+
     fprintf(salida_llvm, "}\n");
 }
 void asegurar_declaracion(const char* var_name) {
@@ -554,22 +699,32 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
             registrar_string_global(str->base.lex);
             break;
         }
-        case NODE_LET: {
+     
+        case NODE_LET_IN: {
             LetInNode* let = (LetInNode*)expr;
             VarDeclarationNode** decls = (VarDeclarationNode**)let->variables;
             for (int i = 0; decls && decls[i]; i++) {
-                recorrer_ast_para_strings((ExpressionNode*)decls[i]->value);
+                recorrer_ast_para_strings(decls[i]->value);
             }
-            recorrer_ast_para_strings((ExpressionNode*)let->body);
+            recorrer_ast_para_strings(let->body);
             break;
         }
+
         case NODE_PRINT:
-        case NODE_NOT:
-        case NODE_RETURN: {
+       
+        case NODE_NOT: {
             UnaryNode* un = (UnaryNode*)expr;
-            recorrer_ast_para_strings((ExpressionNode*)un->operand);
+            recorrer_ast_para_strings(un->operand);
             break;
         }
+
+        case NODE_RETURN: {
+            ReturnNode* ret = (ReturnNode*)expr;
+            recorrer_ast_para_strings(ret->expr);
+            break;
+        }
+
+
         case NODE_ADD: case NODE_SUB: case NODE_MUL:
         case NODE_DIV: case NODE_EQ: case NODE_LT:
         case NODE_GT: case NODE_AND: case NODE_OR:
@@ -582,9 +737,13 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
         }
         case NODE_CALL_FUNC: {
             CallFuncNode* call = (CallFuncNode*)expr;
-            recorrer_ast_para_strings((ExpressionNode*)call->arguments);
+            ExpressionNode** args = (ExpressionNode**)call->arguments;
+            for (int i = 0; args && args[i]; i++) {
+                recorrer_ast_para_strings(args[i]);
+            }
             break;
         }
+
         case NODE_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
             ExpressionNode** exprs = (ExpressionNode**)block->expressions;
@@ -604,6 +763,13 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
                 recorrer_ast_para_strings(cond->default_expre);
             break;
         }
+        case NODE_CONCAT: {
+            BinaryNode* bin = (BinaryNode*)expr;
+            recorrer_ast_para_strings((ExpressionNode*)bin->left);
+            recorrer_ast_para_strings((ExpressionNode*)bin->right);
+            break;
+        }
+
         case NODE_WHILE: {
             WhileNode* wh = (WhileNode*)expr;
             recorrer_ast_para_strings((ExpressionNode*)wh->condition);
@@ -623,4 +789,57 @@ int registrar_string_global(const char* texto) {
     constantes_string[nuevo_id].id = nuevo_id;
     num_strings++;
     return nuevo_id;
+}
+void generar_funciones(ExpressionNode* expr) {
+    if (!expr) return;
+    NodeType tipo = ((Node*)expr)->tipo;
+
+    switch (tipo) {
+        case NODE_FUNCTION_DEF:
+            generar_codigo(expr);
+            break;
+
+        case NODE_BLOCK: {
+            ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
+            ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+            for (int i = 0; exprs && exprs[i]; i++) {
+                generar_funciones(exprs[i]);
+            }
+            break;
+        }
+
+        case NODE_LET:
+        case NODE_LET_IN: {
+            LetInNode* let = (LetInNode*)expr;
+            generar_funciones(let->body);
+            break;
+        }
+
+        case NODE_IF: {
+        ConditionalNode* cond = (ConditionalNode*)expr;
+        ExpressionNode** conds = (ExpressionNode**)cond->conditions;
+        ExpressionNode** exprs = (ExpressionNode**)cond->expressions;
+        for (int i = 0; conds && conds[i]; i++) {
+            generar_funciones(conds[i]);
+        }
+        for (int i = 0; exprs && exprs[i]; i++) {
+            generar_funciones(exprs[i]);
+        }
+        if (cond->default_expre) {
+            generar_funciones((ExpressionNode*)cond->default_expre);
+        }
+        break;
+    }
+
+
+        case NODE_WHILE: {
+            WhileNode* wh = (WhileNode*)expr;
+            generar_funciones(wh->condition);
+            generar_funciones(wh->body);
+            break;
+        }
+
+        default:
+            break;
+    }
 }
