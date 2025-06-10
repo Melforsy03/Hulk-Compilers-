@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast_nodes.h"
-#include "errors.h"
+#include "semanticErrors.h"
+#include "typeCollector.c"
 #include "semantic.h"
 
 

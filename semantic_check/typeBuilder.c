@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "semantic.h"
 #include "ast_nodes.h"
-#include "errors.h"
+#include "semanticErrors.h"
 
 // Estructura del TypeBuilder
 typedef struct {
