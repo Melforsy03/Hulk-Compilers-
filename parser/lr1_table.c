@@ -1,5 +1,5 @@
 #include "lr1_table.h"
-#include "../grammar/grammar.h"
+#include "grammar/grammar.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +7,7 @@
 
 // Función auxiliar para recolectar todos los estados del autómata
 void collect_states_lr1(State* start, State** states, int* state_count) {
-    int visited_capacity = 1000;
+    int visited_capacity = 2000;
     int visited_count = 0;
     states[visited_count++] = start;
 
@@ -24,7 +24,7 @@ void collect_states_lr1(State* start, State** states, int* state_count) {
             }
             if (!found) {
                 if (visited_count >= visited_capacity) {
-                    fprintf(stderr, "Error: Demasiados estados en el autómata\n");
+                    //fprintf(stderr, "Error: Demasiados estados en el autómata\n");
                     return;
                 }
                 states[visited_count++] = t->next_state;
@@ -58,10 +58,10 @@ void log_conflict(const char* type, int state, const char* symbol_name, int prod
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", localtime(&now));
 
-    fprintf(log_file, "[%s] Conflicto %s:\n", timestamp, type);
-    fprintf(log_file, "  - Estado: %d\n", state);
-    fprintf(log_file, "  - Símbolo: '%s'\n", symbol_name);
-    fprintf(log_file, "  - Producciones en conflicto: %d vs %d\n\n", production1, production2);
+    //fprintf(log_file, "[%s] Conflicto %s:\n", timestamp, type);
+    //fprintf(log_file, "  - Estado: %d\n", state);
+    //fprintf(log_file, "  - Símbolo: '%s'\n", symbol_name);
+    //fprintf(log_file, "  - Producciones en conflicto: %d vs %d\n\n", production1, production2);
     fclose(log_file);
 }
 
@@ -78,7 +78,7 @@ int is_operator(Symbol* sym) {
 LR1Table* build_lr1_table(State* start, Grammar* grammar) {
     // Validaciones iniciales
     if (!start || !grammar) {
-        fprintf(stderr, "Error: Parámetros inválidos para construir tabla\n");
+        //fprintf(stderr, "Error: Parámetros inválidos para construir tabla\n");
         return NULL;
     }
 
@@ -87,7 +87,7 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
     int state_count = 0;
     collect_states_lr1(start, states, &state_count);
     
-    printf("=== Construyendo tabla LR(1) con %d estados === \n", state_count);
+    //printf("=== Construyendo tabla LR(1) con %d estados === \n", state_count);
 
     // Inicializar tabla
     LR1Table* table = malloc(sizeof(LR1Table));
@@ -97,11 +97,11 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
     table->terminal_count = grammar->terminals_count;
     table->nonterminal_count = grammar->nonterminals_count;
     table->grammar = grammar;
-
+ 
     // Inicializar ACTION table
     table->action = malloc(sizeof(ActionEntryLR1*) * state_count);
     if (!table->action) {
-        printf("=== Construyendo tabla LR(1) (!table->action)  === \n");
+        //printf("=== Construyendo tabla LR(1) (!table->action)  === \n");
         free(table);
         return NULL;
     }
@@ -173,7 +173,7 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
                 // REDUCE para otras producciones
                 else {
                     if (item->lookaheads->size == 0) {
-                        printf("Item con producción %d no tiene lookaheads\n", item->production->number);
+                        //printf("Item con producción %d no tiene lookaheads\n", item->production->number);
                     }
                     // Usar los lookaheads específicos del item LR(1)
                     for (int k = 0; k < item->lookaheads->size; ++k) {
@@ -183,7 +183,7 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
                             // Verificar conflictos
                             //////////////////////////////////////////////////////////////////////////////////////////////////////
                             if (table->action[i][symbol_idx].action != ACTION_ERROR) {
-                                printf("Viendo conflictos: table->action[i][symbol_idx].action != ACTION_ERROR \n");
+                                //printf("Viendo conflictos: table->action[i][symbol_idx].action != ACTION_ERROR \n");
                                 const char* conflict_type = (table->action[i][symbol_idx].action == ACTION_SHIFT)? "SHIFT/REDUCE" : "REDUCE/REDUCE";
                                 
                                 log_conflict(
@@ -196,17 +196,17 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
                                 );
                                 
                                 if (strcmp(conflict_type, "SHIFT/REDUCE") == 0) {
-                                    printf("Conflicto shift/reduce en estado %d con símbolo %s\n", i, lookahead->name);
+                                    //printf("Conflicto shift/reduce en estado %d con símbolo %s\n", i, lookahead->name);
     
                                     // Preferir shift para operadores
                                     if (is_operator(lookahead)) {
-                                        printf("Resolviendo a favor de SHIFT para operador %s\n", lookahead->name);
+                                        //printf("Resolviendo a favor de SHIFT para operador %s\n", lookahead->name);
                                         continue;
                                     }
                                 }
                                 // Preferir reduce para símbolos que terminan expresiones
                                 if (strcmp(lookahead->name, ";") == 0 || strcmp(lookahead->name, "$") == 0) {
-                                    printf("Resolviendo a favor de REDUCE para terminador %s\n", lookahead->name);
+                                    //printf("Resolviendo a favor de REDUCE para terminador %s\n", lookahead->name);
                                     table->action[i][symbol_idx].action = ACTION_REDUCE;
                                     table->action[i][symbol_idx].value = item->production->number;
                                 }
@@ -251,7 +251,7 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
                         
                         // Resolver conflicto según preferencia
                         if (strcmp(conflict_type, "SHIFT/REDUCE") == 0) {
-                            printf("Resolviendo conflicto shift/reduce a favor de shift\n");
+                            //printf("Resolviendo conflicto shift/reduce a favor de shift\n");
                             table->action[i][symbol_idx].action = ACTION_SHIFT;
                             table->action[i][symbol_idx].value = next_idx;
                         }
@@ -277,29 +277,33 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
 
 void print_lr1_table(LR1Table* table) 
 {
-    printf("\nLR(1) ACTION Table:\n");
+    //printf("\nLR(1) ACTION Table:\n");
     for (int i = 0; i < table->state_count; ++i) 
     {
-        printf("State %d:\n", i);
+        //printf("State %d:\n", i);
         for (int j = 0; j < table->terminal_count; ++j) 
         {
             if (table->action[i][j].action == ACTION_SHIFT)
-                printf("  shift %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name);
+                //printf("  shift %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
+                ;
             else if (table->action[i][j].action == ACTION_REDUCE)
-                printf("  reduce %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name);
+                //printf("  reduce %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
+                ;
             else if (table->action[i][j].action == ACTION_ACCEPT)
-                printf("  accept with '%s'\n", table->grammar->terminals[j]->name);
+                //printf("  accept with '%s'\n", table->grammar->terminals[j]->name)
+                ;
         }
     }
 
-    printf("\nLR(1) GOTO Table:\n");
+    //printf("\nLR(1) GOTO Table:\n");
     for (int i = 0; i < table->state_count; ++i) 
     {
-        printf("State %d:\n", i);
+        //printf("State %d:\n", i);
         for (int j = 0; j < table->nonterminal_count; ++j) 
         {
             if (table->goto_table[i][j] != -1)
-                printf("  goto %d with '%s'\n", table->goto_table[i][j], table->grammar->nonterminals[j]->name);
+                //printf("  goto %d with '%s'\n", table->goto_table[i][j], table->grammar->nonterminals[j]->name)
+                ;
         }
     }
 }

@@ -1,7 +1,7 @@
 #include "parser.h"
-#include "../grammar/grammar.h"
+#include "grammar/grammar.h"
 #include "lr1_table.h"
-#include "ast_nodes.h"
+#include "ast_nodes/ast_nodes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -73,6 +73,7 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
     while(1){
         int s = stack_top(st);
         if (s < 0 || s >= table->state_count) {
+            printf("es aqui 1 %d, este es el s %d este era el table state count", s, table->state_count);
             fprintf(stderr, "Error: Estado %d fuera de rango\n", s);
             clear_stack(st);
             free(*acts);
@@ -89,6 +90,7 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
 
         // Verificar límites de la tabla ACTION
         if (tidx >= table->terminal_count) {
+            printf("es aqui 2");
             fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", tidx);
             clear_stack(st);
             free(*acts);
@@ -132,8 +134,8 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 printf("ACCEPT\n");
                 print_ast_root(ast[0]);
                 Node* root = ast[0];
-                return root;
                 clear_stack(st);
+                return root;
             }
             case ACTION_ERROR:
             default:

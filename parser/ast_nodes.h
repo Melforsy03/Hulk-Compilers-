@@ -2,7 +2,7 @@
 #ifndef AST_NODES_H
 #define AST_NODES_H
 
-#include "../grammar/symbol.h"  
+#include "grammar/symbol.h"  
 
 typedef enum {
     // Nodo raíz del programa

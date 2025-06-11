@@ -58,8 +58,7 @@ State* get_transition(State* from, Symbol* symbol) {
         }
         t = t->next;
     }
-    printf("ERROR: No hay transición para %s desde estado %d\n", 
-          symbol->name, from->id);
+    //printf("ERROR: No hay transición para %s desde estado %d\n", symbol->name, from->id);
     return NULL;  // Devuelve NULL en lugar de fallar
 }
 
