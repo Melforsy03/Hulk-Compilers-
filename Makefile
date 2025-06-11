@@ -1,45 +1,77 @@
-# Carpetas
+# Variables
+CC = gcc
+CFLAGS = -Wall -O2 -Ilexer_gen -Iparser -Iast_nodes
+BUILD_DIR = build
 LEXER_GEN_DIR = lexer_gen
-LEXER_DIR = lexer
+PARSER_DIR = parser
+AST_DIR = ast_nodes
 SRC_DIR = src
+LEXER_OUTPUT_DIR = lexer
+LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c
 
 # Archivos fuente
-GEN_LEXER_SRC = $(LEXER_GEN_DIR)/generar_lexer.c
-GEN_COMMON_SRC = \
-	$(LEXER_GEN_DIR)/utils.c \
-	$(LEXER_GEN_DIR)/regex_parser.c \
-	$(LEXER_GEN_DIR)/regex_to_dfa.c \
-	$(LEXER_GEN_DIR)/nfa_to_dfa.c
+LEXER_GEN_SRCS = $(wildcard $(LEXER_GEN_DIR)/*.c)
+LEXER_GEN_OBJS = $(patsubst $(LEXER_GEN_DIR)/%.c, $(BUILD_DIR)/%.o, $(LEXER_GEN_SRCS))
+LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer
 
-LEXER_SRC = $(LEXER_DIR)/lexer.c
+PARSER_SRCS = $(wildcard $(PARSER_DIR)/*.c)
+PARSER_OBJS = $(patsubst $(PARSER_DIR)/%.c, $(BUILD_DIR)/parser_%.o, $(PARSER_SRCS))
+
+AST_SRCS = $(wildcard $(AST_DIR)/*.c)
+AST_OBJS = $(patsubst $(AST_DIR)/%.c, $(BUILD_DIR)/ast_%.o, $(AST_SRCS))
+
 MAIN_SRC = $(SRC_DIR)/main.c
+MAIN_OBJ = $(BUILD_DIR)/main.o
 
-# Ejecutable
-EXEC = compilador
+ALL_OBJS = $(PARSER_OBJS) $(AST_OBJS) $(MAIN_OBJ)
+MAIN_EXEC = $(BUILD_DIR)/main
 
-# Compilador y flags
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -I. -I$(LEXER_DIR) -I$(LEXER_GEN_DIR)
+# ========= Targets =========
 
-# Regla principal
-all: $(LEXER_SRC) $(EXEC)
+# Target principal
+all: $(MAIN_EXEC)
 
-# Generar lexer.c desde generar_lexer
-$(LEXER_SRC): $(GEN_LEXER_SRC) $(LEXER_GEN_DIR)/tokens.def
-	@echo "🔧 Generando lexer.c..."
-	$(CC) $(CFLAGS) -o generar_lexer $(GEN_LEXER_SRC) $(GEN_COMMON_SRC)
-	./generar_lexer
-	mv lexer.c $(LEXER_DIR)/lexer.c
-	rm -f generar_lexer
+# Compilar y generar lexer.c
+lexer: $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
+	./$(LEXER_GEN_EXEC) > $(LEXER_FILE)
 
-# Compilar ejecutable
-$(EXEC): $(LEXER_SRC) $(MAIN_SRC) $(GEN_COMMON_SRC)
-	@echo "🔨 Compilando ejecutable..."
-	$(CC) $(CFLAGS) -o $(EXEC) $(LEXER_SRC) $(MAIN_SRC) $(GEN_COMMON_SRC)
+# Ejecutable del generador de lexer
+$(LEXER_GEN_EXEC): $(LEXER_GEN_OBJS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $^ -o $@
 
-# Limpiar todo
+# Compilar .c a .o para lexer_gen/
+$(BUILD_DIR)/%.o: $(LEXER_GEN_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compilar .c a .o para parser/
+$(BUILD_DIR)/parser_%.o: $(PARSER_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compilar .c a .o para ast_nodes/
+$(BUILD_DIR)/ast_%.o: $(AST_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compilar main.c
+$(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Ejecutable final del proyecto
+$(MAIN_EXEC): lexer $(ALL_OBJS)
+	$(CC) $(CFLAGS) $(ALL_OBJS) $(LEXER_FILE) -o $@
+
+# Ejecutar el programa
+.PHONY: run
+run: $(MAIN_EXEC)
+	./$(MAIN_EXEC)
+
+# Crear carpetas
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(LEXER_OUTPUT_DIR):
+	mkdir -p $(LEXER_OUTPUT_DIR)
+
+# Limpiar
+.PHONY: clean
 clean:
-	rm -f $(EXEC) generar_lexer
-	rm -f $(LEXER_SRC)
-
-.PHONY: all clean
+	rm -rf $(BUILD_DIR) $(LEXER_OUTPUT_DIR)
