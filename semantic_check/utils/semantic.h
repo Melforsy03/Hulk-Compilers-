@@ -3,15 +3,55 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <stdarg.h>
+#ifndef SEMANTIC_H
+#define SEMANTIC_H
+// Todo tu código...
 
-// Forward declarations
+
+// Estructuras básicas
 typedef struct Type Type;
 typedef struct Protocol Protocol;
-typedef struct Method Method;
 typedef struct Attribute Attribute;
+typedef struct Method Method;
 typedef struct Context Context;
-typedef struct Scope Scope;
 typedef struct VariableInfo VariableInfo;
+typedef struct Scope Scope;
+
+//Prototipos de func
+Type* context_get_type(Context* ctx, char* name);
+void initialize_builtin_types(Context* context);
+VariableInfo* scope_define_variable(Scope* scope, char* name, Type* type, bool is_parameter);
+void free_type(Type* type);
+void free_scope(Scope* scope);
+void free_context(Context* ctx);
+void free_protocol(Protocol* protocol);
+
+struct Type {
+    char* name;
+    Type* parent;
+    
+    // Para tipos personalizados y protocolos
+    Attribute** attributes;
+    int attribute_count;
+    
+    Method** methods;
+    int method_count;
+    
+    // Para vectores
+    Type* element_type;
+    
+    // Para tipos con parámetros
+    char** param_names;
+    Type** param_types;
+    int param_count;
+    
+    // Referencia para SelfType
+    Type* referred_type;
+
+    void* node;
+};
+
 
 // Error types
 typedef struct ErrorType {
@@ -48,34 +88,6 @@ typedef struct VectorType {
     Type* element_type;
 } VectorType;
 
-// Attribute structures
-struct Attribute {
-    char* name;
-    Type* type;
-    void* value;
-    void* node;  // Assuming this is some AST node pointer
-};
-
-typedef struct AttributeError {
-    Attribute base;
-} AttributeError;
-
-// Method structures
-struct Method {
-    char* name;
-    char** param_names;
-    Type** param_types;
-    int param_count;
-    Type* return_type;
-    Type* inferred_return_type;
-    void* node;  // Assuming this is some AST node pointer
-};
-
-typedef struct MethodError {
-    Method base;
-} MethodError;
-
-// Protocol structure
 struct Protocol {
     char* name;
     Protocol* parent;
@@ -83,37 +95,43 @@ struct Protocol {
     int method_count;
 };
 
-// Type structure
-struct Type {
+struct Attribute {
     char* name;
-    Attribute** attributes;
-    int attribute_count;
-    Method** methods;
-    int method_count;
-    Type* parent;
+    Type* type;
+    void* value; // Podría ser un puntero a algún valor
+    void* node;  // Para referencia al nodo AST
+};
+
+struct Method {
+    char* name;
     char** param_names;
     Type** param_types;
     int param_count;
-    void* node;  // Assuming this is some AST node pointer
+    Type* return_type;
+    Type* inferred_return_type;
+    void* node; // Para referencia al nodo AST
 };
 
-// Context structure
 struct Context {
     Type** types;
     int type_count;
+    
     Protocol** protocols;
     int protocol_count;
+    
     Method** functions;
     int function_count;
+    
     char** hulk_types;
     int hulk_type_count;
+    
     char** hulk_protocols;
     int hulk_protocol_count;
+    
     char** hulk_functions;
     int hulk_function_count;
 };
 
-// Variable info structure
 struct VariableInfo {
     char* name;
     Type* type;
@@ -122,25 +140,15 @@ struct VariableInfo {
     void* value;
 };
 
-// Scope structure
 struct Scope {
     VariableInfo** locals;
-    int local_count;
+    int locals_count;
     Scope* parent;
     Scope** children;
-    int child_count;
+    int children_count;
     int index;
 };
 
-// Function prototypes
-Type* create_type(Context* context, const char* name);
-Type* get_type(Context* context, const char* name);
-Protocol* create_protocol(Context* context, const char* name);
-Protocol* get_protocol(Context* context, const char* name);
-Method* create_function(Context* context, const char* name, char** param_names, Type** param_types, int param_count, Type* return_type);
-Method* get_function(Context* context, const char* name);
-
-// Helper functions
 char* strdup(const char* s) {
     size_t len = strlen(s) + 1;
     char* p = (char*)malloc(len);
@@ -148,6 +156,146 @@ char* strdup(const char* s) {
         memcpy(p, s, len);
     }
     return p;
+}
+// Create a new type
+
+Type* create_type(Context* context, const char* name) {
+    // Check if type or protocol with this name already exists
+    for (int i = 0; i < context->type_count; i++) {
+        if (strcmp(context->types[i]->name, name) == 0) {
+            return NULL;  // Type already exists
+        }
+    }
+    
+    for (int i = 0; i < context->protocol_count; i++) {
+        if (strcmp(context->protocols[i]->name, name) == 0) {
+            return NULL;  // Protocol with same name exists
+        }
+    }
+    
+    // Create new type
+    Type* new_type = (Type*)malloc(sizeof(Type));
+    new_type->name = strdup(name);
+    new_type->attributes = NULL;
+    new_type->attribute_count = 0;
+    new_type->methods = NULL;
+    new_type->method_count = 0;
+    new_type->parent = NULL;
+    new_type->param_names = NULL;
+    new_type->param_types = NULL;
+    new_type->param_count = 0;
+    new_type->node = NULL;
+    
+    // Add to context
+    context->types = (Type**)realloc(context->types, sizeof(Type*) * (context->type_count + 1));
+    context->types[context->type_count++] = new_type;
+    
+    return new_type;
+}
+
+Protocol* create_protocol(Context* context, const char* name) {
+    // Check if type or protocol with this name already exists
+    for (int i = 0; i < context->type_count; i++) {
+        if (strcmp(context->types[i]->name, name) == 0) {
+            return NULL;  // Type with same name exists
+        }
+    }
+    
+    for (int i = 0; i < context->protocol_count; i++) {
+        if (strcmp(context->protocols[i]->name, name) == 0) {
+            return NULL;  // Protocol already exists
+        }
+    }
+    
+    // Create new protocol
+    Protocol* new_protocol = (Protocol*)malloc(sizeof(Protocol));
+    new_protocol->name = strdup(name);
+    new_protocol->parent = NULL;
+    new_protocol->methods = NULL;
+    new_protocol->method_count = 0;
+    
+    // Add to context
+    context->protocols = (Protocol**)realloc(context->protocols, sizeof(Protocol*) * (context->protocol_count + 1));
+    context->protocols[context->protocol_count++] = new_protocol;
+    
+    return new_protocol;
+}
+
+Attribute* create_attribute(char* name, Type* type) {
+    Attribute* attr = malloc(sizeof(Attribute));
+    attr->name = strdup(name);
+    attr->type = type;
+    attr->value = NULL;
+    attr->node = NULL;
+    return attr;
+}
+
+// Create a new function
+Method* create_function(Context* context, const char* name, char** param_names, Type** param_types, int param_count, Type* return_type) {
+    // Check if function with this name already exists
+    for (int i = 0; i < context->function_count; i++) {
+        if (strcmp(context->functions[i]->name, name) == 0) {
+            return NULL;  // Function already exists
+        }
+    }
+    
+    // Create new method/function
+    Method* new_function = (Method*)malloc(sizeof(Method));
+    new_function->name = strdup(name);
+    new_function->param_names = (char**)malloc(sizeof(char*) * param_count);
+    for (int i = 0; i < param_count; i++) {
+        new_function->param_names[i] = strdup(param_names[i]);
+    }
+    new_function->param_types = (Type**)malloc(sizeof(Type*) * param_count);
+    memcpy(new_function->param_types, param_types, sizeof(Type*) * param_count);
+    new_function->param_count = param_count;
+    new_function->return_type = return_type;
+    new_function->inferred_return_type = return_type;
+    new_function->node = NULL;
+    
+    // Add to context
+    context->functions = (Method**)realloc(context->functions, sizeof(Method*) * (context->function_count + 1));
+    context->functions[context->function_count++] = new_function;
+    
+    return new_function;
+}
+// Initialize context
+Context* create_context() {
+    Context* context = (Context*)malloc(sizeof(Context));
+    context->types = NULL;
+    context->type_count = 0;
+    context->protocols = NULL;
+    context->protocol_count = 0;
+    context->functions = NULL;
+    context->function_count = 0;
+    
+    // Initialize Hulk built-ins
+    context->hulk_types = (char**)malloc(sizeof(char*) * 5);
+    context->hulk_types[0] = strdup("String");
+    context->hulk_types[1] = strdup("Boolean");
+    context->hulk_types[2] = strdup("Number");
+    context->hulk_types[3] = strdup("Object");
+    context->hulk_types[4] = strdup("Range");
+    context->hulk_type_count = 5;
+    
+    context->hulk_protocols = (char**)malloc(sizeof(char*) * 1);
+    context->hulk_protocols[0] = strdup("Iterable");
+    context->hulk_protocol_count = 1;
+    
+    context->hulk_functions = (char**)malloc(sizeof(char*) * 8);
+    context->hulk_functions[0] = strdup("sqrt");
+    context->hulk_functions[1] = strdup("sin");
+    context->hulk_functions[2] = strdup("cos");
+    context->hulk_functions[3] = strdup("exp");
+    context->hulk_functions[4] = strdup("log");
+    context->hulk_functions[5] = strdup("rand");
+    context->hulk_functions[6] = strdup("print");
+    context->hulk_functions[7] = strdup("range");
+    context->hulk_function_count = 8;
+    
+    initialize_builtin_types(context);
+    
+    return context;
 }
 
 // Initialize built-in types
@@ -248,225 +396,60 @@ void initialize_builtin_types(Context* context) {
     
     context->types = (Type**)realloc(context->types, sizeof(Type*) * (context->type_count + 1));
     context->types[context->type_count++] = (Type*)auto_type;
+
 }
 
-// Initialize context
-Context* create_context() {
-    Context* context = (Context*)malloc(sizeof(Context));
-    context->types = NULL;
-    context->type_count = 0;
-    context->protocols = NULL;
-    context->protocol_count = 0;
-    context->functions = NULL;
-    context->function_count = 0;
-    
-    // Initialize Hulk built-ins
-    context->hulk_types = (char**)malloc(sizeof(char*) * 5);
-    context->hulk_types[0] = strdup("String");
-    context->hulk_types[1] = strdup("Boolean");
-    context->hulk_types[2] = strdup("Number");
-    context->hulk_types[3] = strdup("Object");
-    context->hulk_types[4] = strdup("Range");
-    context->hulk_type_count = 5;
-    
-    context->hulk_protocols = (char**)malloc(sizeof(char*) * 1);
-    context->hulk_protocols[0] = strdup("Iterable");
-    context->hulk_protocol_count = 1;
-    
-    context->hulk_functions = (char**)malloc(sizeof(char*) * 8);
-    context->hulk_functions[0] = strdup("sqrt");
-    context->hulk_functions[1] = strdup("sin");
-    context->hulk_functions[2] = strdup("cos");
-    context->hulk_functions[3] = strdup("exp");
-    context->hulk_functions[4] = strdup("log");
-    context->hulk_functions[5] = strdup("rand");
-    context->hulk_functions[6] = strdup("print");
-    context->hulk_functions[7] = strdup("range");
-    context->hulk_function_count = 8;
-    
-    initialize_builtin_types(context);
-    
-    return context;
-}
 
-// Create a new type
-Type* create_type(Context* context, const char* name) {
-    // Check if type or protocol with this name already exists
-    for (int i = 0; i < context->type_count; i++) {
-        if (strcmp(context->types[i]->name, name) == 0) {
-            return NULL;  // Type already exists
-        }
-    }
-    
-    for (int i = 0; i < context->protocol_count; i++) {
-        if (strcmp(context->protocols[i]->name, name) == 0) {
-            return NULL;  // Protocol with same name exists
-        }
-    }
-    
-    // Create new type
-    Type* new_type = (Type*)malloc(sizeof(Type));
-    new_type->name = strdup(name);
-    new_type->attributes = NULL;
-    new_type->attribute_count = 0;
-    new_type->methods = NULL;
-    new_type->method_count = 0;
-    new_type->parent = NULL;
-    new_type->param_names = NULL;
-    new_type->param_types = NULL;
-    new_type->param_count = 0;
-    new_type->node = NULL;
-    
-    // Add to context
-    context->types = (Type**)realloc(context->types, sizeof(Type*) * (context->type_count + 1));
-    context->types[context->type_count++] = new_type;
-    
-    return new_type;
-}
-
-// Get type by name
-Type* get_type(Context* context, const char* name) {
-    for (int i = 0; i < context->type_count; i++) {
-        if (strcmp(context->types[i]->name, name) == 0) {
-            return context->types[i];
-        }
-    }
-    return NULL;  // Type not found
-}
-
-// Create a new protocol
-Protocol* create_protocol(Context* context, const char* name) {
-    // Check if type or protocol with this name already exists
-    for (int i = 0; i < context->type_count; i++) {
-        if (strcmp(context->types[i]->name, name) == 0) {
-            return NULL;  // Type with same name exists
-        }
-    }
-    
-    for (int i = 0; i < context->protocol_count; i++) {
-        if (strcmp(context->protocols[i]->name, name) == 0) {
-            return NULL;  // Protocol already exists
-        }
-    }
-    
-    // Create new protocol
-    Protocol* new_protocol = (Protocol*)malloc(sizeof(Protocol));
-    new_protocol->name = strdup(name);
-    new_protocol->parent = NULL;
-    new_protocol->methods = NULL;
-    new_protocol->method_count = 0;
-    
-    // Add to context
-    context->protocols = (Protocol**)realloc(context->protocols, sizeof(Protocol*) * (context->protocol_count + 1));
-    context->protocols[context->protocol_count++] = new_protocol;
-    
-    return new_protocol;
-}
-
-// Get protocol by name
-Protocol* get_protocol(Context* context, const char* name) {
-    for (int i = 0; i < context->protocol_count; i++) {
-        if (strcmp(context->protocols[i]->name, name) == 0) {
-            return context->protocols[i];
-        }
-    }
-    return NULL;  // Protocol not found
-}
-
-// Create a new function
-Method* create_function(Context* context, const char* name, char** param_names, Type** param_types, int param_count, Type* return_type) {
-    // Check if function with this name already exists
-    for (int i = 0; i < context->function_count; i++) {
-        if (strcmp(context->functions[i]->name, name) == 0) {
-            return NULL;  // Function already exists
-        }
-    }
-    
-    // Create new method/function
-    Method* new_function = (Method*)malloc(sizeof(Method));
-    new_function->name = strdup(name);
-    new_function->param_names = (char**)malloc(sizeof(char*) * param_count);
-    for (int i = 0; i < param_count; i++) {
-        new_function->param_names[i] = strdup(param_names[i]);
-    }
-    new_function->param_types = (Type**)malloc(sizeof(Type*) * param_count);
-    memcpy(new_function->param_types, param_types, sizeof(Type*) * param_count);
-    new_function->param_count = param_count;
-    new_function->return_type = return_type;
-    new_function->inferred_return_type = return_type;
-    new_function->node = NULL;
-    
-    // Add to context
-    context->functions = (Method**)realloc(context->functions, sizeof(Method*) * (context->function_count + 1));
-    context->functions[context->function_count++] = new_function;
-    
-    return new_function;
-}
-
-// Get function by name
-Method* get_function(Context* context, const char* name) {
-    for (int i = 0; i < context->function_count; i++) {
-        if (strcmp(context->functions[i]->name, name) == 0) {
-            return context->functions[i];
-        }
-    }
-    return NULL;  // Function not found
-}
-
-// Create a new scope
 Scope* create_scope(Scope* parent) {
-    Scope* new_scope = (Scope*)malloc(sizeof(Scope));
-    new_scope->locals = NULL;
-    new_scope->local_count = 0;
-    new_scope->parent = parent;
-    new_scope->children = NULL;
-    new_scope->child_count = 0;
-    new_scope->index = (parent == NULL) ? 0 : parent->local_count;
+    Scope* scope = malloc(sizeof(Scope));
+    scope->locals = NULL;
+    scope->locals_count = 0;
+    scope->parent = parent;
+    scope->children = NULL;
+    scope->children_count = 0;
+    scope->index = (parent == NULL) ? 0 : parent->locals_count;
     
     if (parent != NULL) {
-        parent->children = (Scope**)realloc(parent->children, sizeof(Scope*) * (parent->child_count + 1));
-        parent->children[parent->child_count++] = new_scope;
+        parent->children_count++;
+        parent->children = realloc(parent->children, parent->children_count * sizeof(Scope*));
+        parent->children[parent->children_count - 1] = scope;
     }
     
-    return new_scope;
+    return scope;
 }
-
-// Define variable in scope
-VariableInfo* define_variable(Scope* scope, const char* vname, Type* vtype, bool is_parameter) {
-    VariableInfo* info = (VariableInfo*)malloc(sizeof(VariableInfo));
-    info->name = strdup(vname);
-    info->type = vtype;
-    info->is_error = false;
-    info->is_parameter = is_parameter;
-    info->value = NULL;
+/*
+// Funciones de utilidad
+bool type_conforms_to(Type* type, Type* other);
+bool method_implements(Method* method, Method* other);
+*/
+char* format_string(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
     
-    scope->locals = (VariableInfo**)realloc(scope->locals, sizeof(VariableInfo*) * (scope->local_count + 1));
-    scope->locals[scope->local_count++] = info;
-    
-    return info;
-}
-
-// Find variable in scope hierarchy
-VariableInfo* find_variable(Scope* scope, const char* vname, int index) {
-    // Search in current scope
-    int start = (index == -1) ? 0 : index;
-    int end = (index == -1) ? scope->local_count : index;
-    
-    for (int i = start; i < end; i++) {
-        if (strcmp(scope->locals[i]->name, vname) == 0) {
-            return scope->locals[i];
-        }
+    // Primera pasada: determinar el tamaño necesario
+    int length = vsnprintf(NULL, 0, format, args);
+    if (length < 0) {
+        va_end(args);
+        return NULL;
     }
     
-    // Search in parent scope if not found
-    if (scope->parent != NULL) {
-        return find_variable(scope->parent, vname, scope->index);
+    va_end(args);
+    va_start(args, format);  // Reiniciamos los argumentos
+    
+    // Reservar memoria (incluyendo espacio para el '\0')
+    char* buffer = (char*)malloc(length + 1);
+    if (!buffer) {
+        va_end(args);
+        return NULL;
     }
     
-    return NULL;  // Variable not found
+    // Segunda pasada: escribir el string formateado
+    vsnprintf(buffer, length + 1, format, args);
+    va_end(args);
+    
+    return buffer;
 }
 
-// Get lowest common ancestor type
 Type* get_lowest_common_ancestor(Type** types, int type_count) {
     if (type_count == 0) {
         return NULL;
@@ -503,7 +486,7 @@ Type* get_lowest_common_ancestor(Type** types, int type_count) {
         if (!found) {
             lca = lca->parent;  // Move up the hierarchy
             if (lca == NULL) {
-                lca = get_type(NULL, "Object");  // Default to Object
+                lca = context_get_type(NULL, "Object");  // Default to Object
                 break;
             }
             i = 0;  // Start over with new LCA candidate
@@ -513,48 +496,257 @@ Type* get_lowest_common_ancestor(Type** types, int type_count) {
     return lca;
 }
 
-// Main function for testing
-int main() {
-    Context* context = create_context();
-    
-    // Create a new type
-    Type* person_type = create_type(context, "Person");
-    Type* object_type = get_type(context, "Object");
-    person_type->parent = object_type;
-    
-    // Create a method for the type
-    Method* speak_method = (Method*)malloc(sizeof(Method));
-    speak_method->name = strdup("speak");
-    speak_method->param_names = NULL;
-    speak_method->param_types = NULL;
-    speak_method->param_count = 0;
-    speak_method->return_type = get_type(context, "String");
-    speak_method->inferred_return_type = get_type(context, "String");
-    speak_method->node = NULL;
-    
-    person_type->methods = (Method**)realloc(person_type->methods, sizeof(Method*) * (person_type->method_count + 1));
-    person_type->methods[person_type->method_count++] = speak_method;
-    
-    // Create a scope
-    Scope* global_scope = create_scope(NULL);
-    Scope* function_scope = create_scope(global_scope);
-    
-    // Define some variables
-    define_variable(global_scope, "x", get_type(context, "Number"), false);
-    define_variable(function_scope, "y", get_type(context, "String"), false);
-    
-    // Find variables
-    VariableInfo* x_info = find_variable(global_scope, "x", -1);
-    VariableInfo* y_info = find_variable(function_scope, "y", -1);
-    
-    if (x_info) {
-        printf("Found variable %s of type %s\n", x_info->name, x_info->type->name);
+
+/*
+bool type_conforms_to(Type* type, Type* other) {
+    if (other->kind == AUTO_TYPE || other->kind == ERROR_TYPE) {
+        return true;
     }
     
-    if (y_info) {
-        printf("Found variable %s of type %s\n", y_info->name, y_info->type->name);
+    if (type->kind == ERROR_TYPE) {
+        return true;
     }
     
-   
-    return 0;
+    if (type->kind == other->kind && strcmp(type->name, other->name) == 0) {
+        return true;
+    }
+    
+    if (type->parent != NULL) {
+        return type_conforms_to(type->parent, other);
+    }
+    
+    return false;
 }
+
+bool method_implements(Method* method, Method* other) {
+    if (!type_conforms_to(method->return_type, other->return_type)) {
+        return false;
+    }
+    
+    if (method->param_count != other->param_count) {
+        return false;
+    }
+    
+    for (int i = 0; i < method->param_count; i++) {
+        if (!type_conforms_to(other->param_types[i], method->param_types[i])) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+*/
+// Funciones para manejar atributos y métodos
+Attribute* type_get_attribute(Type* type, char* name) {
+    for (int i = 0; i < type->attribute_count; i++) {
+        if (strcmp(type->attributes[i]->name, name) == 0) {
+            return type->attributes[i];
+        }
+    }
+    
+    if (type->parent != NULL) {
+        return type_get_attribute(type->parent, name);
+    }
+    
+    return NULL;
+}
+
+Method* type_get_method(Type* type, char* name) {
+    for (int i = 0; i < type->method_count; i++) {
+        if (strcmp(type->methods[i]->name, name) == 0) {
+            return type->methods[i];
+        }
+    }
+    
+    if (type->parent != NULL) {
+        return type_get_method(type->parent, name);
+    }
+    
+    return NULL;
+}
+
+Method* protocol_get_method(Protocol* protocol, char* name) {
+    for (int i = 0; i < protocol->method_count; i++) {
+        if (strcmp(protocol->methods[i]->name, name) == 0) {
+            return protocol->methods[i];
+        }
+    }
+    
+    if (protocol->parent != NULL) {
+        return protocol_get_method(protocol->parent, name);
+    }
+    
+    return NULL;
+}
+
+// Funciones para manejar el contexto
+
+Type* context_get_type(Context* ctx, char* name) {
+    for (int i = 0; i < ctx->type_count; i++) {
+        if (strcmp(ctx->types[i]->name, name) == 0) {
+            return ctx->types[i];
+        }
+    }
+    
+    return NULL;
+}
+
+Protocol* context_get_protocol(Context* ctx, char* name) {
+    for (int i = 0; i < ctx->protocol_count; i++) {
+        if (strcmp(ctx->protocols[i]->name, name) == 0) {
+            return ctx->protocols[i];
+        }
+    }
+    
+    return NULL;
+}
+
+Method* context_get_function(Context* ctx, char* name) {
+    for (int i = 0; i < ctx->function_count; i++) {
+        if (strcmp(ctx->functions[i]->name, name) == 0) {
+            return ctx->functions[i];
+        }
+    }
+    
+    return NULL;
+}
+
+// Funciones para manejar el scope
+VariableInfo* scope_find_variable(Scope* scope, char* name, int index) {
+    int start = (index == -1) ? 0 : index;
+    int end = (index == -1) ? scope->locals_count : index + 1;
+    
+    for (int i = start; i < end; i++) {
+        if (strcmp(scope->locals[i]->name, name) == 0) {
+            return scope->locals[i];
+        }
+    }
+    
+    if (scope->parent != NULL) {
+        return scope_find_variable(scope->parent, name, scope->index);
+    }
+    
+    return NULL;
+}
+
+VariableInfo* scope_define_variable(Scope* scope, char* name, Type* type, bool is_parameter) {
+    VariableInfo* info = malloc(sizeof(VariableInfo));
+    info->name = strdup(name);
+    info->type = type;
+    info->is_error = false;
+    info->is_parameter = is_parameter;
+    info->value = NULL;
+    
+    scope->locals_count++;
+    scope->locals = realloc(scope->locals, scope->locals_count * sizeof(VariableInfo*));
+    scope->locals[scope->locals_count - 1] = info;
+    
+    return info;
+}
+
+// Funciones para liberar memoria
+void free_type(Type* type) {
+    if (type == NULL) return;
+    
+    free(type->name);
+    
+    for (int i = 0; i < type->attribute_count; i++) {
+        free(type->attributes[i]->name);
+        free(type->attributes[i]);
+    }
+    free(type->attributes);
+    
+    for (int i = 0; i < type->method_count; i++) {
+        free(type->methods[i]->name);
+        for (int j = 0; j < type->methods[i]->param_count; j++) {
+            free(type->methods[i]->param_names[j]);
+        }
+        free(type->methods[i]->param_names);
+        free(type->methods[i]->param_types);
+        free(type->methods[i]);
+    }
+    free(type->methods);
+    
+    for (int i = 0; i < type->param_count; i++) {
+        free(type->param_names[i]);
+    }
+    free(type->param_names);
+    free(type->param_types);
+    
+    free(type);
+}
+
+void free_protocol(Protocol* protocol) {
+    if (protocol == NULL) return;
+    
+    free(protocol->name);
+    
+    for (int i = 0; i < protocol->method_count; i++) {
+        free(protocol->methods[i]->name);
+        for (int j = 0; j < protocol->methods[i]->param_count; j++) {
+            free(protocol->methods[i]->param_names[j]);
+        }
+        free(protocol->methods[i]->param_names);
+        free(protocol->methods[i]->param_types);
+        free(protocol->methods[i]);
+    }
+    free(protocol->methods);
+    
+    free(protocol);
+}
+
+void free_context(Context* ctx) {
+    for (int i = 0; i < ctx->type_count; i++) {
+        free_type(ctx->types[i]);
+    }
+    free(ctx->types);
+    
+    for (int i = 0; i < ctx->protocol_count; i++) {
+        free_protocol(ctx->protocols[i]);
+    }
+    free(ctx->protocols);
+    
+    for (int i = 0; i < ctx->function_count; i++) {
+        free(ctx->functions[i]->name);
+        for (int j = 0; j < ctx->functions[i]->param_count; j++) {
+            free(ctx->functions[i]->param_names[j]);
+        }
+        free(ctx->functions[i]->param_names);
+        free(ctx->functions[i]->param_types);
+        free(ctx->functions[i]);
+    }
+    free(ctx->functions);
+    
+    for (int i = 0; i < ctx->hulk_type_count; i++) {
+        free(ctx->hulk_types[i]);
+    }
+    free(ctx->hulk_types);
+    
+    for (int i = 0; i < ctx->hulk_protocol_count; i++) {
+        free(ctx->hulk_protocols[i]);
+    }
+    free(ctx->hulk_protocols);
+    
+    for (int i = 0; i < ctx->hulk_function_count; i++) {
+        free(ctx->hulk_functions[i]);
+    }
+    free(ctx->hulk_functions);
+    
+    free(ctx);
+}
+
+void free_scope(Scope* scope) {
+    for (int i = 0; i < scope->locals_count; i++) {
+        free(scope->locals[i]->name);
+        free(scope->locals[i]);
+    }
+    free(scope->locals);
+    
+    for (int i = 0; i < scope->children_count; i++) {
+        free_scope(scope->children[i]);
+    }
+    free(scope->children);
+    
+    free(scope);
+}
+#endif

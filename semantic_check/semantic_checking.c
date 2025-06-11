@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast_nodes.h"
-#include "semanticErrors.h"
+#include "../ast_nodes/ast_nodes.h"
+#include "utils/semanticErrors.h"
 #include "typeCollector.c"
-#include "semantic.h"
+#include "utils/semantic.h"
 
 
 // Función principal para el análisis semántico
@@ -20,7 +20,7 @@ HulkErrorList* semantic_analysis(ProgramNode* ast) {
     if (errors->count > 0) {
         return errors;
     }
-    
+    /*
     // 3. Fase de construcción de tipos
     HulkSemanticError* builder_errors;
     int builder_error_count;
@@ -45,14 +45,14 @@ HulkErrorList* semantic_analysis(ProgramNode* ast) {
     // 5. Limpieza
     free(builder_errors);
     destroy_context(collector.context);
-    
+    */
     return errors;
 }
 
 // Ejemplo de uso desde el main
 int main() {
     // Suponiendo que ya tienes el AST del parser
-    ProgramNode* ast = parse_program(); // Esta función sería la del parser
+    ProgramNode* ast = NULL; // Esta función sería la del parser
     
     // Realizar análisis semántico
     HulkErrorList* semantic_errors = semantic_analysis(ast);
@@ -61,7 +61,7 @@ int main() {
     if (semantic_errors->count > 0) {
         printf("Errores semánticos encontrados:\n");
         for (int i = 0; i < semantic_errors->count; i++) {
-            char* error_str = HulkError_to_string(semantic_errors->errors[i]);
+            char* error_str = semantic_errors->errors[i]->text;
             printf("%s\n", error_str);
             free(error_str);
         }
@@ -71,9 +71,6 @@ int main() {
     
     printf("El programa es semánticamente correcto.\n");
     HulkErrorList_destroy(semantic_errors);
-    
-    // Liberar memoria del AST
-    free_ast(ast);
     
     return 0;
 }

@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "semantic.h" 
-#include "semanticErrors.h" 
-#include "ast_nodes.h"
+#include "utils/semantic.h" 
+#include "utils/semanticErrors.h" 
+#include "../ast_nodes/ast_nodes.h"
 
 typedef struct TypeCollector {
     Context* context;
@@ -22,21 +22,25 @@ void create_iterable_protocol(Context* context);
 void TypeCollector_init(TypeCollector* collector, HulkErrorList* errors) {
     collector->context = create_context();
     collector->errors = errors;
-    
-    // Inicializar estructuras básicas
+
+    //Inicializar estructuras
     create_iterable_protocol(collector->context);
     create_hulk_functions(collector->context);
+   
 }
 
 // Visita un nodo de programa
 void TypeCollector_visit_program(TypeCollector* collector, ProgramNode* node) {
-    for (int i = 0; i < node->declaration_count; i++) {
-        DeclarationNode* declaration = node->declarations[i];
+    
+    DeclarationNode** declarations = (DeclarationNode**)node->declarations;
+
+    for (int i = 0; i < node->base.child_count; i++) {
+        DeclarationNode* declaration = declarations[i];
         
-        if (declaration->type == TYPE_DECLARATION_NODE) {
+        if (declaration->base.tipo == NODE_TYPE_DECLARATION) {
             TypeCollector_visit_type_declaration(collector, (TypeDeclarationNode*)declaration);
         } 
-        else if (declaration->type == PROTOCOL_DECLARATION_NODE) {
+        else if (declaration->base.tipo == NODE_PROTOCOL_DECLARATION) {
             TypeCollector_visit_protocol_declaration(collector, (ProtocolDeclarationNode*)declaration);
         }
     }
@@ -44,8 +48,10 @@ void TypeCollector_visit_program(TypeCollector* collector, ProgramNode* node) {
 
 // Visita una declaración de tipo
 void TypeCollector_visit_type_declaration(TypeCollector* collector, TypeDeclarationNode* node) {
+    
     // Verificar si el tipo ya existe en los tipos built-in
     bool is_hulk_type = false;
+
     for (int i = 0; i < collector->context->hulk_type_count; i++) {
         if (strcmp(collector->context->hulk_types[i], node->name) == 0) {
             is_hulk_type = true;
@@ -56,18 +62,18 @@ void TypeCollector_visit_type_declaration(TypeCollector* collector, TypeDeclarat
     if (is_hulk_type) {
         char* error_msg = format_string("Type '%s' is a built-in type and cannot be redefined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Verificar si el tipo ya existe
-    Type* existing_type = get_type(collector->context, node->name);
+    Type* existing_type = context_get_type(collector->context, node->name);
     if (existing_type != NULL) {
         char* error_msg = format_string("Type '%s' is already defined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
@@ -78,7 +84,7 @@ void TypeCollector_visit_type_declaration(TypeCollector* collector, TypeDeclarat
     if (new_type == NULL) {
         char* error_msg = format_string("Could not create type '%s'", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
@@ -101,18 +107,18 @@ void TypeCollector_visit_protocol_declaration(TypeCollector* collector, Protocol
     if (is_hulk_protocol) {
         char* error_msg = format_string("Protocol '%s' is a built-in protocol and cannot be redefined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Verificar si el protocolo ya existe
-    Protocol* existing_protocol = get_protocol(collector->context, node->name);
+    Protocol* existing_protocol = context_get_protocol(collector->context, node->name);
     if (existing_protocol != NULL) {
         char* error_msg = format_string("Protocol '%s' is already defined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
@@ -123,7 +129,7 @@ void TypeCollector_visit_protocol_declaration(TypeCollector* collector, Protocol
     if (new_protocol == NULL) {
         char* error_msg = format_string("Could not create protocol '%s'", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
@@ -131,7 +137,7 @@ void TypeCollector_visit_protocol_declaration(TypeCollector* collector, Protocol
 }
 
 // Crea las funciones built-in de HULK
-void create_hulk_functions(Context* context) {
+void create_hulk_functions(Context* context) {  
     // Crear tipo Range
     Type* range_type = create_type(context, "Range");
     if (range_type != NULL) {
@@ -141,8 +147,8 @@ void create_hulk_functions(Context* context) {
         param_names[1] = strdup("max");
         
         Type** param_types = (Type**)malloc(sizeof(Type*) * 2);
-        param_types[0] = get_type(context, "Number");
-        param_types[1] = get_type(context, "Number");
+        param_types[0] = context_get_type(context, "Number");
+        param_types[1] = context_get_type(context, "Number");
         
         range_type->param_names = param_names;
         range_type->param_types = param_types;
@@ -151,19 +157,19 @@ void create_hulk_functions(Context* context) {
         // Definir atributos
         Attribute* min_attr = (Attribute*)malloc(sizeof(Attribute));
         min_attr->name = strdup("min");
-        min_attr->type = get_type(context, "Number");
+        min_attr->type = context_get_type(context, "Number");
         min_attr->value = NULL;
         min_attr->node = NULL;
         
         Attribute* max_attr = (Attribute*)malloc(sizeof(Attribute));
         max_attr->name = strdup("max");
-        max_attr->type = get_type(context, "Number");
+        max_attr->type = context_get_type(context, "Number");
         max_attr->value = NULL;
         max_attr->node = NULL;
         
         Attribute* current_attr = (Attribute*)malloc(sizeof(Attribute));
         current_attr->name = strdup("current");
-        current_attr->type = get_type(context, "Number");
+        current_attr->type = context_get_type(context, "Number");
         current_attr->value = NULL;
         current_attr->node = NULL;
         
@@ -179,8 +185,8 @@ void create_hulk_functions(Context* context) {
         next_method->param_names = NULL;
         next_method->param_types = NULL;
         next_method->param_count = 0;
-        next_method->return_type = get_type(context, "Boolean");
-        next_method->inferred_return_type = get_type(context, "Boolean");
+        next_method->return_type = context_get_type(context, "Boolean");
+        next_method->inferred_return_type = context_get_type(context, "Boolean");
         next_method->node = NULL;
         
         Method* current_method = (Method*)malloc(sizeof(Method));
@@ -188,8 +194,8 @@ void create_hulk_functions(Context* context) {
         current_method->param_names = NULL;
         current_method->param_types = NULL;
         current_method->param_count = 0;
-        current_method->return_type = get_type(context, "Number");
-        current_method->inferred_return_type = get_type(context, "Number");
+        current_method->return_type = context_get_type(context, "Number");
+        current_method->inferred_return_type = context_get_type(context, "Number");
         current_method->node = NULL;
         
         range_type->methods = (Method**)malloc(sizeof(Method*) * 2);
@@ -200,7 +206,7 @@ void create_hulk_functions(Context* context) {
     
     // Crear funciones built-in
     char* sqrt_params[] = {strdup("value")};
-    Type* number_type = get_type(context, "Number");
+    Type* number_type = context_get_type(context, "Number");
     Type* sqrt_param_types[] = {number_type};
     create_function(context, "sqrt", sqrt_params, sqrt_param_types, 1, number_type);
     
@@ -223,7 +229,7 @@ void create_hulk_functions(Context* context) {
     create_function(context, "rand", NULL, NULL, 0, number_type);
     
     char* print_params[] = {strdup("obj")};
-    Type* object_type = get_type(context, "Object");
+    Type* object_type = context_get_type(context, "Object");
     Type* print_param_types[] = {object_type};
     create_function(context, "print", print_params, print_param_types, 1, object_type);
     
@@ -242,8 +248,8 @@ void create_iterable_protocol(Context* context) {
         next_method->param_names = NULL;
         next_method->param_types = NULL;
         next_method->param_count = 0;
-        next_method->return_type = get_type(context, "Boolean");
-        next_method->inferred_return_type = get_type(context, "Boolean");
+        next_method->return_type = context_get_type(context, "Boolean");
+        next_method->inferred_return_type = context_get_type(context, "Boolean");
         next_method->node = NULL;
         
         // Definir método current
@@ -252,8 +258,8 @@ void create_iterable_protocol(Context* context) {
         current_method->param_names = NULL;
         current_method->param_types = NULL;
         current_method->param_count = 0;
-        current_method->return_type = get_type(context, "Object");
-        current_method->inferred_return_type = get_type(context, "Object");
+        current_method->return_type = context_get_type(context, "Object");
+        current_method->inferred_return_type = context_get_type(context, "Object");
         current_method->node = NULL;
         
         iterable_protocol->methods = (Method**)malloc(sizeof(Method*) * 2);
