@@ -2,7 +2,7 @@
 #define STATE_H
 
 #include "item.h"
-#include "grammar/symbol.h"
+#include "../grammar/symbol.h"
 
 typedef struct State State;
 typedef struct Transition Transition;

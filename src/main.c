@@ -1,23 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "grammar/grammar.h"
-#include "grammar/load_grammar.h"
-#include "parser/first_follow.h"
-#include "parser/automaton.h"
-#include "parser/parser.h"
-#include "parser/lr1_table.h"
-#include "ast_nodes/ast_nodes.h"
-#include "lexer/lexer.h"
-#include "lexer/func_aux_lexer.h"
-#include "ast_nodes/ast_nodes.h"
+#include "../grammar/grammar.h"
+#include "../grammar/load_grammar.h"
+#include "../parser/first_follow.h"
+#include "../parser/automaton.h"
+#include "../parser/parser.h"
+#include "../parser/lr1_table.h"
+#include "../parser/ast_nodes.h"
+#include "../lexer/lexer.h"
+#include "../lexer/func_aux_lexer.h"
+
+Symbol** lexer_parse_file_to_symbols(const char* filename, Grammar* grammar, int* out_count);
 int main() {
     Grammar* grammar = create_grammar("archivo.txt");
     load_grammar_from_file(grammar, "gramatica.txt");
 
     Symbol* program_sym = NULL;
     // Buscar símbolo inicial
-    Symbol* program_sym = NULL;
     for (int i = 0; i < grammar->symbol_count; ++i) {
         if (strcmp(grammar->symbols[i]->name, "Program") == 0 &&
             grammar->symbols[i]->type == NON_TERMINAL) {

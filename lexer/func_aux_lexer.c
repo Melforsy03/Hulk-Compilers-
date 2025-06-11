@@ -111,4 +111,3 @@ Lexer* lexer_new(const char* source) {
 
 extern const char* token_type_to_string(TokenType type);
 extern Token* next_tokens(const char* input, int* count);
-

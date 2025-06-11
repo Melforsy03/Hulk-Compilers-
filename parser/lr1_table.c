@@ -1,5 +1,5 @@
 #include "lr1_table.h"
-#include "grammar/grammar.h"
+#include "../grammar/grammar.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

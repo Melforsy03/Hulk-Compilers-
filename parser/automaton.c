@@ -1,11 +1,11 @@
 
 #include "automaton.h"
-#include "grammar/grammar.h"
+#include "..//grammar/grammar.h"
 #include "first_follow.h"
 #include "item.h"
 #include "lr1_table.h"
 #include "state.h"
-#include "grammar/symbol.h"
+#include "../grammar/symbol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
