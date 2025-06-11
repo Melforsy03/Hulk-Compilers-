@@ -1,7 +1,11 @@
 {
     "files.associations": {
         "ast_nodes.h": "c",
-        "errors.h": "c"
+        "errors.h": "c",
+        "semantic.h": "c",
+        "stdlib.h": "c",
+        "symbol.h": "c",
+        "semanticerrors.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
