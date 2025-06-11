@@ -1,0 +1,13 @@
+# Ignorar cualquier carpeta llamada build en cualquier lugar
+**/build/
+
+
+# Ignorar objetos compilados
+*.o
+
+# Ignorar ejecutables y temporales
+*.exe
+*.out
+*.log
+*.tmp
+*~

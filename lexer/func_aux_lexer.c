@@ -74,7 +74,25 @@ const char* token_type_to_string(TokenType type) {
     }
 }
 
+Token* next_tokens(const char* input, int* count) {
+    const char* cursor = input;
+    Token* tokens = malloc(sizeof(Token) * 1024); 
+    int total = 0;
 
+    while (1) {
+        Token t = next_token(&cursor); 
+        tokens[total++] = t;
+
+        if (t.type == TOKEN_EOF || t.type == TOKEN_ERROR)
+            break;
+
+        // Asegúrate de no salirte del buffer
+        if (total >= 1023) break;
+    }
+
+    *count = total;
+    return tokens;
+}
 
 void lexer_free(Lexer* lexer) {
     if (!lexer) return;
@@ -93,4 +111,3 @@ Lexer* lexer_new(const char* source) {
 
 extern const char* token_type_to_string(TokenType type);
 extern Token* next_tokens(const char* input, int* count);
-
