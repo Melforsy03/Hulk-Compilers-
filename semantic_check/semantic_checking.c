@@ -4,6 +4,7 @@
 #include "semantic_errors.h"
 #include "type_collector.c"
 #include "type_builder.c"
+#include "type_checker.c"
 #include "semantic.h"
 
 
@@ -36,16 +37,23 @@ HulkErrorList* semantic_analysis(Node* ast) {
     }
         
     /*
-    // 4. Fase de verificación de tipos
-    type_check_program(ast, collector.context);
+    // 4. Fase de verificación de tipos y anotaciones
+    HulkErrorList checker_errors;
+    type_check_program(ast, collector.context, &checker_errors);
     
-    // (Nota: type_check_program ya maneja sus propios errores)
-    
+    if (checker_errors.count > 0) {
+        // Mover los errores a la lista principal si es necesario
+        for (int i = 0; i < checker_errors.count; i++) {
+            HulkErrorList_add(errors, checker_errors.errors[i]);
+        }
+        HulkErrorList_destroy(&checker_errors);
+        return errors;
+    }
     // 5. Limpieza
-    free(builder_errors);
-    destroy_context(collector.context);
-    */
-    return errors;
+   
+    free(collector.context);
+    
+    return errors;*/
 }
 
 // Ejemplo de uso desde el main

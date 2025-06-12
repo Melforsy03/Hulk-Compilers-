@@ -15,39 +15,38 @@ typedef struct {
     Context* context;
     Type* current_type;
     HulkErrorList* errors;
-    int error_count;
 } TypeBuilder;
 
 //Prototipos de funciones
-void visit_program(TypeBuilder* builder, Node* node); //ok
-void visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent); 
-void visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_parent); 
-void visit_function_declaration(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
-void visit_type_attribute(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
-void visit_method_declaration(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
-void visit_method_signature(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
+void tb_visit_program(TypeBuilder* builder, Node* node); //ok
+void tb_visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent); 
+void tb_visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_parent); 
+void tb_visit_function_declaration(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
+void tb_visit_type_attribute(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
+void tb_visit_method_declaration(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
+void tb_visit_method_signature(TypeBuilder* builder, Node* node); //ok pero revisar conflicto type-protocol
 
 // Implementación de las funciones visitantes
 
-void visit_program(TypeBuilder* builder, Node* node) {
+void tb_visit_program(TypeBuilder* builder, Node* node) {
 
     for (int i = 0; i < node->child_count; i++) {
         Node* child = node->children[i];
         switch (child->tipo) {
             case NODE_TYPE_DECLARATION:
-                visit_type_declaration(builder, child, node->symbol->name);
+                tb_visit_type_declaration(builder, child, node->symbol->name);
                 break;
             case NODE_PROTOCOL_DECLARATION:
-                visit_protocol_declaration(builder, child, node->symbol->name);
+                tb_visit_protocol_declaration(builder, child, node->symbol->name);
                 break;
             case NODE_FUNCTION_DECLARATION:
-                visit_function_declaration(builder, child);
+                tb_visit_function_declaration(builder, child);
                 break;
         }
     }
 }
 
-void visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent) {
+void tb_visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent) {
     // Verificar si es un tipo built-in
     bool is_hulk_type = false;
     for (int i = 0; i < builder->context->hulk_type_count; i++) {
@@ -115,7 +114,7 @@ void visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent)
     // Procesar métodos
     for (int i = 0; i < node->child_count; i++) {
         if(node->children[i]->tipo == NODE_METHOD_DECLARATION){
-            visit_method_declaration(builder, node->children[i]);
+            tb_visit_method_declaration(builder, node->children[i]);
         }
         
     }
@@ -156,13 +155,13 @@ void visit_type_declaration(TypeBuilder* builder, Node* node, char* node_parent)
     // Procesar atributos
     for (int i = 0; i < node->child_count; i++) {
         if(node->children[i]->tipo == NODE_TYPE_ATTRIBUTE){
-            visit_type_attribute(builder, node->children[i]);
+            tb_visit_type_attribute(builder, node->children[i]);
         }
         
     }
 }
 
-void visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_parent) {
+void tb_visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_parent) {
     // Verificar si es un protocolo built-in
     for (int i = 0; i < builder->context->hulk_protocol_count; i++) {
         if (strcmp(node->symbol->name, builder->context->hulk_protocols[i]) == 0) {
@@ -178,7 +177,7 @@ void visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_par
     // Procesar métodos
     for (int i = 0; i < node->child_count; i++) {
         if(node->children[i]->tipo == NODE_METHOD_SIGNATURE){
-            visit_method_signature(builder, node->children[i]);
+            tb_visit_method_signature(builder, node->children[i]);
         }
         
     }
@@ -209,7 +208,7 @@ void visit_protocol_declaration(TypeBuilder* builder, Node* node, char* node_par
     current_protocol->parent = context_get_protocol(builder->context, parent->name);
 }
 
-void visit_function_declaration(TypeBuilder* builder, Node* node) {
+void tb_visit_function_declaration(TypeBuilder* builder, Node* node) {
     builder->current_type = NULL;
 
     // Procesar tipo de retorno
@@ -297,7 +296,7 @@ void visit_function_declaration(TypeBuilder* builder, Node* node) {
     }
 }
 
-void visit_type_attribute(TypeBuilder* builder, Node* node) {
+void tb_visit_type_attribute(TypeBuilder* builder, Node* node) {
     Type* attr_type;
     
     if (node->symbol->name != NULL) {
@@ -329,7 +328,7 @@ void visit_type_attribute(TypeBuilder* builder, Node* node) {
     }
 }
 
-void visit_method_declaration(TypeBuilder* builder, Node* node) {
+void tb_visit_method_declaration(TypeBuilder* builder, Node* node) {
     Type* return_type;
     
     if (node->symbol->name != NULL) {
@@ -399,7 +398,7 @@ void visit_method_declaration(TypeBuilder* builder, Node* node) {
     }
 }
 
-void visit_method_signature(TypeBuilder* builder, Node* node) {
+void tb_visit_method_signature(TypeBuilder* builder, Node* node) {
     Type* return_type;
     
     if (node->symbol->name == NULL) {

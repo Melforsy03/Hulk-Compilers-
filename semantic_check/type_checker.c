@@ -9,25 +9,15 @@
 
 
 // Función principal para realizar el type checking
-void type_check_program(ProgramNode* ast, Context* context) {
+void type_check_program(Node* ast, Context* context, HulkErrorList* output_errors) {
     TypeChecker* tc = create_type_checker(context);
     Scope* global_scope = create_scope(NULL);
     
+    output_errors = HulkErrorList_create();
+    tc->errors = output_errors;
+    tc->errors->count = 0;
+    
     visit_program(tc, ast, global_scope);
     
-    // Print errors if any
-    for (int i = 0; i < tc->error_count; i++) {
-        char* error_str = HulkSemanticError_to_string(tc->errors[i]);
-        printf("%s\n", error_str);
-        free(error_str);
-    }
-    
-    // Cleanup
-    for (int i = 0; i < tc->error_count; i++) {
-        HulkError_free((HulkError*)tc->errors[i]);
-        free(tc->errors[i]);
-    }
-    free(tc->errors);
-    free(tc);
 }
 

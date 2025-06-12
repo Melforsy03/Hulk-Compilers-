@@ -26,16 +26,16 @@ bool conforms_to(Type* type, Type* other);
 void visit_program(TypeChecker* tc, Node* node, Scope* scope); // OK
 //Declarations
 void visit_type_declaration(TypeChecker* tc, Node* node, Scope* scope); // Falta chequeo de argumentos del padre con parametros
-void visit_type_attribute(TypeChecker* tc, Node* node, Scope* scope); //OK
-void visit_method_declaration(TypeChecker* tc, Node* node, Scope* scope); // OK
-void visit_function_declaration(TypeChecker* tc, Node* node, Scope* scope); // OK
-void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope); //OK
+void visit_type_attribute(TypeChecker* tc, Node* node, Scope* scope); //
+void visit_method_declaration(TypeChecker* tc, Node* node, Scope* scope); // 
+void visit_function_declaration(TypeChecker* tc, Node* node, Scope* scope); // 
+void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope); //
 //Expressions
 void visit_conditional(TypeChecker* tc, Node* node, Scope* scope);
-void visit_let_in(TypeChecker* tc, LetInNode* node, Scope* scope);
-void visit_while(TypeChecker* tc, WhileNode* node, Scope* scope);
-void visit_for(TypeChecker* tc, ForNode* node, Scope* scope);
-void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope);
+void visit_let_in(TypeChecker* tc, Node* node, Scope* scope);
+void visit_while(TypeChecker* tc, Node* node, Scope* scope);
+void visit_for(TypeChecker* tc, Node* node, Scope* scope);
+void visit_destr(TypeChecker* tc, Node* node, Scope* scope);
 
 void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope);
 void visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope);
@@ -59,6 +59,9 @@ void visit_string_node(TypeChecker* tc, StringNode* node, Scope* scope);
 void visit_number_node(TypeChecker* tc, NumberNode* node, Scope* scope);
 void visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope);
 
+//================Dispatcher================================
+Type* visit(TypeChecker* tc, Node* node, Scope* scope);
+
 // Implementación de funciones auxiliares
 
 TypeChecker* create_type_checker(Context* context) {
@@ -67,7 +70,6 @@ TypeChecker* create_type_checker(Context* context) {
     tc->current_type = NULL;
     tc->current_method = NULL;
     tc->errors = NULL;
-    tc->error_count = 0;
     return tc;
 }
 
@@ -76,7 +78,6 @@ void add_error(TypeChecker* tc, const char* error_msg, int row, int column) {
     HulkSemanticError error;
     HulkSemanticError_init(&error, error_msg, row, column);
     HulkErrorList_add(tc->errors, (HulkError*)&error);
-    free(error_msg);
 }
 
 bool is_error_type(Type* type) {
@@ -87,7 +88,7 @@ bool is_auto_type(Type* type) {
     return type != NULL && strcmp(type->name, "<auto>") == 0;
 }
 
-bool conforms_to(Type* type, Type* other) {
+bool tc_conforms_to(Type* type, Type* other) {
     if (type == other) return true;
     
     // Check inheritance hierarchy
@@ -109,11 +110,11 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
         return expr_type;
     }
     
-    if (!conforms_to(expr_type, var_type)) {
+    if (!tc_conforms_to(expr_type, var_type)) {
         char* error_msg = format_string(HULK_SEM_INCOMPATIBLE_TYPES, expr_type->name, var_type->name);
         add_error(tc, error_msg, row, col);
         free(error_msg);
-        return get_type(tc->context, "<error>");
+        return context_get_type(tc->context, "<error>");
     }
     
     return var_type;
@@ -127,7 +128,7 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
 void visit_program(TypeChecker* tc, Node* node, Scope* scope) {
     node->scope = scope;
     
-    for (int i = 0; i < node->base.child_count; i++) {
+    for (int i = 0; i < node->child_count; i++) {
         Node* child = node->children[i];
         Scope* child_scope = create_scope(scope);
         
@@ -150,7 +151,7 @@ void visit_program(TypeChecker* tc, Node* node, Scope* scope) {
     
     tc->current_type = NULL;
     tc->current_method = NULL;
-
+/*
      for (int i = 0; i < node->child_count; i++) {
         Node* child = node->children[i];
         Scope* child_scope = create_scope(scope);
@@ -174,7 +175,7 @@ void visit_program(TypeChecker* tc, Node* node, Scope* scope) {
             default:
                 break;
         }
-    }
+    }*/
 }
  
 
@@ -234,7 +235,7 @@ void visit_type_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     for (int i = 0; i < node->child_count; i++) {
         if(node->children[i]->tipo == NODE_METHOD_DECLARATION){
             Scope* method_scope = create_scope(scope);
-            visit_method_declaration(tc, node->methods[i], method_scope);
+            visit_method_declaration(tc, node->children[i], method_scope);
 
         }
     }
@@ -272,7 +273,7 @@ void visit_method_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     
     // Define parameters in scope
     for (int i = 0; i < tc->current_method->param_count; i++) {
-        define_variable(scope, tc->current_method->param_names[i], 
+        scope_define_variable(scope, tc->current_method->param_names[i], 
                       tc->current_method->param_types[i], true);
     }
     
@@ -302,7 +303,7 @@ void visit_function_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     
     // Define parameters in scope
     for (int i = 0; i < tc->current_method->param_count; i++) {
-        define_variable(scope, tc->current_method->param_names[i], 
+        scope_define_variable(scope, tc->current_method->param_names[i], 
                       tc->current_method->param_types[i], true);
     }
     
@@ -327,7 +328,7 @@ void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     if (node->symbol->name != NULL) {
         var_type = context_get_type(tc->context, node->symbol->name);
         if (is_error_type(var_type)) {
-            char* error_msg = format_string(HULK_SEM_NOT_DEFINED, node->type);
+            char* error_msg = format_string(HULK_SEM_NOT_DEFINED, node->symbol->name);
             add_error(tc, error_msg, node->row, node->column);
             free(error_msg);
         }
@@ -338,7 +339,7 @@ void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     // Check variable value
     Type* expr_type = visit(tc, node->children[0], scope);
     var_type = assign_type(tc, var_type, expr_type, node->row, node->column);
-    define_variable(scope, node->name, var_type, false);
+    scope_define_variable(scope, node->lexeme, var_type, false);
 }
 
 
@@ -975,7 +976,23 @@ void visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope) {
 }
 
 // ==================== DISPATCH ==================== 
+*/
+Type* visit(TypeChecker* tc, Node* node, Scope* scope){
+    if(node == NULL) return context_get_type(tc->context, "<error>");
 
+    switch (node->tipo)
+    {
+   
+    
+    default:
+        return context_get_type(tc->context, "<error>");
+        break;
+    }
+}
+
+
+
+/*
 Type* visit(TypeChecker* tc, Node* node, Scope* scope) {
     if (node == NULL) return get_type(tc->context, "<error>");
     
