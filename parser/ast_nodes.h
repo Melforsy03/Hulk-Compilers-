@@ -7,7 +7,9 @@
 typedef enum {
     // Nodo raíz
     NODE_PROGRAM,        // Programa completo (declaraciones + expresión principal)
-
+    NODE_SELF, 
+    NODE_BASE,
+    NODE_INHERITS,
     // Declaraciones
     NODE_METHOD_SIGNATURE,      // Firma de método (nombre/params/retorno)
     NODE_METHOD_DECLARATION,    // Método completo (firma + cuerpo)
@@ -70,8 +72,8 @@ typedef enum {
     NODE_PLUS, NODE_MINUS, NODE_MULT,     // + - *
     NODE_DIV, NODE_MOD, NODE_POW,         // / % ^
     NODE_POSITIVE, NODE_NEGATIVE,
-    NODE_ASSING,       //=
-
+    NODE_ASSING, NODE_COLON_ASSING,     //=
+    
     // Literales
     NODE_BOOLEAN,     // true/false
     NODE_VAR,         // variable

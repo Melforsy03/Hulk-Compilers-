@@ -70,13 +70,13 @@ char* visit(Node* node, int tabs) {
     switch (node->tipo) {
         case NODE_PROGRAM:
             return visit_ProgramNode((ProgramNode*)node, tabs);
-        case NODE_FUNCTION_DEF:
+        case NODE_FUNCTION_DECLARATION:
             return visit_FunctionDeclarationNode((FunctionDeclarationNode*)node, tabs);
-        case NODE_TYPE_DEF:
+        case NODE_TYPE_DECLARATION:
             return visit_TypeDeclarationNode((TypeDeclarationNode*)node, tabs);
-        case NODE_LET:
+        case NODE_LET_IN:
             return visit_LetInNode((LetInNode*)node, tabs);
-        case NODE_IF:
+        case NODE_CONDITIONAL:
             return visit_ConditionalNode((ConditionalNode*)node, tabs);
         case NODE_WHILE:
             return visit_WhileNode((WhileNode*)node, tabs);
@@ -84,11 +84,11 @@ char* visit(Node* node, int tabs) {
             return visit_ForNode((ForNode*)node, tabs);
         case NODE_RETURN:
             return visit_UnaryNode((UnaryNode*)node, tabs, "ReturnNode");
-        case NODE_ADD:
+        case NODE_PLUS:
             return visit_BinaryNode((BinaryNode*)node, tabs, "PlusNode");
-        case NODE_SUB:
+        case NODE_MINUS:
             return visit_BinaryNode((BinaryNode*)node, tabs, "MinusNode");
-        case NODE_MUL:
+        case NODE_MULT:
             return visit_BinaryNode((BinaryNode*)node, tabs, "MultNode");
         case NODE_DIV:
             return visit_BinaryNode((BinaryNode*)node, tabs, "DivNode");
@@ -96,17 +96,17 @@ char* visit(Node* node, int tabs) {
             return visit_BinaryNode((BinaryNode*)node, tabs, "PowNode");
         case NODE_MOD:
             return visit_BinaryNode((BinaryNode*)node, tabs, "ModNode");
-        case NODE_EQ:
+        case NODE_EQUAL:
             return visit_BinaryNode((BinaryNode*)node, tabs, "EqualNode");
-        case NODE_NEQ:
+        case NODE_NOT_EQUAL:
             return visit_BinaryNode((BinaryNode*)node, tabs, "NotEqualNode");
-        case NODE_LT:
+        case NODE_LESS:
             return visit_BinaryNode((BinaryNode*)node, tabs, "LessNode");
-        case NODE_LTE:
+        case NODE_LESS_EQUAL:
             return visit_BinaryNode((BinaryNode*)node, tabs, "LessEqualNode");
-        case NODE_GT:
+        case NODE_GREATER:
             return visit_BinaryNode((BinaryNode*)node, tabs, "GreaterNode");
-        case NODE_GTE:
+        case NODE_GREATER_EQUAL:
             return visit_BinaryNode((BinaryNode*)node, tabs, "GreaterEqualNode");
         case NODE_AND:
             return visit_BinaryNode((BinaryNode*)node, tabs, "AndNode");
@@ -128,7 +128,7 @@ char* visit(Node* node, int tabs) {
             return visit_CallFuncNode((CallFuncNode*)node, tabs);
         case NODE_TYPE_INSTANTIATION:
             return visit_TypeInstantiationNode((TypeInstantiationNode*)node, tabs);
-        case NODE_ACCESS:
+        case NODE_INDEX_OBJECT:
             return visit_IndexObjectNode((IndexObjectNode*)node, tabs);
         case NODE_CALL_METHOD:
             return visit_CallMethodNode((CallMethodNode*)node, tabs);
@@ -136,9 +136,9 @@ char* visit(Node* node, int tabs) {
             return visit_BinaryNode((BinaryNode*)node, tabs, "ConcatNode");
         case NODE_PRINT:
             return visit_UnaryNode((UnaryNode*)node, tabs, "PrintNode");
-        case NODE_ASSIGN:
+        case NODE_ASSING:
             return visit_BinaryNode((BinaryNode*)node, tabs, "AssignNode");
-        case NODE_COLON_ASSIGN:
+        case NODE_COLON_ASSING:
             return visit_BinaryNode((BinaryNode*)node, tabs, "ColonAssignNode");
         case NODE_SELF:
             return strdup("\\__SelfNode");
