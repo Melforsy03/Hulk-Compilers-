@@ -56,8 +56,16 @@ int main() {
     ActionEntryLR1* actions = NULL;
     int action_count = 0;
     Node* accepted = parser(table, input_symbols, input_len, &actions, &action_count);
-     // Abrimos el archivo de salida LLVM
-    
+     
+        if (!accepted) {
+            fprintf(stderr, "[ERROR] El análisis sintáctico falló (accepted == NULL)\n");
+            return 1;
+        }
+        if (accepted->tipo != NODE_PROGRAM) {
+            fprintf(stderr, "[ERROR] Nodo raíz no es de tipo ProgramNode (tipo = %d)\n", accepted->tipo);
+            return 1;
+        }
+
     salida_llvm = fopen("hulk/programa.ll", "w");
     if (!salida_llvm) {
         fprintf(stderr, "[ERROR] No se pudo abrir el archivo de salida 'programa.ll'\n");
