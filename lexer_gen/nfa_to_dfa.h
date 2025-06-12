@@ -5,6 +5,7 @@
 #include "regex_parser.h"
 #include "../lexer/lexer.h"
 #include "regex_to_dfa.h"
+#include "utils.h"
 #define MAX_DFA_STATES 512
 #define MAX_DFA_TRANSITIONS 128
 

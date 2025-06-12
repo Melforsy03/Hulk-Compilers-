@@ -1,7 +1,7 @@
 #ifndef FIRST_FOLLOW_H
 #define FIRST_FOLLOW_H
 
-#include "grammar/grammar.h"
+#include "../grammar/grammar.h"
 #include "containerset.h"
 
 ContainerSet* compute_local_first(Grammar* grammar, ContainerSet** firsts, Symbol** alpha, int alpha_size);

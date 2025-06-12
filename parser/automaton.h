@@ -2,7 +2,7 @@
 #ifndef AUTOMATON_H
 #define AUTOMATON_H
 
-#include "grammar/grammar.h"
+#include "../grammar/grammar.h"
 #include "state.h"
 #include "item.h"
 

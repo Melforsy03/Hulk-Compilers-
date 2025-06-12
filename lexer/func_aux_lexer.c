@@ -5,6 +5,9 @@
 #include <ctype.h>
 #include "lexer.h"
 #include "func_aux_lexer.h"
+extern const char* token_type_to_string(TokenType type);
+extern Token* next_tokens(const char* input, int* count);
+
 const char* token_type_to_string(TokenType type) {
     switch (type) {
         case TOKEN_LET: return "LET";
@@ -106,8 +109,4 @@ Lexer* lexer_new(const char* source) {
     lexer->pos = 0;
     return lexer;
 }
-#include "lexer.h"
-#include "parser.h"  // Para Symbol, Grammar, get_terminal
 
-extern const char* token_type_to_string(TokenType type);
-extern Token* next_tokens(const char* input, int* count);

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "automaton.h"
 State* create_state(Item** items, int item_count) {
     if (!items || item_count <= 0) {
         fprintf(stderr, "Error: Intento de crear estado con items inválidos\n");
