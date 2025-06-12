@@ -18,7 +18,7 @@ void generar_funciones(ExpressionNode* expr) {
     NodeType tipo = ((Node*)expr)->tipo;
 
     switch (tipo) {
-        case NODE_FUNCTION_DEF:
+        case NODE_FUNCTION_DECLARATION:
             generar_codigo(expr);
             break;
 
@@ -31,14 +31,14 @@ void generar_funciones(ExpressionNode* expr) {
             break;
         }
 
-        case NODE_LET:
+        
         case NODE_LET_IN: {
             LetInNode* let = (LetInNode*)expr;
             generar_funciones(let->body);
             break;
         }
 
-        case NODE_IF: {
+        case NODE_CONDITIONAL: {
         ConditionalNode* cond = (ConditionalNode*)expr;
         ExpressionNode** conds = (ExpressionNode**)cond->conditions;
         ExpressionNode** exprs = (ExpressionNode**)cond->expressions;
@@ -115,11 +115,11 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
         }
 
 
-        case NODE_ADD: case NODE_SUB: case NODE_MUL:
-        case NODE_DIV: case NODE_EQ: case NODE_LT:
-        case NODE_GT: case NODE_AND: case NODE_OR:
+        case NODE_PLUS: case NODE_MINUS: case NODE_MULT:
+        case NODE_DIV: case NODE_EQUAL: case NODE_LESS:
+        case NODE_GREATER: case NODE_AND: case NODE_OR:
         case NODE_POW: case NODE_MOD:
-        case NODE_NEQ: case NODE_LTE: case NODE_GTE: {
+        case NODE_NOT_EQUAL: case NODE_LESS_EQUAL: case NODE_GREATER_EQUAL: {
             BinaryNode* bin = (BinaryNode*)expr;
             recorrer_ast_para_strings((ExpressionNode*)bin->left);
             recorrer_ast_para_strings((ExpressionNode*)bin->right);
@@ -141,7 +141,7 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
                 recorrer_ast_para_strings(exprs[i]);
             break;
         }
-        case NODE_IF: {
+        case NODE_CONDITIONAL: {
             ConditionalNode* cond = (ConditionalNode*)expr;
             ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
             ExpressionNode** expressions = (ExpressionNode**)cond->expressions;
@@ -178,7 +178,7 @@ void generar_constantes_globales(ProgramNode* program) {
         if (program->declarations) {
             DeclarationNode** decls = (DeclarationNode**)program->declarations;
             for (int i = 0; decls[i]; i++) {
-                if (decls[i]->base.tipo == NODE_FUNCTION_DEF) {
+                if (decls[i]->base.tipo == NODE_FUNCTION_DECLARATION) {
                     FunctionDeclarationNode* f = (FunctionDeclarationNode*)decls[i];
                     if (f->body) {
                         recorrer_ast_para_strings(f->body);

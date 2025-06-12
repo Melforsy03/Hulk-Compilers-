@@ -27,6 +27,8 @@ typedef enum {
     NODE_ATOMIC,         // Expresión simple
     NODE_BINARY,         // Operación binaria
     NODE_UNARY,          // Operación unaria
+    NODE_PRINT,
+    NODE_BLOCK,
 
     // Operadores binarios
     NODE_BOOLEAN_BINARY,     // AND/OR
@@ -67,7 +69,8 @@ typedef enum {
     NODE_DOUBLE_CONCAT, // ++ 
     NODE_PLUS, NODE_MINUS, NODE_MULT,     // + - *
     NODE_DIV, NODE_MOD, NODE_POW,         // / % ^
-    NODE_POSITIVE, NODE_NEGATIVE,         // +num -num
+    NODE_POSITIVE, NODE_NEGATIVE,
+    NODE_ASSING,       //=
 
     // Literales
     NODE_BOOLEAN,     // true/false

@@ -41,7 +41,7 @@ LLVMType tipo_expr(ExpressionNode* expr) {
         }
 
 
-        case NODE_IF: {
+        case NODE_CONDITIONAL: {
             ConditionalNode* c = (ConditionalNode*)expr;
             ExpressionNode** then_exprs = (ExpressionNode**)c->expressions;
             ExpressionNode* else_expr = (ExpressionNode*)c->default_expre;
@@ -66,12 +66,12 @@ LLVMType tipo_expr(ExpressionNode* expr) {
         }
 
         case NODE_NUMBER:
-        case NODE_ADD: case NODE_SUB:
-        case NODE_MUL: case NODE_DIV:
+        case NODE_PLUS: case NODE_MINUS:
+        case NODE_MULT: case NODE_DIV:
         case NODE_MOD:
-        case NODE_EQ: case NODE_NEQ:
-        case NODE_LT: case NODE_LTE:
-        case NODE_GT: case NODE_GTE:
+        case NODE_EQUAL: case NODE_NOT_EQUAL:
+        case NODE_LESS: case NODE_LESS_EQUAL:
+        case NODE_GREATER: case NODE_GREATER_EQUAL:
         case NODE_BOOLEAN:
             return TIPO_INT;
 
@@ -196,7 +196,7 @@ int contiene_return(ExpressionNode* expr) {
         }
     }
 
-    if (tipo == NODE_IF) {
+    if (tipo == NODE_CONDITIONAL) {
         ConditionalNode* cond = (ConditionalNode*)expr;
         ExpressionNode** exprs = (ExpressionNode**)cond->expressions;
         for (int i = 0; exprs && exprs[i]; i++) {
@@ -217,8 +217,8 @@ void generar_declaraciones_variables() {
     }
 }
 int es_comparacion(NodeType tipo) {
-    return (tipo == NODE_EQ || tipo == NODE_NEQ ||
-            tipo == NODE_LT || tipo == NODE_LTE ||
-            tipo == NODE_GT || tipo == NODE_GTE ||
+    return (tipo == NODE_EQUAL || tipo == NODE_NOT_EQUAL ||
+            tipo == NODE_LESS || tipo == NODE_LESS_EQUAL ||
+            tipo == NODE_GREATER || tipo == NODE_GREATER_EQUAL||
             tipo == NODE_BOOLEAN);
 }

@@ -29,11 +29,11 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
 
     switch (tipo) {
         // OPT: Binarias con constantes
-        case NODE_ADD: case NODE_SUB:
-        case NODE_MUL: case NODE_DIV:
-        case NODE_MOD: case NODE_EQ: case NODE_NEQ:
-        case NODE_LT:  case NODE_LTE:
-        case NODE_GT:  case NODE_GTE: {
+        case NODE_PLUS: case NODE_MINUS:
+        case NODE_MULT: case NODE_DIV:
+        case NODE_MOD: case NODE_EQUAL: case NODE_NOT_EQUAL:
+        case NODE_LESS:  case NODE_LESS_EQUAL:
+        case NODE_GREATER:  case NODE_GREATER_EQUAL: {
             BinaryNode* bin = (BinaryNode*)expr;
             bin->left = optimizar_constantes(bin->left);
             bin->right = optimizar_constantes(bin->right);
@@ -48,9 +48,9 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
                 int is_valid = 1;
 
                 switch (tipo) {
-                    case NODE_ADD: resultado = val_izq + val_der; break;
-                    case NODE_SUB: resultado = val_izq - val_der; break;
-                    case NODE_MUL: resultado = val_izq * val_der; break;
+                    case NODE_PLUS: resultado = val_izq + val_der; break;
+                    case NODE_MINUS: resultado = val_izq - val_der; break;
+                    case NODE_MULT: resultado = val_izq * val_der; break;
                     case NODE_DIV: 
                         if (val_der != 0) resultado = val_izq / val_der;
                         else is_valid = 0;
@@ -59,12 +59,12 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
                         if (val_der != 0) resultado = val_izq % val_der;
                         else is_valid = 0;
                         break;
-                    case NODE_EQ:  resultado = (val_izq == val_der); break;
-                    case NODE_NEQ: resultado = (val_izq != val_der); break;
-                    case NODE_LT:  resultado = (val_izq <  val_der); break;
-                    case NODE_LTE: resultado = (val_izq <= val_der); break;
-                    case NODE_GT:  resultado = (val_izq >  val_der); break;
-                    case NODE_GTE: resultado = (val_izq >= val_der); break;
+                    case NODE_EQUAL:  resultado = (val_izq == val_der); break;
+                    case NODE_NOT_EQUAL: resultado = (val_izq != val_der); break;
+                    case NODE_LESS:  resultado = (val_izq <  val_der); break;
+                    case NODE_LESS_EQUAL: resultado = (val_izq <= val_der); break;
+                    case NODE_GREATER:  resultado = (val_izq >  val_der); break;
+                    case NODE_GREATER_EQUAL: resultado = (val_izq >= val_der); break;
                     default: is_valid = 0; break;
                 }
 
@@ -84,11 +84,11 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
             // Simplificación algebraica con constantes
             if (der->tipo == NODE_NUMBER) {
                 int v = atoi(((LiteralNode*)bin->right)->lex);
-                if ((tipo == NODE_ADD || tipo == NODE_SUB) && v == 0)
+                if ((tipo == NODE_PLUS || tipo == NODE_MINUS) && v == 0)
                     return bin->left;
-                if (tipo == NODE_MUL && v == 1)
+                if (tipo == NODE_MULT && v == 1)
                     return bin->left;
-                if (tipo == NODE_MUL && v == 0)
+                if (tipo == NODE_MULT && v == 0)
                     return crear_nodo_constante("0");
                 if (tipo == NODE_DIV && v == 1)
                     return bin->left;
@@ -96,11 +96,11 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
 
             if (izq->tipo == NODE_NUMBER) {
                 int v = atoi(((LiteralNode*)bin->left)->lex);
-                if (tipo == NODE_ADD && v == 0)
+                if (tipo == NODE_PLUS && v == 0)
                     return bin->right;
-                if (tipo == NODE_MUL && v == 1)
+                if (tipo == NODE_MULT && v == 1)
                     return bin->right;
-                if (tipo == NODE_MUL && v == 0)
+                if (tipo == NODE_MULT && v == 0)
                     return crear_nodo_constante("0");
             }
 
@@ -115,7 +115,7 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
                 exprs[i] = optimizar_constantes(exprs[i]);
             return expr;
         }
-        case NODE_LET:
+       
         case NODE_LET_IN: {
             LetInNode* let = (LetInNode*)expr;
             VarDeclarationNode** decls = (VarDeclarationNode**)let->variables;
@@ -152,7 +152,7 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
         }
 
         // OPT: IF y WHILE
-        case NODE_IF: {
+        case NODE_CONDITIONAL: {
             ConditionalNode* cond = (ConditionalNode*)expr;
             ExpressionNode** conds = (ExpressionNode**)cond->conditions;
             ExpressionNode** exprs = (ExpressionNode**)cond->expressions;

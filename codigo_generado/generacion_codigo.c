@@ -31,7 +31,7 @@ void generar_programa(ProgramNode* program) {
     if (program->declarations) {
         DeclarationNode** decls = (DeclarationNode**)program->declarations;
         for (int i = 0; decls[i]; i++) {
-            if (decls[i]->base.tipo == NODE_FUNCTION_DEF) {
+            if (decls[i]->base.tipo == NODE_FUNCTION_DECLARATION) {
                 generar_codigo((ExpressionNode*)decls[i]);
             }
         }
@@ -123,7 +123,7 @@ int generar_codigo(ExpressionNode* expr) {
                     }
 
 
-        case NODE_ASSIGN: {
+        case NODE_ASSING: {
             BinaryNode* bin = (BinaryNode*)expr;
             int right_val = generar_codigo(bin->right);
             const char* var_name = obtener_nombre_variable((VarNode*)bin->left);
@@ -137,7 +137,7 @@ int generar_codigo(ExpressionNode* expr) {
         }
 
         // ----- Let y Let-In -----
-        case NODE_LET:
+        
             case NODE_LET_IN: {
                 LetInNode* let_in = (LetInNode*)expr;
                 VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
@@ -185,9 +185,9 @@ int generar_codigo(ExpressionNode* expr) {
             }
 
         // ----- Operaciones aritméticas -----
-        case NODE_ADD: return generar_binario((BinaryNode*)expr, "add");
-        case NODE_SUB: return generar_binario((BinaryNode*)expr, "sub");
-        case NODE_MUL: return generar_binario((BinaryNode*)expr, "mul");
+        case NODE_PLUS: return generar_binario((BinaryNode*)expr, "add");
+        case NODE_MINUS: return generar_binario((BinaryNode*)expr, "sub");
+        case NODE_MULT: return generar_binario((BinaryNode*)expr, "mul");
         case NODE_DIV: return generar_binario((BinaryNode*)expr, "sdiv");
         case NODE_MOD: return generar_binario((BinaryNode*)expr, "srem");
 
@@ -200,12 +200,12 @@ int generar_codigo(ExpressionNode* expr) {
             return temp;
         }
         // ----- Comparaciones -----
-        case NODE_EQ:  return generar_comparacion((BinaryNode*)expr, "eq");
-        case NODE_NEQ: return generar_comparacion((BinaryNode*)expr, "ne");
-        case NODE_LT:  return generar_comparacion((BinaryNode*)expr, "slt");
-        case NODE_LTE: return generar_comparacion((BinaryNode*)expr, "sle");
-        case NODE_GT:  return generar_comparacion((BinaryNode*)expr, "sgt");
-        case NODE_GTE: return generar_comparacion((BinaryNode*)expr, "sge");
+        case NODE_EQUAL:  return generar_comparacion((BinaryNode*)expr, "eq");
+        case NODE_NOT_EQUAL: return generar_comparacion((BinaryNode*)expr, "ne");
+        case NODE_LESS:  return generar_comparacion((BinaryNode*)expr, "slt");
+        case NODE_LESS_EQUAL: return generar_comparacion((BinaryNode*)expr, "sle");
+        case NODE_GREATER:  return generar_comparacion((BinaryNode*)expr, "sgt");
+        case NODE_GREATER_EQUAL: return generar_comparacion((BinaryNode*)expr, "sge");
 
         // ----- Lógicos -----
         case NODE_AND: {
@@ -234,7 +234,7 @@ int generar_codigo(ExpressionNode* expr) {
             return temp;
         }
 
-            case NODE_IF: {
+            case NODE_CONDITIONAL: {
                 ConditionalNode* cond = (ConditionalNode*)expr;
                 ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
                 ExpressionNode** thens = (ExpressionNode**)cond->expressions;
@@ -391,7 +391,7 @@ int generar_codigo(ExpressionNode* expr) {
 
 
         // ----- Definición de función -----
-            case NODE_FUNCTION_DEF: {
+            case NODE_FUNCTION_DECLARATION: {
 
                 FunctionDeclarationNode* func = (FunctionDeclarationNode*)expr;
                 char contexto_anterior[64];
@@ -540,7 +540,7 @@ int generar_codigo(ExpressionNode* expr) {
                         return temp;
                     }
                 }
-                case NODE_TYPE_DEF: {
+                case NODE_TYPE_DECLARATION: {
                     TypeDeclarationNode* type = (TypeDeclarationNode*)expr;
                     fprintf(salida_llvm, "%%%s = type { ", type->name);
 
