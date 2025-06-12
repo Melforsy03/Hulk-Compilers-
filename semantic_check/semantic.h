@@ -4,10 +4,9 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdarg.h>
+
 #ifndef SEMANTIC_H
 #define SEMANTIC_H
-// Todo tu código...
-
 
 // Estructuras básicas
 typedef struct Type Type;
@@ -22,6 +21,7 @@ typedef struct Scope Scope;
 Type* context_get_type(Context* ctx, char* name);
 void initialize_builtin_types(Context* context);
 VariableInfo* scope_define_variable(Scope* scope, char* name, Type* type, bool is_parameter);
+Method* define_method(Type* type, Context* ctx, const char* name, char** param_names, Type** param_types, int param_count, Type* return_type);
 void free_type(Type* type);
 void free_scope(Scope* scope);
 void free_context(Context* ctx);
@@ -53,7 +53,7 @@ struct Type {
 };
 
 
-// Error types
+
 typedef struct ErrorType {
     Type base;
 } ErrorType;
@@ -89,11 +89,17 @@ typedef struct VectorType {
 } VectorType;
 
 struct Protocol {
+    Type base;
     char* name;
     Protocol* parent;
     Method** methods;
     int method_count;
 };
+
+typedef union {
+    Type* type;
+    Protocol* protocol;
+} TypeOrProtocol;
 
 struct Attribute {
     char* name;
@@ -417,11 +423,11 @@ Scope* create_scope(Scope* parent) {
     
     return scope;
 }
-/*
+
 // Funciones de utilidad
-bool type_conforms_to(Type* type, Type* other);
+bool conforms_to(Type* type, Type* other);
 bool method_implements(Method* method, Method* other);
-*/
+
 char* format_string(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -471,8 +477,6 @@ Type* get_lowest_common_ancestor(Type** types, int type_count) {
     
     Type* lca = types[0];
     for (int i = 1; i < type_count; i++) {
-        // Implement conforms_to logic here (simplified for example)
-        // In a real implementation, this would check the type hierarchy
         bool found = false;
         Type* current = types[i];
         while (current != NULL) {
@@ -497,29 +501,29 @@ Type* get_lowest_common_ancestor(Type** types, int type_count) {
 }
 
 
-/*
-bool type_conforms_to(Type* type, Type* other) {
-    if (other->kind == AUTO_TYPE || other->kind == ERROR_TYPE) {
+
+bool conforms_to(Type* type, Type* other) {
+    if (other->name == "<auto>" || other->name == "<error>") {
         return true;
     }
     
-    if (type->kind == ERROR_TYPE) {
+    if (type->name == "<error>") {
         return true;
     }
     
-    if (type->kind == other->kind && strcmp(type->name, other->name) == 0) {
+    if (type->name == other->name && strcmp(type->name, other->name) == 0) {
         return true;
     }
     
     if (type->parent != NULL) {
-        return type_conforms_to(type->parent, other);
+        return conforms_to(type->parent, other);
     }
     
     return false;
 }
 
 bool method_implements(Method* method, Method* other) {
-    if (!type_conforms_to(method->return_type, other->return_type)) {
+    if (!conforms_to(method->return_type, other->return_type)) {
         return false;
     }
     
@@ -528,16 +532,16 @@ bool method_implements(Method* method, Method* other) {
     }
     
     for (int i = 0; i < method->param_count; i++) {
-        if (!type_conforms_to(other->param_types[i], method->param_types[i])) {
+        if (!conforms_to(other->param_types[i], method->param_types[i])) {
             return false;
         }
     }
     
     return true;
 }
-*/
+
 // Funciones para manejar atributos y métodos
-Attribute* type_get_attribute(Type* type, char* name) {
+Attribute* get_attribute(Type* type, char* name) {
     for (int i = 0; i < type->attribute_count; i++) {
         if (strcmp(type->attributes[i]->name, name) == 0) {
             return type->attributes[i];
@@ -545,13 +549,64 @@ Attribute* type_get_attribute(Type* type, char* name) {
     }
     
     if (type->parent != NULL) {
-        return type_get_attribute(type->parent, name);
+        return  get_attribute(type->parent, name);
     }
     
     return NULL;
 }
 
-Method* type_get_method(Type* type, char* name) {
+Attribute* define_attribute(Type* type, const char* name, Type* typex) {
+    // Primero verificamos si el atributo ya existe
+    for (int i = 0; i < type->attribute_count; i++) {
+        if (strcmp(type->attributes[i]->name, name) == 0) {
+            // Atributo ya existe, generamos error semántico
+            return NULL;
+        }
+    }
+
+    // Si no existe, lo creamos
+    Attribute* attribute = (Attribute*)malloc(sizeof(Attribute));
+    attribute->name = strdup(name);
+    attribute->type = typex;
+    attribute->value = NULL;
+    attribute->node = NULL;
+
+    // Añadimos el atributo al tipo
+    type->attribute_count++;
+    type->attributes = (Attribute**)realloc(type->attributes, sizeof(Attribute*) * type->attribute_count);
+    type->attributes[type->attribute_count - 1] = attribute;
+
+    return attribute;
+}
+
+void set_attribute_error(Type* type, const char* attr_name) {
+    // Primero buscamos si el atributo ya existe
+    for (int i = 0; i < type->attribute_count; i++) {
+        if (strcmp(type->attributes[i]->name, attr_name) == 0) {
+            // Convertir el atributo existente en un AttributeError
+            free(type->attributes[i]->name);
+            
+            // Mantener la estructura Attribute pero marcarla como error
+            type->attributes[i]->name = strdup(attr_name);
+            type->attributes[i]->type = context_get_type(NULL, "<error>");
+            return;
+        }
+    }
+
+    // Si el atributo no existe, crear uno nuevo marcado como error
+    Attribute* error_attr = (Attribute*)malloc(sizeof(Attribute));
+    error_attr->name = strdup(attr_name);
+    error_attr->type = context_get_type(NULL, "<error>");
+    error_attr->value = NULL;
+    error_attr->node = NULL;
+
+    // Agregar al tipo
+    type->attribute_count++;
+    type->attributes = (Attribute**)realloc(type->attributes, sizeof(Attribute*) * type->attribute_count);
+    type->attributes[type->attribute_count - 1] = error_attr;
+}
+
+Method* get_method(Type* type, char* name) {
     for (int i = 0; i < type->method_count; i++) {
         if (strcmp(type->methods[i]->name, name) == 0) {
             return type->methods[i];
@@ -559,10 +614,84 @@ Method* type_get_method(Type* type, char* name) {
     }
     
     if (type->parent != NULL) {
-        return type_get_method(type->parent, name);
+        return get_method(type->parent, name);
     }
     
     return NULL;
+}
+
+Method* define_method(Type* type, Context* ctx, const char* name, char** param_names, Type** param_types, int param_count, Type* return_type) {
+    // Verificar si el método ya existe
+    for (int i = 0; i < type->method_count; i++) {
+        if (strcmp(type->methods[i]->name, name) == 0) {
+            return NULL;
+        }
+    }
+
+    // Crear el nuevo método
+    Method* method = (Method*)malloc(sizeof(Method));
+    method->name = strdup(name);
+    method->param_names = (char**)malloc(sizeof(char*) * param_count);
+    for (int i = 0; i < param_count; i++) {
+        method->param_names[i] = strdup(param_names[i]);
+    }
+    method->param_types = (Type**)malloc(sizeof(Type*) * param_count);
+    memcpy(method->param_types, param_types, sizeof(Type*) * param_count);
+    method->param_count = param_count;
+    method->return_type = return_type;
+    method->inferred_return_type = return_type;
+    method->node = NULL;
+
+    // Agregar el método al tipo
+    type->method_count++;
+    type->methods = (Method**)realloc(type->methods, sizeof(Method*) * type->method_count);
+    type->methods[type->method_count - 1] = method;
+
+    // También agregarlo al contexto
+    ctx->function_count++;
+    ctx->functions = (Method**)realloc(ctx->functions, sizeof(Method*) * ctx->function_count);
+    ctx->functions[ctx->function_count - 1] = method;
+
+    return method;
+}
+
+void set_method_error(Type* type, const char* method_name) {
+    // Primero buscamos si el método ya existe
+    for (int i = 0; i < type->method_count; i++) {
+        if (strcmp(type->methods[i]->name, method_name) == 0) {
+            // Reemplazar el método existente con un MethodError
+            free(type->methods[i]->name);
+            for (int j = 0; j < type->methods[i]->param_count; j++) {
+                free(type->methods[i]->param_names[j]);
+            }
+            free(type->methods[i]->param_names);
+            free(type->methods[i]->param_types);
+            
+            // Convertir a MethodError (en este caso, sería similar a un Method normal pero marcado como error)
+            type->methods[i]->name = strdup(method_name);
+            type->methods[i]->param_names = NULL;
+            type->methods[i]->param_types = NULL;
+            type->methods[i]->param_count = 0;
+            type->methods[i]->return_type = context_get_type(NULL, "<error>");
+            type->methods[i]->inferred_return_type = context_get_type(NULL, "<error>");
+            return;
+        }
+    }
+
+    // Si el método no existe, crear uno nuevo marcado como error
+    Method* error_method = (Method*)malloc(sizeof(Method));
+    error_method->name = strdup(method_name);
+    error_method->param_names = NULL;
+    error_method->param_types = NULL;
+    error_method->param_count = 0;
+    error_method->return_type = context_get_type(NULL, "<error>");
+    error_method->inferred_return_type = context_get_type(NULL, "<error>");
+    error_method->node = NULL;
+
+    // Agregar al tipo
+    type->method_count++;
+    type->methods = (Method**)realloc(type->methods, sizeof(Method*) * type->method_count);
+    type->methods[type->method_count - 1] = error_method;
 }
 
 Method* protocol_get_method(Protocol* protocol, char* name) {
@@ -601,6 +730,61 @@ Protocol* context_get_protocol(Context* ctx, char* name) {
     return NULL;
 }
 
+TypeOrProtocol context_get_type_or_protocol(Context* ctx, char* name) {
+    TypeOrProtocol result;
+    result.type = context_get_type(ctx, name);
+    if(result.type != NULL) return result;
+
+    result.protocol = context_get_protocol(ctx, name);
+    if(result.protocol != NULL) return result;
+
+    result.type = context_get_type(ctx, "<error>");
+    return result;
+}
+void context_set_type_error(Context* ctx, const char* type_name) {
+    // Buscar el tipo en el contexto
+    for (int i = 0; i < ctx->type_count; i++) {
+        if (strcmp(ctx->types[i]->name, type_name) == 0) {
+            // Crear un nuevo ErrorType para reemplazar el tipo existente
+            ErrorType* error_type = (ErrorType*)malloc(sizeof(ErrorType));
+            error_type->base.name = strdup("<error>");
+            error_type->base.parent = NULL;
+            error_type->base.attributes = NULL;
+            error_type->base.attribute_count = 0;
+            error_type->base.methods = NULL;
+            error_type->base.method_count = 0;
+            error_type->base.param_names = NULL;
+            error_type->base.param_types = NULL;
+            error_type->base.param_count = 0;
+            error_type->base.node = NULL;
+            
+            // Liberar el tipo existente
+            free_type(ctx->types[i]);
+            
+            // Reemplazar con el ErrorType
+            ctx->types[i] = (Type*)error_type;
+            return;
+        }
+    }
+    
+    // Si el tipo no existe, crear uno nuevo con ErrorType
+    ErrorType* error_type = (ErrorType*)malloc(sizeof(ErrorType));
+    error_type->base.name = strdup(type_name);  // Mantener el nombre original para referencia
+    error_type->base.parent = NULL;
+    error_type->base.attributes = NULL;
+    error_type->base.attribute_count = 0;
+    error_type->base.methods = NULL;
+    error_type->base.method_count = 0;
+    error_type->base.param_names = NULL;
+    error_type->base.param_types = NULL;
+    error_type->base.param_count = 0;
+    error_type->base.node = NULL;
+    
+    // Agregar al contexto
+    ctx->types = (Type**)realloc(ctx->types, sizeof(Type*) * (ctx->type_count + 1));
+    ctx->types[ctx->type_count++] = (Type*)error_type;
+}
+
 Method* context_get_function(Context* ctx, char* name) {
     for (int i = 0; i < ctx->function_count; i++) {
         if (strcmp(ctx->functions[i]->name, name) == 0) {
@@ -611,6 +795,46 @@ Method* context_get_function(Context* ctx, char* name) {
     return NULL;
 }
 
+void context_set_function_error(Context* ctx, const char* function_name) {
+    // Buscar la función en el contexto
+    for (int i = 0; i < ctx->function_count; i++) {
+        if (strcmp(ctx->functions[i]->name, function_name) == 0) {
+            // Convertir la función existente en un "MethodError"
+            free(ctx->functions[i]->name);
+            
+            // Liberar parámetros si existen
+            for (int j = 0; j < ctx->functions[i]->param_count; j++) {
+                free(ctx->functions[i]->param_names[j]);
+            }
+            free(ctx->functions[i]->param_names);
+            free(ctx->functions[i]->param_types);
+            
+            // Configurar como función error
+            ctx->functions[i]->name = strdup(function_name);
+            ctx->functions[i]->param_names = NULL;
+            ctx->functions[i]->param_types = NULL;
+            ctx->functions[i]->param_count = 0;
+            ctx->functions[i]->return_type = context_get_type(ctx, "<error>");
+            ctx->functions[i]->inferred_return_type = context_get_type(ctx, "<error>");
+            return;
+        }
+    }
+
+    // Si la función no existe, crear una nueva marcada como error
+    Method* error_function = (Method*)malloc(sizeof(Method));
+    error_function->name = strdup(function_name);
+    error_function->param_names = NULL;
+    error_function->param_types = NULL;
+    error_function->param_count = 0;
+    error_function->return_type = context_get_type(ctx, "<error>");
+    error_function->inferred_return_type = context_get_type(ctx, "<error>");
+    error_function->node = NULL;
+
+    // Agregar al contexto
+    ctx->function_count++;
+    ctx->functions = (Method**)realloc(ctx->functions, sizeof(Method*) * (ctx->function_count + 1));
+    ctx->functions[ctx->function_count - 1] = error_function;
+}
 // Funciones para manejar el scope
 VariableInfo* scope_find_variable(Scope* scope, char* name, int index) {
     int start = (index == -1) ? 0 : index;

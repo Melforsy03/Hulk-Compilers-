@@ -1058,7 +1058,3 @@ void type_check_program(ProgramNode* ast, Context* context) {
     free(tc);
 }
 
-int main() {
-    
-    return 0;
-}

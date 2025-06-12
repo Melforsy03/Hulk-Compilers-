@@ -1,8 +1,8 @@
+#include "../grammar/symbol.h" 
+
 // ast_nodes.h
 #ifndef AST_NODES_H
-#define AST_NODES_H
-
-#include "../grammar/symbol.h"  
+#define AST_NODES_H 
 
 typedef enum {
     // Nodo raíz
@@ -78,6 +78,11 @@ NODE_STRING       // "texto"
 
 } NodeType;
 
+typedef struct Param{
+    char* name;
+    char* type_name;
+}Param;
+
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {
     int row;
@@ -91,13 +96,6 @@ typedef struct Node {
 } Node;
 
 //--------------------------------------------Depth 1---------------------------------------------
-
-typedef struct ProgramNode {
-    Node base;
-    void* declarations;// Lista de Declarations*
-    void* expression;   // ExpressionNode*
-} ProgramNode;
-
 typedef struct DeclarationNode {
     Node base;
 } DeclarationNode;
@@ -106,6 +104,15 @@ typedef struct ExpressionNode {
     Node base;
 } ExpressionNode;
 
+typedef struct ProgramNode {
+    Node base;
+    DeclarationNode** declarations;// Lista de Declarations*
+    int declaration_count;
+    void* expression;   // ExpressionNode*
+} ProgramNode;
+
+
+
 //--------------------------------------------Depth 2---------------------------------------------
 
 //__________________________________________Declarations__________________________________________
@@ -113,14 +120,16 @@ typedef struct ExpressionNode {
 typedef struct MethodSignatureNode {
     DeclarationNode base;
     char* name;
-    void* params;       // Lista de parámetros
+    Param* params;   // Lista de parámetros
+    int param_count;  
     char* returnType;   // Puede ser NULL
 } MethodSignatureNode;
 
 typedef struct MethodDeclarationNode {
     DeclarationNode base;
     char* name;
-    void* params;       // Lista de parámetros
+    Param** params;       // Lista de parámetros
+    int param_count;
     char* returnType;   // Puede ser NULL
     void* body;        // ExpressionNode*
 } MethodDeclarationNode;
@@ -128,7 +137,8 @@ typedef struct MethodDeclarationNode {
 typedef struct FunctionDeclarationNode {
     DeclarationNode base;
     char* name;
-    void* params;       // Lista de parámetros
+    Param* params;       // Lista de parámetros
+    int param_count;
     char* returnType;   // Puede ser NULL
     void* body;        // ExpressionNode*
 } FunctionDeclarationNode;
@@ -136,7 +146,8 @@ typedef struct FunctionDeclarationNode {
 typedef struct TypeConstructorSignatureNode {
     DeclarationNode base;
     char* name;
-    void* params;       // Lista de parámetros (puede estar vacía)
+    Param* params;       // Lista de parámetros (puede estar vacía)
+    int param_count;
 } TypeConstructorSignatureNode;
 
 typedef struct TypeAttributeNode {
@@ -149,17 +160,21 @@ typedef struct TypeAttributeNode {
 typedef struct TypeDeclarationNode {
     DeclarationNode base;
     char* name;
-    void* params;       // Lista de parámetros
+    Param** params;       // Lista de parámetros
+    int param_count;
     char* parent;       // Por defecto "Object"
     void* parent_args;  // Lista de argumentos para el padre
-    void* attributes;   // Lista de TypeAttributeNode*
-    void* methods;      // Lista de MethodDeclarationNode*
+    TypeAttributeNode** attributes;   // Lista de TypeAttributeNode*
+    int attribute_count;
+    MethodDeclarationNode** methods;      // Lista de MethodDeclarationNode*
+    int method_count;
 } TypeDeclarationNode;
 
 typedef struct ProtocolDeclarationNode {
     DeclarationNode base;
     char* name;
-    void* methods_signature; // Lista de MethodSignatureNode*
+    MethodSignatureNode** methods_signature; // Lista de MethodSignatureNode*
+    int method_count;
     char* parent;            // Puede ser NULL
 } ProtocolDeclarationNode;
 
