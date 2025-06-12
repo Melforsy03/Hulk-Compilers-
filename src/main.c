@@ -10,6 +10,7 @@
 #include "../parser/ast_nodes.h"
 #include "../lexer/lexer.h"
 #include "../lexer/func_aux_lexer.h"
+#include "../codigo_generado/generacion_codigo.h"
 
 Symbol** lexer_parse_file_to_symbols(const char* filename, Grammar* grammar, int* out_count);
 int main() {
@@ -55,8 +56,16 @@ int main() {
     ActionEntryLR1* actions = NULL;
     int action_count = 0;
     Node* accepted = parser(table, input_symbols, input_len, &actions, &action_count);
+     // Abrimos el archivo de salida LLVM
     
+    salida_llvm = fopen("hulk/programa.ll", "w");
+    if (!salida_llvm) {
+        fprintf(stderr, "[ERROR] No se pudo abrir el archivo de salida 'programa.ll'\n");
+        return 1;
+    }
+    generar_programa((ProgramNode*)accepted);
 
+    fclose(salida_llvm);
     // Limpieza
     free(actions);
     free(input_symbols);

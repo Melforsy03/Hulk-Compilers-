@@ -1,7 +1,7 @@
 #ifndef ITEM_H
 #define ITEM_H
 
-#include "grammar/production.h"
+#include "../grammar/production.h"
 #include "containerset.h"
 
 typedef struct Item {

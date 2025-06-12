@@ -5,6 +5,8 @@
 #include "regex_parser.h"
 #include "utils.h"
 #include "regex_to_dfa.h"
+#include <ctype.h>
+
 #define MAX_TOKENS 128
 
 typedef struct {

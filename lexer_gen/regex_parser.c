@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-
+#include "utils.h"
 static const char* ptr;
 static int estado_id_global = 0;
 
