@@ -122,7 +122,7 @@ char* visit(Node* node, int tabs) {
             return visit_LiteralNode((LiteralNode*)node, tabs, "StringNode");
         case NODE_BOOLEAN:
             return visit_LiteralNode((LiteralNode*)node, tabs, "BooleanNode");
-        case NODE_BLOCK:
+        case NODE_EXPRESSION_BLOCK:
             return visit_ExpressionBlockNode((ExpressionBlockNode*)node, tabs);
         case NODE_CALL_FUNC:
             return visit_CallFuncNode((CallFuncNode*)node, tabs);
