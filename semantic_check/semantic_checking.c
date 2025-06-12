@@ -36,7 +36,7 @@ HulkErrorList* semantic_analysis(Node* ast) {
         return errors;
     }
         
-    /*
+    
     // 4. Fase de verificación de tipos y anotaciones
     HulkErrorList checker_errors;
     type_check_program(ast, collector.context, &checker_errors);
@@ -53,7 +53,7 @@ HulkErrorList* semantic_analysis(Node* ast) {
    
     free(collector.context);
     
-    return errors;*/
+    return errors;
 }
 
 // Ejemplo de uso desde el main
