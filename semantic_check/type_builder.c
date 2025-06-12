@@ -9,7 +9,7 @@
 
 
 // Función principal para construir los tipos
-void build_types(Context* context, Node* program, HulkErrorList* output_errors) {
+void build_types(Context* context, ProgramNode* ast, HulkErrorList* output_errors) {
     TypeBuilder builder;
     builder.context = context;
     builder.current_type = NULL;
@@ -19,5 +19,5 @@ void build_types(Context* context, Node* program, HulkErrorList* output_errors) 
     builder.errors = output_errors;
     builder.errors->count = 0;
 
-    tb_visit_program(&builder, program);
+    tb_visit_program(&builder, ast);
 }

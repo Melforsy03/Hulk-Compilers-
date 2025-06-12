@@ -31,7 +31,7 @@ void tb_visit_method_signature(TypeBuilder* builder, MethodSignatureNode* node);
 void tb_visit_program(TypeBuilder* builder, ProgramNode* node) {
     DeclarationNode** decl = (DeclarationNode**)node->declarations;
 
-    for (int i = 0; i < decl[i]; i++) {
+    for (int i = 0; decl[i]; i++) {
         switch (decl[i]->base.tipo) {
             case NODE_TYPE_DECLARATION:
                 tb_visit_type_declaration(builder, (TypeDeclarationNode*)decl[i]);
@@ -77,11 +77,11 @@ void tb_visit_type_declaration(TypeBuilder* builder, TypeDeclarationNode* node) 
                 char* error_msg = format_string("Type %s has more than one parameter named %s", 
                                                 node->base.base.symbol->name, params[i]->lexeme);
                 HulkSemanticError error;
-                HulkSemanticError_init(&error, error_msg, node->row, node->column);
+                HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
                 free(error_msg);
 
-                context_set_type_error(builder->context, node->lexeme);
+                context_set_type_error(builder->context, node->name);
                 free(param_names);
                 free(param_types);
                 return;
@@ -260,7 +260,7 @@ void tb_visit_function_declaration(TypeBuilder* builder, FunctionDeclarationNode
             param_types[i] = context_get_type_or_protocol(builder->context, params[i]->symbol->name);
             if (strcmp(param_types[i]->name, "<error>") == 0) {
                 char* error_msg = format_string(HULK_SEM_NOT_DEFINED_FUNCTION_PARAM_TYPE,
-                                              params[i]->lexeme, params[i]->symbol->name, node->symbol->name);
+                                              params[i]->lexeme, params[i]->symbol->name, node->returnType);
                 HulkSemanticError error;
                 HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
@@ -273,7 +273,7 @@ void tb_visit_function_declaration(TypeBuilder* builder, FunctionDeclarationNode
     }
 
     // Crear la función
-    Method* func = create_function(builder->context, node->symbol->name, param_names, param_types, 
+    Method* func = create_function(builder->context, node->returnType, param_names, param_types, 
                                   node->param_counter, return_type);
     if (func == NULL) {
         char* error_msg = format_string("Function \"%s\" already defined", node->name);
@@ -294,18 +294,18 @@ void tb_visit_function_declaration(TypeBuilder* builder, FunctionDeclarationNode
             context_set_function_error(builder->context, node->name);
         }
     } else {
-        func->node = node;
+        func->node = (Node*)node;
     }
 }
 
 void tb_visit_type_attribute(TypeBuilder* builder, TypeAttributeNode* node) {
     Type* attr_type;
     
-    if (node->base.base.symbol->name != NULL) {
-        attr_type = context_get_type_or_protocol(builder->context, node->base.base.symbol->name); //ok
+    if (node->type != NULL) {
+        attr_type = context_get_type_or_protocol(builder->context, node->type); //ok
         if (strcmp(attr_type->name, "<error>") == 0) {
             char* error_msg = format_string(HULK_SEM_NOT_DEFINED_ATTRIBUTE_TYPE,
-                                         node->base.base.symbol->name, node->name, builder->current_type->name);
+                                         node->type, node->name, builder->current_type->name);
             HulkSemanticError error;
             HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
             HulkErrorList_add(builder->errors, (HulkError*)&error);
@@ -333,13 +333,13 @@ void tb_visit_type_attribute(TypeBuilder* builder, TypeAttributeNode* node) {
 void tb_visit_method_declaration(TypeBuilder* builder, MethodDeclarationNode* node) {
     Type* return_type;
     
-    if (node->symbol->name != NULL) {
-        return_type = context_get_type_or_protocol(builder->context, node->symbol->name);
+    if (node->returnType != NULL) {
+        return_type = context_get_type_or_protocol(builder->context, node->returnType);
         if (strcmp(return_type->name, "<error>") == 0) {
             char* error_msg = format_string(HULK_SEM_NOT_DEFINED_METHOD_RETURN_TYPE,
-                                         node->symbol->name, node->lexeme, builder->current_type->name);
+                                         node->returnType, node->name, builder->current_type->name);
             HulkSemanticError error;
-            HulkSemanticError_init(&error, error_msg, node->row, node->column);
+            HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
             HulkErrorList_add(builder->errors, (HulkError*)&error);
             free(error_msg);
             return_type = context_get_type(builder->context, "<error>");
@@ -349,39 +349,38 @@ void tb_visit_method_declaration(TypeBuilder* builder, MethodDeclarationNode* no
     }
 
     //procesado de parametros
-    int param_count = node->child_count-1;
-    char** param_names = malloc(sizeof(char*) * param_count);
-    Type** param_types = malloc(sizeof(Type*) * param_count);
+    Node** params = (Node**)node->params;
+    char** param_names = malloc(sizeof(char*) * node->param_counter);
+    Type** param_types = malloc(sizeof(Type*) * node->param_counter);
     
 
-    for (int i = 0; i < param_count; i++) {
-        Node* param = node->children[i];
+    for (int i = 0; i < node->param_counter; i++) {
         
         // Verificar nombres duplicados
         for (int j = 0; j < i; j++) {
-            if (strcmp(param->lexeme, param_names[j]) == 0) {
+            if (strcmp(params[i]->lexeme, param_names[j]) == 0) {
                 char* error_msg = format_string("Method \"%s\" in type \"%s\" has more than one parameter named \"%s\"", 
-                                              node->lexeme, builder->current_type->name, param->lexeme);
+                                              node->name, builder->current_type->name, params[i]->lexeme);
                 HulkSemanticError error;
-                HulkSemanticError_init(&error, error_msg, node->row, node->column);
+                HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
                 free(error_msg);
-                set_method_error(builder->current_type, node->lexeme);
+                set_method_error(builder->current_type, node->name);
                 free(param_names);
                 free(param_types);
                 return;
             }
         }
         
-        param_names[i] = strdup(param->lexeme);
+        param_names[i] = strdup(params[i]->lexeme);
         
-        if (param->symbol->name != NULL) {
-            param_types[i] = context_get_type_or_protocol(builder->context, param->symbol->name);
+        if (params[i]->symbol->name != NULL) {
+            param_types[i] = context_get_type_or_protocol(builder->context, params[i]->symbol->name);
             if (strcmp(param_types[i]->name, "<error>") == 0) {
                 char* error_msg = format_string(HULK_SEM_NOT_DEFINED_METHOD_PARAM_TYPE,
-                                              param->symbol->name, param->lexeme, node->symbol->name, builder->current_type->name);
+                                              params[i]->symbol->name, params[i]->lexeme, node->name, builder->current_type->name);
                 HulkSemanticError error;
-                HulkSemanticError_init(&error, error_msg, node->row, node->column);
+                HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
                 free(error_msg);
                 param_types[i] = context_get_type(builder->context, "<error>");
@@ -391,79 +390,78 @@ void tb_visit_method_declaration(TypeBuilder* builder, MethodDeclarationNode* no
         }
     }
 
-    Method* method = define_method(builder->current_type, builder->context, node->lexeme, param_names, 
-                                  param_types, param_count, return_type);
+    Method* method = define_method(builder->current_type, builder->context, node->name, param_names, 
+                                  param_types, node->param_counter, return_type);
     if (method == NULL) {
-        set_method_error(builder->current_type, node->symbol->name);
+        set_method_error(builder->current_type, node->returnType);
     } else {
-        method->node = node;
+        method->node = (Node*)node;
     }
 }
 
-void tb_visit_method_signature(TypeBuilder* builder, Node* node) {
+void tb_visit_method_signature(TypeBuilder* builder, MethodSignatureNode* node) {
     Type* return_type;
     
-    if (node->symbol->name == NULL) {
+    if (node->returnType == NULL) {
         char* error_msg = format_string(HULK_SEM_NO_PROTOCOL_RETURN_TYPE,
-                                      node->symbol->name, builder->current_type->name);
+                                      node->returnType, builder->current_type->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(builder->errors, (HulkError*)&error);
         free(error_msg);
         return_type = context_get_type(builder->context, "<error>");
     } else {
-        return_type = context_get_type_or_protocol(builder->context, node->symbol->name);
+        return_type = context_get_type_or_protocol(builder->context, node->returnType);
         if (strcmp(return_type->name, "<error>") == 0) {
             char* error_msg = format_string(HULK_SEM_NOT_DEFINED_METHOD_RETURN_TYPE,
-                                         node->symbol->name, node->lexeme, builder->current_type->name);
+                                         node->returnType, node->name, builder->current_type->name);
             HulkSemanticError error;
-            HulkSemanticError_init(&error, error_msg, node->row, node->column);
+            HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
             HulkErrorList_add(builder->errors, (HulkError*)&error);
             free(error_msg);
             return_type = context_get_type(builder->context, "<error>");
         }
     }
 
-    int param_count = node->child_count-1;
-    char** param_names = malloc(sizeof(char*) * param_count);
-    Type** param_types = malloc(sizeof(Type*) * param_count);
+    Node** params = (Node**)node->params;
+    char** param_names = malloc(sizeof(char*) * node->param_counter);
+    Type** param_types = malloc(sizeof(Type*) * node->param_counter);
     
-    for (int i = 0; i < param_count; i++) {
-        Node* param = node->children[i];
+    for (int i = 0; i < node->param_counter; i++) {
         
         // Verificar nombres duplicados
         for (int j = 0; j < i; j++) {
-            if (strcmp(param->lexeme, param_names[j]) == 0) {
+            if (strcmp(params[i]->lexeme, param_names[j]) == 0) {
                 char* error_msg = format_string("Method \"%s\" in protocol \"%s\" has more than one parameter named \"%s\"", 
-                                              node->lexeme, builder->current_type->name, param->lexeme);
+                                              node->name, builder->current_type->name, params[i]->lexeme);
                 HulkSemanticError error;
-                HulkSemanticError_init(&error, error_msg, node->row, node->column);
+                HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
                 free(error_msg);
-                set_method_error(builder->current_type, node->lexeme);
+                set_method_error(builder->current_type, node->name);
                 free(param_names);
                 free(param_types);
                 return;
             }
         }
         
-        param_names[i] = strdup(param->lexeme);
+        param_names[i] = strdup(params[i]->lexeme);
         
-        if (param->symbol->name == NULL) {
+        if (params[i]->symbol->name == NULL) {
             char* error_msg = format_string(HULK_SEM_NO_PROTOCOL_PARAM_TYPE,
-                                         param->lexeme, node->lexeme, builder->current_type->name);
+                                         params[i]->lexeme, node->name, builder->current_type->name);
             HulkSemanticError error;
-            HulkSemanticError_init(&error, error_msg, node->row, node->column);
+            HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
             HulkErrorList_add(builder->errors, (HulkError*)&error);
             free(error_msg);
             param_types[i] = context_get_type(builder->context, "<error>");
         } else {
-            param_types[i] = context_get_type_or_protocol(builder->context, param->symbol->name);
+            param_types[i] = context_get_type_or_protocol(builder->context, params[i]->symbol->name);
             if (strcmp(param_types[i]->name, "<error>") == 0) {
                 char* error_msg = format_string(HULK_SEM_NOT_DEFINED_METHOD_PARAM_TYPE,
-                                             param->symbol->name, param->lexeme, node->lexeme, builder->current_type->name);
+                                             params[i]->symbol->name, params[i]->lexeme, node->name, builder->current_type->name);
                 HulkSemanticError error;
-                HulkSemanticError_init(&error, error_msg, node->row, node->column);
+                HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
                 HulkErrorList_add(builder->errors, (HulkError*)&error);
                 free(error_msg);
                 param_types[i] = context_get_type(builder->context, "<error>");
@@ -473,25 +471,25 @@ void tb_visit_method_signature(TypeBuilder* builder, Node* node) {
 
     // Verificar si el tipo de retorno es nulo
     if (return_type == NULL) {
-        char* error_msg = format_string("Return type for method \"%s\" cannot be NULL", node->lexeme);
+        char* error_msg = format_string("Return type for method \"%s\" cannot be NULL", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(builder->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
-    Method* method = define_method(builder->current_type, builder->context, node->lexeme, param_names, 
-                                  param_types, param_count, return_type);
+    Method* method = define_method(builder->current_type, builder->context, node->name, param_names, 
+                                  param_types, node->param_counter, return_type);
     if (method == NULL) {
         char* error_msg = format_string("Method \"%s\" already defined in protocol \"%s\"", 
-                                      node->lexeme, builder->current_type->name);
+                                      node->name, builder->current_type->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(builder->errors, (HulkError*)&error);
         free(error_msg);
-        set_method_error(builder->current_type, node->lexeme);
+        set_method_error(builder->current_type, node->name);
     } else {
-        method->node = node;
+        method->node = (Node*)node;
     }
 }
