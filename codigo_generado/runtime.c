@@ -21,3 +21,12 @@ char* strcat2(const char* a, const char* b) {
     strcat(result, b);
     return result;
 }
+char* bool_to_string(int b) {
+    return strdup(b ? "true" : "false");
+}
+
+char* float_to_string(float f) {
+    char* buf = malloc(32);
+    snprintf(buf, 32, "%.2f", f);
+    return buf;
+}

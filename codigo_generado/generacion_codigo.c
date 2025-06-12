@@ -64,10 +64,17 @@ int generar_codigo(ExpressionNode* expr) {
 
         // ----- Literales -----
         case NODE_NUMBER: {
-            NumberNode* num = (NumberNode*)expr;
-            int temp = nuevo_temp();
-            fprintf(salida_llvm, "  %%%d = add i32 0, %s\n", temp, ((LiteralNode*)num)->lex);
-            return temp;
+            LiteralNode* lit = (LiteralNode*)expr;
+
+            if (strchr(lit->lex, '.')) {
+                int temp = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = fadd float 0.0, %s\n", temp, lit->lex);
+                return temp;
+            } else {
+                int temp = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = add i32 0, %s\n", temp, lit->lex);
+                return temp;
+            }
         }
 
         case NODE_BOOLEAN: {
@@ -573,9 +580,18 @@ int generar_codigo(ExpressionNode* expr) {
 
                 if (tipo == VAR_TYPE_STRING) {
                     fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
+                } else if (tipo == VAR_TYPE_FLOAT) {
+                    int tmpstr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = call i8* @float_to_string(float %%%d)\n", tmpstr, valor);
+                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
+                } else if (tipo == VAR_TYPE_BOOL) {
+                    int tmpstr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = call i8* @bool_to_string(i1 %%%d)\n", tmpstr, valor);
+                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
                 } else {
                     fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
                 }
+
 
                 return -1;
             }

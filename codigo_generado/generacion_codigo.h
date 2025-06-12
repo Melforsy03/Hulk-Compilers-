@@ -6,6 +6,13 @@
 
 // ===== Tipos de datos y estructuras =====
 typedef enum { TIPO_INT, TIPO_STRING, TIPO_VOID ,TIPO_DESCONOCIDO } LLVMType;
+typedef enum {
+    VAR_TYPE_INT,
+    VAR_TYPE_STRING,
+    VAR_TYPE_FLOAT,
+    VAR_TYPE_BOOL
+} VarType;
+
 typedef struct {
     char* nombre;
     LLVMType tipo_retorno;
@@ -20,11 +27,6 @@ typedef struct {
     char* valor;
     int id;
 } StringConst;
-
-typedef enum {
-    VAR_TYPE_INT,
-    VAR_TYPE_STRING
-} VarType;
 
 typedef struct {
     char* nombre;
