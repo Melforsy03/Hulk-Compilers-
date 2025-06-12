@@ -22,7 +22,7 @@ void generar_funciones(ExpressionNode* expr) {
             generar_codigo(expr);
             break;
 
-        case NODE_BLOCK: {
+        case NODE_EXPRESSION_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
             ExpressionNode** exprs = (ExpressionNode**)block->expressions;
             for (int i = 0; exprs && exprs[i]; i++) {
@@ -134,7 +134,7 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
             break;
         }
 
-        case NODE_BLOCK: {
+        case NODE_EXPRESSION_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
             ExpressionNode** exprs = (ExpressionNode**)block->expressions;
             for (int i = 0; exprs && exprs[i]; i++)

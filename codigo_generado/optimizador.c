@@ -108,7 +108,7 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
         }
 
         // OPT: Bloques, LET y RETURN
-        case NODE_BLOCK: {
+        case NODE_EXPRESSION_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
             ExpressionNode** exprs = (ExpressionNode**)block->expressions;
             for (int i = 0; exprs && exprs[i]; i++)

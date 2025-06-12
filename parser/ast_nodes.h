@@ -28,7 +28,7 @@ typedef enum {
     NODE_BINARY,         // Operación binaria
     NODE_UNARY,          // Operación unaria
     NODE_PRINT,
-    NODE_BLOCK,
+
 
     // Operadores binarios
     NODE_BOOLEAN_BINARY,     // AND/OR

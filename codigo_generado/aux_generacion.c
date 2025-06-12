@@ -188,7 +188,7 @@ int contiene_return(ExpressionNode* expr) {
 
     if (tipo == NODE_RETURN) return 1;
 
-    if (tipo == NODE_BLOCK) {
+    if (tipo == NODE_EXPRESSION_BLOCK) {
         ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
         ExpressionNode** exprs = (ExpressionNode**)block->expressions;
         for (int i = 0; exprs && exprs[i]; i++) {
