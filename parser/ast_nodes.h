@@ -99,7 +99,7 @@ typedef struct Node {
 
 typedef struct ProgramNode {
     Node base;
-    void* declarations; // Lista de DeclarationNode*
+    void* declarations; // Lista de DeclarationNode**
     void* expression;   // ExpressionNode*
 } ProgramNode;
 
@@ -117,54 +117,63 @@ typedef struct ExpressionNode {
 
 typedef struct MethodSignatureNode {
     DeclarationNode base;
-    char* name;
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
+    void* params;       // Lista de parámetros===========IMPORTANTE==> lo que guardas en estos void, es la base del nodo, puede 
+    int param_counter;    //cada vez q guardes un parametro mas +1  // que un parametro sea un tipo de nodo u otro, lo que haces 
+    char* returnType;   // Puede ser NULL                           // es q lo casteas a Node* y lo guardas ahi, a partir del campo
+} MethodSignatureNode;                                              // node->tipo yo se que tipo es y hago el casteo inverso, por ejemplo
+                                                                    // (MethodDeclarationNode*)params[i] ya que todos heredan de Node, y 
+typedef struct MethodDeclarationNode {                              // es la misma idea para el resto de todos los punteros estos vacios, 
+    DeclarationNode base;                                           // siempre guardas el nodo generico y despues nosotros a partir del tipo sabemos a que castearlo
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
     void* params;       // Lista de parámetros
-    char* returnType;   // Puede ser NULL
-} MethodSignatureNode;
-
-typedef struct MethodDeclarationNode {
-    DeclarationNode base;
-    char* name;
-    void* params;       // Lista de parámetros
+    int param_counter;
     char* returnType;   // Puede ser NULL
     void* body;        // ExpressionNode*
 } MethodDeclarationNode;
 
 typedef struct FunctionDeclarationNode {
     DeclarationNode base;
-    char* name;
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
     void* params;       // Lista de parámetros
+    int param_counter;
     char* returnType;   // Puede ser NULL
     void* body;        // ExpressionNode*
 } FunctionDeclarationNode;
 
 typedef struct TypeConstructorSignatureNode {
     DeclarationNode base;
-    char* name;
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
     void* params;       // Lista de parámetros (puede estar vacía)
+    int param_counter;
 } TypeConstructorSignatureNode;
 
 typedef struct TypeAttributeNode {
     DeclarationNode base;
-    char* name;
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
     void* value;       // ExpressionNode*
     char* type;        // Puede ser NULL
 } TypeAttributeNode;
 
 typedef struct TypeDeclarationNode {
     DeclarationNode base;
-    char* name;
+    char* name;//lexema(mantenlo en el nodo base tambien por si acaso)
     void* params;       // Lista de parámetros
-    char* parent;       // Por defecto "Object"
+    int param_count;
+    char* parent;       // Por defecto "Object" (esto seria el tipo del padre)
     void* parent_args;  // Lista de argumentos para el padre
+    int parent_args_count;
     void* attributes;   // Lista de TypeAttributeNode*
+    int attribute_counter;
     void* methods;      // Lista de MethodDeclarationNode*
+    int method_counter;
 } TypeDeclarationNode;
 
 typedef struct ProtocolDeclarationNode {
     DeclarationNode base;
-    char* name;
-    void* methods_signature; // Lista de MethodSignatureNode*
+    char* name; //lexema(mantenlo en el nodo base tambien por si acaso)
+    void* methods_signature; // Lista de MethodSignatureNode**
+    int method_signature_counter;
     char* parent;            // Puede ser NULL
 } ProtocolDeclarationNode;
 
@@ -181,12 +190,15 @@ typedef struct ConditionalNode {
     ExpressionNode base;
     void* default_expre;         // ExpressionNode*
     void* conditions;      // Lista de ExpressionNode*
+    int condition_counter;
     void* expressions;     // Lista de ExpressionNode*
+    int expression_counter;
 } ConditionalNode;
 
 typedef struct LetInNode {
     ExpressionNode base;
     void* variables;       // Lista de VarDeclarationNode*
+    int variable_counter;
     void* body;            // ExpressionNode*
 } LetInNode;
 
@@ -294,11 +306,13 @@ typedef struct TypeInstantiationNode {
     AtomicNode base;
     char* name;
     void* arguments;       // Lista de argumentos
+    int arguments_counter;
 } TypeInstantiationNode;
 
 typedef struct ExplicitVectorNode {
     AtomicNode base;
     void* items;           // Lista de items
+    int item_counter;
 } ExplicitVectorNode;
 
 typedef struct ImplicitVectorNode {
@@ -319,6 +333,7 @@ typedef struct CallMethodNode {
     char* inst_name;
     char* method_name;
     void* method_args;     // Lista de argumentos
+    int method_args_counter;
 } CallMethodNode;
 
 typedef struct CallTypeAttributeNode {

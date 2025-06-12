@@ -3,13 +3,13 @@
 #include "../parser/ast_nodes.h"
 #include "semantic_errors.h"
 #include "type_collector.c"
-#include "type_builder.c"
-#include "type_checker.c"
+//#include "type_builder.c"
+//#include "type_checker.c"
 #include "semantic.h"
 
 
 // Función principal para el análisis semántico
-HulkErrorList* semantic_analysis(Node* ast) {
+HulkErrorList* semantic_analysis(ProgramNode* ast) {
     // 1. Crear lista de errores
     HulkErrorList* errors = HulkErrorList_create();
     
@@ -20,7 +20,7 @@ HulkErrorList* semantic_analysis(Node* ast) {
     if (errors->count > 0) {
         return errors;
     }
-    
+    /*
     // 3. Fase de construcción de tipos
     HulkErrorList builder_errors;
     build_types(collector.context, ast, &builder_errors);
@@ -52,14 +52,14 @@ HulkErrorList* semantic_analysis(Node* ast) {
     // 5. Limpieza
    
     free(collector.context);
-    
+    */
     return errors;
 }
 
 // Ejemplo de uso desde el main
 int main() {
     // Suponiendo que ya tienes el AST del parser
-    Node* ast = NULL; // Esta función sería la del parser
+    ProgramNode* ast = NULL; // Esta función sería la del parser
     
     // Realizar análisis semántico
     HulkErrorList* semantic_errors = semantic_analysis(ast);

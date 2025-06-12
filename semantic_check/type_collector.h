@@ -12,9 +12,9 @@ typedef struct TypeCollector {
 
 // Prototipos de funciones
 void TypeCollector_init(TypeCollector* collector, HulkErrorList* errors); //ok
-void TypeCollector_visit_program(TypeCollector* collector, Node* node); //ok
-void TypeCollector_visit_type_declaration(TypeCollector* collector, Node* node); //ok
-void TypeCollector_visit_protocol_declaration(TypeCollector* collector, Node* node); //ok
+void TypeCollector_visit_program(TypeCollector* collector, ProgramNode* node); //ok
+void TypeCollector_visit_type_declaration(TypeCollector* collector, TypeDeclarationNode* node); //ok
+void TypeCollector_visit_protocol_declaration(TypeCollector* collector, ProtocolDeclarationNode* node); //ok
 void create_hulk_functions(Context* context); //ok
 void create_iterable_protocol(Context* context); //ok
 
@@ -30,105 +30,102 @@ void TypeCollector_init(TypeCollector* collector, HulkErrorList* errors) {
 }
 
 // Visita un nodo de programa
-void TypeCollector_visit_program(TypeCollector* collector, Node* node) {
+void TypeCollector_visit_program(TypeCollector* collector, ProgramNode* node) {
+    DeclarationNode** decl = (DeclarationNode**)node->declarations;
+    for (int i = 0; decl[i]; i++) {
     
-    Node** children = node->children;
-
-    for (int i = 0; i < node->child_count; i++) {
-    
-        if (children[i]->tipo == NODE_TYPE_DECLARATION) {
-            TypeCollector_visit_type_declaration(collector, children[i]);
-        } 
-        else if (children[i]->tipo == NODE_PROTOCOL_DECLARATION) {
-            TypeCollector_visit_protocol_declaration(collector, children[i]);
+        if (decl[i]->base.tipo == NODE_TYPE_DECLARATION) {
+            TypeCollector_visit_type_declaration(collector, (TypeDeclarationNode*)decl[i]);
+        } else if(decl[i]->base.tipo == NODE_PROTOCOL_DECLARATION){
+            TypeCollector_visit_protocol_declaration(collector, (ProtocolDeclarationNode*)decl[i]);
         }
     }
 }
 
 // Visita una declaración de tipo
-void TypeCollector_visit_type_declaration(TypeCollector* collector, Node* node) {
+void TypeCollector_visit_type_declaration(TypeCollector* collector, TypeDeclarationNode* node) {
     
     // Verificar si el tipo ya existe en los tipos built-in
     bool is_hulk_type = false;
 
     for (int i = 0; i < collector->context->hulk_type_count; i++) {
-        if (strcmp(collector->context->hulk_types[i], node->lexeme) == 0) {
+        if (strcmp(collector->context->hulk_types[i], node->name) == 0) {
             is_hulk_type = true;
             break;
         }
     }
     
     if (is_hulk_type) {
-        char* error_msg = format_string("Type '%s' is a built-in type and cannot be redefined", node->lexeme);
+        char* error_msg = format_string("Type '%s' is a built-in type and cannot be redefined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Verificar si el tipo ya existe
-    Type* existing_type = context_get_type(collector->context, node->lexeme);
+    Type* existing_type = context_get_type(collector->context, node->name);
     if (existing_type != NULL) {
-        char* error_msg = format_string("Type '%s' is already defined", node->lexeme);
+        char* error_msg = format_string("Type '%s' is already defined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Crear el nuevo tipo
-    Type* new_type = create_type(collector->context, node->lexeme);
+    Type* new_type = create_type(collector->context, node->name);
     if (new_type == NULL) {
-        char* error_msg = format_string("Could not create type '%s'", node->lexeme);
+        char* error_msg = format_string("Could not create type '%s'", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
-    new_type->node = node;
+    new_type->node = (Node*)node;
 }
 
 // Visita una declaración de protocolo
-void TypeCollector_visit_protocol_declaration(TypeCollector* collector, Node* node) {
+void TypeCollector_visit_protocol_declaration(TypeCollector* collector, ProtocolDeclarationNode* node) {
     // Verificar si el protocolo ya existe en los protocolos built-in
     bool is_hulk_protocol = false;
     for (int i = 0; i < collector->context->hulk_protocol_count; i++) {
-        if (strcmp(collector->context->hulk_protocols[i], node->lexeme) == 0) {
+        if (strcmp(collector->context->hulk_protocols[i], node->name) == 0) {
             is_hulk_protocol = true;
             break;
         }
     }
     
     if (is_hulk_protocol) {
-        char* error_msg = format_string("Protocol '%s' is a built-in protocol and cannot be redefined", node->lexeme);
+        char* error_msg = format_string("Protocol '%s' is a built-in protocol and cannot be redefined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Verificar si el protocolo ya existe
-    Protocol* existing_protocol = context_get_protocol(collector->context, node->lexeme);
+    Protocol* existing_protocol = context_get_protocol(collector->context, node->name);
     if (existing_protocol != NULL) {
-        char* error_msg = format_string("Protocol '%s' is already defined", node->lexeme);
+        char* error_msg = format_string("Protocol '%s' is already defined", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
     }
     
     // Crear el nuevo protocolo
-    Protocol* new_protocol = create_protocol(collector->context, node->lexeme);
+    Protocol* new_protocol = create_protocol(collector->context, node->name);
     if (new_protocol == NULL) {
-        char* error_msg = format_string("Could not create protocol '%s'", node->lexeme);
+        char* error_msg = format_string("Could not create protocol '%s'", node->name);
         HulkSemanticError error;
-        HulkSemanticError_init(&error, error_msg, node->row, node->column);
+        HulkSemanticError_init(&error, error_msg, node->base.base.row, node->base.base.column);
         HulkErrorList_add(collector->errors, (HulkError*)&error);
         free(error_msg);
         return;
