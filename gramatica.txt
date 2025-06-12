@@ -14,7 +14,7 @@ ELIF ELSE AS IS WHILE FOR type inherits NEW protocol extends
 StartSymbol:Program
 
 Productions:
-Program -> Expr_item_list EOF
+Program -> Expr_block Expr_item_list EOF
 Expr_item_list -> Expr SEMICOLON
 Expr_item_list -> Expr_block
 Expr_block -> LBRACE Non_empty_expr_list RBRACE

@@ -132,15 +132,13 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
             }
             case ACTION_ACCEPT:{
                 printf("ACCEPT\n");
-                if (ast[0])
-                {
-                    print_ast_root(ast[0]);
-                    Node* root = ast[0];
-                    clear_stack(st);
-                    return root;
-                }
-                print_ast_root(ast[1]);
-                Node* root = ast[1];
+
+                Node* children[2];
+                children[1] = ast[1];
+                children[0] = ast[0];
+                Node* root = create_node(create_symbol("Program", NON_TERMINAL),NULL,2,children);
+
+                print_ast_root(root);
                 clear_stack(st);
                 return root;
             }
