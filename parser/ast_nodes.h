@@ -82,7 +82,6 @@ typedef enum {
 typedef struct Node {
     int row;
     int column;
-    void* scope;
     Symbol* symbol; 
     struct Node** children;
     int child_count;
