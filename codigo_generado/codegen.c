@@ -51,6 +51,31 @@ int nuevo_label() {
 void reset_temporales() {
     contador_temporales = 0;
 }
+int contiene_return(ExpressionNode* expr) {
+    if (!expr) return 0;
+    NodeType tipo = ((Node*)expr)->tipo;
+
+    if (tipo == NODE_RETURN) return 1;
+
+    if (tipo == NODE_BLOCK) {
+        ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
+        ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+        for (int i = 0; exprs && exprs[i]; i++) {
+            if (contiene_return(exprs[i])) return 1;
+        }
+    }
+
+    if (tipo == NODE_IF) {
+        ConditionalNode* cond = (ConditionalNode*)expr;
+        ExpressionNode** exprs = (ExpressionNode**)cond->expressions;
+        for (int i = 0; exprs && exprs[i]; i++) {
+            if (contiene_return(exprs[i])) return 1;
+        }
+        if (cond->default_expre && contiene_return(cond->default_expre)) return 1;
+    }
+
+    return 0;
+}
 
 // Función principal de generación de código
 int generar_codigo(ExpressionNode* expr) {
@@ -211,7 +236,7 @@ int generar_codigo(ExpressionNode* expr) {
             int izq = get_valor(bin->left);
             int der = get_valor(bin->right);
             int temp = nuevo_temp();
-            fprintf(salida_llvm, "  %%%d = call i32 @llvm.pow.i32(i32 %%%d, i32 %%%d)\n", temp, izq, der);
+            fprintf(salida_llvm, "  %%%d = call i32 @int_pow(i32 %%%d, i32 %%%d)\n", temp, izq, der);
             return temp;
         }
 
@@ -248,7 +273,7 @@ int generar_codigo(ExpressionNode* expr) {
             return temp;
         }
 
-                case NODE_IF: {
+               case NODE_IF: {
                     ConditionalNode* cond = (ConditionalNode*)expr;
 
                     ExpressionNode** conditions = (ExpressionNode**)cond->conditions;
@@ -269,7 +294,7 @@ int generar_codigo(ExpressionNode* expr) {
                     int label_end = nuevo_label();
 
                     fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n",
-                        cond_final, label_then, label_else);
+                            cond_final, label_then, label_else);
 
                     // THEN
                     fprintf(salida_llvm, "L%d:\n", label_then);
@@ -277,20 +302,32 @@ int generar_codigo(ExpressionNode* expr) {
                     for (int i = 0; thens && thens[i]; i++) {
                         generar_codigo(thens[i]);
                     }
-                    fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+
+                    int then_has_return = contiene_return(thens[0]);
+                    if (!then_has_return) {
+                        fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+                    }
 
                     // ELSE
                     fprintf(salida_llvm, "L%d:\n", label_else);
-                    if (cond->default_expre)
-                        generar_codigo(cond->default_expre);
-                    fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+                    int else_has_return = 0;
+                    if (cond->default_expre) {
+                        generar_codigo((ExpressionNode*)cond->default_expre);
+                        else_has_return = contiene_return((ExpressionNode*)cond->default_expre);
+                    }
+                    if (!else_has_return) {
+                        fprintf(salida_llvm, "  br label %%L%d\n", label_end);
+                    }
 
                     // END
-                    fprintf(salida_llvm, "L%d:\n", label_end);
+                    if (!then_has_return || !else_has_return) {
+                        fprintf(salida_llvm, "L%d:\n", label_end);
+                    }
+
                     return -1;
                 }
 
-                        case NODE_WHILE: {
+            case NODE_WHILE: {
                 WhileNode* wh = (WhileNode*)expr;
                 int label_start = nuevo_label();
                 int label_body = nuevo_label();
@@ -316,34 +353,29 @@ int generar_codigo(ExpressionNode* expr) {
                 }
 
                 fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n",
-                    cond_final, label_body, label_end);
+                        cond_final, label_body, label_end);
 
                 // BODY
                 fprintf(salida_llvm, "L%d:\n", label_body);
-                if (((Node*)wh->body)->tipo == NODE_BLOCK) {
-                    ExpressionBlockNode* block = (ExpressionBlockNode*)wh->body;
-                    ExpressionNode** exprs = (ExpressionNode**)block->expressions;
-                    for (int i = 0; exprs && exprs[i]; i++) {
-                        generar_codigo(exprs[i]);
-                    }
-                } else {
-                    generar_codigo(wh->body);
-                }
+                generar_codigo(wh->body);
 
-                // Vuelta al inicio
-                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                int body_has_return = contiene_return((ExpressionNode*)wh->body);
+                if (!body_has_return) {
+                    fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                }
 
                 // END
                 fprintf(salida_llvm, "L%d:\n", label_end);
                 return -1;
             }
 
-            case NODE_FOR: {
+
+          case NODE_FOR: {
                 ForNode* fr = (ForNode*)expr;
 
                 // Supone que iterable = llamada a range(a, b)
                 CallFuncNode* rango = (CallFuncNode*)fr->iterable;
-                ExpressionNode** args = rango->arguments;
+                ExpressionNode** args = (ExpressionNode**)rango->arguments;
 
                 int start = generar_codigo(args[0]);
                 int end   = generar_codigo(args[1]);
@@ -359,6 +391,7 @@ int generar_codigo(ExpressionNode* expr) {
                 fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", start, nombre);
                 fprintf(salida_llvm, "  br label %%L%d\n", label_start);
 
+                // Comienzo del bucle
                 fprintf(salida_llvm, "L%d:\n", label_start);
                 int current = nuevo_temp();
                 fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", current, nombre);
@@ -367,16 +400,23 @@ int generar_codigo(ExpressionNode* expr) {
                 fprintf(salida_llvm, "  %%%d = icmp slt i32 %%%d, %%%d\n", cond, current, end);
                 fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
 
+                // Cuerpo del bucle
                 fprintf(salida_llvm, "L%d:\n", label_body);
                 generar_codigo(fr->body);
 
-                int temp = nuevo_temp();
-                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", temp, nombre);
-                int temp_inc = nuevo_temp();
-                fprintf(salida_llvm, "  %%%d = add i32 %%%d, 1\n", temp_inc, temp);
-                fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", temp_inc, nombre);
-                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                int has_return = contiene_return((ExpressionNode*)fr->body);
+                if (!has_return) {
+                    int tmp = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", tmp, nombre);
 
+                    int inc = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = add i32 %%%d, 1\n", inc, tmp);
+                    fprintf(salida_llvm, "  store i32 %%%d, i32* %%%s\n", inc, nombre);
+
+                    fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                }
+
+                // Fin del bucle
                 fprintf(salida_llvm, "L%d:\n", label_end);
                 return -1;
             }
@@ -571,7 +611,17 @@ int generar_codigo(ExpressionNode* expr) {
                 ReturnNode* ret = (ReturnNode*)expr;
                 int val = get_valor(ret->expr);
                 if (val >= 0) {
-                    fprintf(salida_llvm, "  ret i32 %%%d\n", val);
+                    NodeType tipo_expr = ((Node*)ret->expr)->tipo;
+                    if (tipo_expr == NODE_EQ || tipo_expr == NODE_NEQ ||
+                        tipo_expr == NODE_LT || tipo_expr == NODE_LTE ||
+                        tipo_expr == NODE_GT || tipo_expr == NODE_GTE ||
+                        tipo_expr == NODE_BOOLEAN) {
+                        int conv = nuevo_temp();
+                        fprintf(salida_llvm, "  %%%d = zext i1 %%%d to i32\n", conv, val);
+                        fprintf(salida_llvm, "  ret i32 %%%d\n", conv);
+                    } else {
+                        fprintf(salida_llvm, "  ret i32 %%%d\n", val);
+                    }
                 } else {
                     fprintf(salida_llvm, "  ret i32 0\n");
                 }
@@ -629,6 +679,7 @@ int variable_existe(const char* nombre) {
     }
     return 0;
 }
+
 // Función auxiliar para obtener el valor de un nodo
 int get_valor(ExpressionNode* node) {
     if (!node) return -1;
@@ -708,7 +759,7 @@ void generar_constantes_globales(ProgramNode* program) {
 
 void declare_extern_functions() {
     fprintf(salida_llvm, "declare i8* @strdup(i8*)\n");
-    fprintf(salida_llvm, "declare i32 @llvm.pow.i32(i32, i32)\n");
+    fprintf(salida_llvm, "declare i32 @int_pow(i32, i32)\n");
     fprintf(salida_llvm, "declare void @print_int(i32)\n");
     fprintf(salida_llvm, "declare void @print_str(i8*)\n\n");
     fprintf(salida_llvm, "declare i8* @int_to_string(i32)\n");  
