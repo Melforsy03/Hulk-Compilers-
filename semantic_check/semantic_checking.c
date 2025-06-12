@@ -8,17 +8,18 @@
 
 
 // Función principal para el análisis semántico
-HulkErrorList* semantic_analysis(ProgramNode* ast) {
+HulkErrorList* semantic_analysis(Node* ast) {
     // 1. Crear lista de errores
     HulkErrorList* errors = HulkErrorList_create();
     
     // 2. Fase de recolección de tipos
-    collect_types(&errors, ast);
+    TypeCollector collector = collect_types(errors, ast);
     
     // Si hay errores en la recolección, terminar
     if (errors->count > 0) {
         return errors;
     }
+    
     // 3. Fase de construcción de tipos
     HulkErrorList builder_errors;
     build_types(collector.context, ast, &builder_errors);
@@ -33,6 +34,7 @@ HulkErrorList* semantic_analysis(ProgramNode* ast) {
         HulkErrorList_destroy(&builder_errors);
         return errors;
     }
+        
     /*
     // 4. Fase de verificación de tipos
     type_check_program(ast, collector.context);
@@ -49,7 +51,7 @@ HulkErrorList* semantic_analysis(ProgramNode* ast) {
 // Ejemplo de uso desde el main
 int main() {
     // Suponiendo que ya tienes el AST del parser
-    ProgramNode* ast = NULL; // Esta función sería la del parser
+    Node* ast = NULL; // Esta función sería la del parser
     
     // Realizar análisis semántico
     HulkErrorList* semantic_errors = semantic_analysis(ast);

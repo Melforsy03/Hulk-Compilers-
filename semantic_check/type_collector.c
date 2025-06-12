@@ -6,9 +6,11 @@
 #include "semantic_errors.h" 
 #include "../ast_nodes/ast_nodes.h"
 
-void collect_types(HulkErrorList* errors, ProgramNode* ast) {
+TypeCollector collect_types(HulkErrorList* errors, Node* ast) {
     
     TypeCollector collector;
     TypeCollector_init(&collector, errors);
     TypeCollector_visit_program(&collector, ast);
+
+    return collector;
 }
