@@ -1,4 +1,3 @@
-
 #include "automaton.h"
 #include "grammar/grammar.h"
 #include "first_follow.h"
@@ -217,25 +216,6 @@ Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts
     return closure_items;
 }
 
-
-// ==== Verifica si un estado ya fue creado ====
-State* find_existing_lr1_state(State** states, int state_count, Item** items, int item_count) {
-    for (int i = 0; i < state_count; ++i) {
-        State* candidate = states[i];
-        if (candidate->item_count != item_count) continue;
-        
-        bool match = true;
-        for (int j = 0; j < item_count; ++j) {
-            if (!compare_lr1_items(candidate->items[j], items[j])) {
-                match = false;
-                break;
-            }
-        }
-        if (match) return candidate;
-    }
-    return NULL;
-}
-
 int compare_lr1_items(Item* a, Item* b) {
     if (!a || !b) return 0;
     if (!compare_items(a, b)) return 0;
@@ -292,7 +272,6 @@ Symbol** get_symbols_after_dot(State* state) {
     return symbols;
 }
 
-// ==== Modificación completa de build_LR1_automaton ====
 State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
     if (!grammar || !firsts) {
         //fprintf(stderr, "Error: Gramática o conjuntos FIRST nulos\n");
@@ -447,7 +426,7 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
             }
 
             // Buscar estado existente con los mismos items y lookaheads
-            State* next_state = find_existing_lr1_state(visited_states, visited_count, moved_items, moved_count);
+            State* next_state = find_existing_lalr_state(visited_states, visited_count, moved_items, moved_count);
             
             if (!next_state) {
                // printf("Creando nuevo estado para '%s'\n", sym->name);

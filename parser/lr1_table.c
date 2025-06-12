@@ -205,7 +205,7 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
                                     }
                                 }
                                 // Preferir reduce para símbolos que terminan expresiones
-                                if (strcmp(lookahead->name, ";") == 0 || strcmp(lookahead->name, "$") == 0) {
+                                if (strcmp(lookahead->name, ";") == 0 || strcmp(lookahead->name, "EOF") == 0) {
                                     //printf("Resolviendo a favor de REDUCE para terminador %s\n", lookahead->name);
                                     table->action[i][symbol_idx].action = ACTION_REDUCE;
                                     table->action[i][symbol_idx].value = item->production->number;
