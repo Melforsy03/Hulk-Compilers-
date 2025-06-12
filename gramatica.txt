@@ -4,21 +4,46 @@ Concat Arithmetic Term Pow Factor Conditional Cond_other_case Let_expr Assignmen
 Atom Call_func Member Params Method_signature Inline_form Full_form Func Arguments 
 While_loop For_loop Cast_type Check_type Sign Type_block Type_member_list Type_member_item 
 Type Type_dec Type_inst Protocol_block Method_dec_list Protocol Vector Vector_exp Vector_imp 
-Vector_item_list Index_object Non_empty_expr_list 
+Vector_item_list Index_object Non_empty_expr_list Params_list Arguments_list Signature
  
 Terminals:
 LBRACE  RBRACE SEMICOLON LPAREN RPAREN COMMA : Dot COLON_EQUAL := 
 ARROW LBRACKET RBRACKET || OR AND EQUAL_EQUAL NOT_EQUAL GREATER GREATER_EQUAL 
-LESS LESS_EQUAL NOT ASSIGN AT AT_AT PLUS MINUS STAR SLASH POWER DSTAR MODULO 
-bool id let in function string IF $ EOF NUMBER THEN
-ELIF ELSE as is while for type inherits new protocol extends 
+LESS LESS_EQUAL NOT ASSIGN AT AT_AT PLUS MINUS STAR SLASH POWER DSTAR MODULO
+IDENTIFIER LET IN function STRING IF EOF NUMBER THEN TRUE FALSE LBRACKET RBRACKET
+ELIF ELSE AS IS WHILE FOR type inherits NEW protocol extends 
 
 StartSymbol:Program
 
 Productions:
-Program ->Expr_item_list EOF
-Expr_item_list ->Expr SEMICOLON
-Expr_item_list ->Expr_block
+Program -> Type_function_list Expr_item_list EOF
+Type_function_list -> Func Type_function_list
+Type_function_list -> Type Type_function_list
+Type_function_list -> epsilon
+Params -> IDENTIFIER
+Params -> epsilon
+Params_list -> Params
+Params_list -> Params COMMA Params_list
+Method_signature -> IDENTIFIER LPAREN Params_list RPAREN 
+Inline_form -> Method_signature ARROW Expr SEMICOLON
+Full_form -> Method_signature Expr_block
+Func -> function Full_form
+Func -> function Inline_form
+Type -> type Type_dec Type_block
+Type -> type Type_dec inherits IDENTIFIER Type_block
+Type -> type Type_dec inherits IDENTIFIER LPAREN Arguments_list RPAREN Type_block
+Signature -> LPAREN Params RPAREN
+Signature -> epsilon
+Type_dec -> IDENTIFIER Signature
+Type_block -> LBRACE Type_member_list RBRACE
+Type_member_list -> Type_member_item Type_member_list
+Type_member_list -> epsilon
+Type_member_item -> Inline_form
+Type_member_item -> Full_form
+Type_member_item -> IDENTIFIER ASSIGN Expr SEMICOLON
+Type_member_item -> IDENTIFIER : IDENTIFIER ASSIGN Expr SEMICOLON
+Expr_item_list -> Expr SEMICOLON
+Expr_item_list -> Expr_block
 Expr_block -> LBRACE Non_empty_expr_list RBRACE
 Non_empty_expr_list -> Expr SEMICOLON
 Non_empty_expr_list -> Expr SEMICOLON Non_empty_expr_list
@@ -28,47 +53,75 @@ Expr ->Conditional
 Expr ->While_loop
 Expr ->For_loop
 Expr ->Or_expr
-Conditional ->IF LPAREN Expr RPAREN THEN Expr Cond_other_case
-Cond_other_case ->ELIF LPAREN Expr RPAREN THEN Expr Cond_other_case
-Cond_other_case ->ELSE Expr
-While_loop ->while LPAREN Expr RPAREN Expr
-For_loop ->for LPAREN id in Expr RPAREN Expr
-Or_expr ->Or_expr OR And_expr
-Or_expr ->And_expr
-And_expr ->And_expr AND Check_type
-And_expr ->Check_type
-Check_type ->Aritm_comp
-Check_type ->Check_type is id
-Check_type ->Aritm_comp
-Aritm_comp ->Aritm_comp EQUAL_EQUAL Concat
-Aritm_comp ->Aritm_comp NOT_EQUAL Concat
-Aritm_comp ->Aritm_comp GREATER Concat
-Aritm_comp ->Aritm_comp GREATER_EQUAL Concat
-Aritm_comp ->Aritm_comp LESS Concat
-Aritm_comp ->Aritm_comp LESS_EQUAL Concat
-Aritm_comp ->Concat
-Concat ->Concat AT Arithmetic
-Concat ->Concat AT_AT Arithmetic
-Concat ->Arithmetic
-Arithmetic ->Arithmetic PLUS Term
-Arithmetic ->Arithmetic MINUS Term
-Arithmetic ->Term
-Term ->Term STAR Pow
-Term ->Term SLASH Pow
-Term ->Term MODULO Pow
-Term ->Pow
-Pow ->Sign POWER Pow
-Pow ->Sign DSTAR Pow
-Pow ->Sign
-Sign ->PLUS Factor
-Sign ->MINUS Factor
-Sign ->Factor
-Factor ->NOT Atom
-Factor ->Atom
-Atom ->LPAREN Expr RPAREN
-Atom ->bool
-Atom ->id
-Atom ->NUMBER
-Atom ->string
-Atom ->Cast_type
-Cast_type ->Atom as id
+Expr -> Let_expr
+Let_expr -> LET Assignment IN Expr
+Assignment -> IDENTIFIER ASSIGN Expr 
+Assignment -> IDENTIFIER COLON_EQUAL Expr 
+Assignment -> IDENTIFIER ASSIGN Expr COMMA Assignment
+Assignment -> IDENTIFIER COLON_EQUAL Expr COMMA Assignment
+Assignment -> epsilon
+Conditional -> IF LPAREN Expr RPAREN THEN Expr Cond_other_case
+Cond_other_case -> ELIF LPAREN Expr RPAREN THEN Expr Cond_other_case
+Cond_other_case -> ELSE Expr
+While_loop -> WHILE LPAREN Expr RPAREN Expr
+For_loop -> FOR LPAREN IDENTIFIER IN Expr RPAREN Expr
+Or_expr -> Or_expr OR And_expr
+Or_expr -> And_expr
+And_expr -> And_expr AND Check_type
+And_expr -> Check_type
+Check_type -> Aritm_comp
+Check_type -> Check_type IS IDENTIFIER
+Check_type -> Aritm_comp
+Aritm_comp -> Aritm_comp EQUAL_EQUAL Concat
+Aritm_comp -> Aritm_comp NOT_EQUAL Concat
+Aritm_comp -> Aritm_comp GREATER Concat
+Aritm_comp -> Aritm_comp GREATER_EQUAL Concat
+Aritm_comp -> Aritm_comp LESS Concat
+Aritm_comp -> Aritm_comp LESS_EQUAL Concat
+Aritm_comp -> Concat
+Concat -> Concat AT Arithmetic
+Concat -> Concat AT_AT Arithmetic
+Concat -> Arithmetic
+Arithmetic -> Arithmetic PLUS Term
+Arithmetic -> Arithmetic MINUS Term
+Arithmetic -> Term
+Term -> Term STAR Pow
+Term -> Term SLASH Pow
+Term -> Term MODULO Pow
+Term -> Pow
+Pow -> Sign POWER Pow
+Pow -> Sign DSTAR Pow
+Pow -> Sign
+Sign -> PLUS Factor
+Sign -> MINUS Factor
+Sign -> Factor
+Factor -> NOT Atom
+Factor -> Atom
+Atom -> LPAREN Expr RPAREN
+Atom -> TRUE
+Atom -> FALSE
+Atom -> IDENTIFIER
+Atom -> NUMBER
+Atom -> STRING
+Atom -> Cast_type
+Atom -> Call_func
+Atom -> Type_inst
+Atom -> Vector
+Atom -> Index_object
+Atom -> Member
+Cast_type -> Atom AS IDENTIFIER
+Call_func -> IDENTIFIER LPAREN Arguments RPAREN
+Call_func -> IDENTIFIER LPAREN RPAREN
+Arguments -> Expr COMMA Arguments
+Arguments -> Expr
+Type_inst -> NEW Call_func
+Vector -> Vector_exp
+Vector -> Vector_imp
+Vector_exp -> LBRACKET Vector_item_list RBRACKET
+Vector_exp -> LBRACKET RBRACKET
+Vector_item_list -> Expr COMMA Vector_item_list
+Vector_item_list -> Expr
+Index_object -> Atom LBRACKET Expr RBRACKET
+Member -> Atom Dot Call_func
+Member -> Atom Dot IDENTIFIER
+Cast_type -> Atom AS IDENTIFIER

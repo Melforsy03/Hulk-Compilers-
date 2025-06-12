@@ -1,5 +1,6 @@
 #include "state.h"
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -47,6 +48,51 @@ void add_transition(State* from, Symbol* symbol, State* to) {
     new_t->next = from->transitions;
     from->transitions = new_t;
 }
+
+State* find_existing_lr1_state(State** states, int state_count, Item** items, int item_count) {
+    for (int i = 0; i < state_count; ++i) {
+        State* candidate = states[i];
+        if (candidate->item_count != item_count) continue;
+        bool match = true;
+        for (int j = 0; j < item_count; ++j) {
+            if (!compare_lr1_items(candidate->items[j], items[j])) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return candidate;
+    }
+    return NULL;
+}
+
+// ==== Nuevo: Verifica si un estado LALR(1) ya fue creado ====
+State* find_existing_lalr_state(State** states, int state_count, Item** items, int item_count) {
+    for (int i = 0; i < state_count; ++i) {
+        State* cand = states[i];
+        if (cand->item_count != item_count) continue;
+
+        //Comparación por núcleo (ignora lookahead)
+        bool same_core = true;
+        for (int j = 0; j < item_count; ++j) {
+            if (!compare_items(cand->items[j], items[j])) {
+                same_core = false;
+                break;
+            }
+        }
+        if (!same_core) continue;
+
+        //Fusionar lookahead de cada item
+        for (int j = 0; j < item_count; ++j) {
+            containerset_update(
+                cand->items[j]->lookaheads,
+                items[j]->lookaheads
+            );
+        }
+        return cand;
+    }
+    return NULL;
+}
+
 
 State* get_transition(State* from, Symbol* symbol) {
     Transition* t = from->transitions;

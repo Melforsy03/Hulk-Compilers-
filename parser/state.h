@@ -35,6 +35,9 @@ State* get_transition(State* from, Symbol* symbol);
 // Imprimir el estado (items + transiciones)
 void print_state(State* state);
 
+State* find_existing_lr1_state(State** states, int state_count, Item** items, int item_count); 
+State* find_existing_lalr_state(State** states, int state_count, Item** items, int item_count);
+
 // Liberar memoria de un estado (y sus items y transiciones)
 void free_state(State* state);
 
