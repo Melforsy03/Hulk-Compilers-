@@ -695,7 +695,7 @@ int generar_codigo(ExpressionNode* expr) {
             }
 
         // ----- Bloque -----
-        case NODE_BLOCK: {
+        case NODE_EXPRESSION_BLOCK: {
             ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
             ExpressionNode** exprs = (ExpressionNode**)block->expressions;
             int ultimo = -1;

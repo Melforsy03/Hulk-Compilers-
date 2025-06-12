@@ -1,13 +1,13 @@
+
+#ifndef SEMANTIC_H
+#define SEMANTIC_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include "../parser/ast_nodes.h"
 
-#ifndef SEMANTIC_H
-#define SEMANTIC_H
 
 // Estructuras básicas
 typedef struct Type Type;
@@ -17,6 +17,7 @@ typedef struct Method Method;
 typedef struct Context Context;
 typedef struct VariableInfo VariableInfo;
 typedef struct Scope Scope;
+typedef struct Node Node;
 
 //Prototipos de func
 Type* context_get_type(Context* ctx, char* name);
