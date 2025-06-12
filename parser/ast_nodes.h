@@ -87,6 +87,7 @@ typedef struct Node {
     struct Node** children;
     int child_count;
     char* lexeme;
+    Scope* scope;
     NodeType tipo ;
 } Node;
 
