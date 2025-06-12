@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "utils/semantic.h" 
-#include "utils/semanticErrors.h" 
+#include "semantic.h" 
+#include "semantic_errors.h" 
 #include "../ast_nodes/ast_nodes.h"
 
 typedef struct TypeCollector {
