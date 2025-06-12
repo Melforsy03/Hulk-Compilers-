@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include "../parser/ast_nodes.h"
 
 #ifndef SEMANTIC_H
 #define SEMANTIC_H
@@ -28,6 +29,7 @@ void free_context(Context* ctx);
 void free_protocol(Protocol* protocol);
 
 struct Type {
+
     char* name;
     Type* parent;
     
@@ -49,9 +51,8 @@ struct Type {
     // Referencia para SelfType
     Type* referred_type;
 
-    void* node;
+    Node* node;
 };
-
 
 
 typedef struct ErrorType {
@@ -89,7 +90,7 @@ typedef struct VectorType {
 } VectorType;
 
 struct Protocol {
-    Type base;
+    Type* base;
     char* name;
     Protocol* parent;
     Method** methods;
@@ -115,7 +116,7 @@ struct Method {
     int param_count;
     Type* return_type;
     Type* inferred_return_type;
-    void* node; // Para referencia al nodo AST
+    Node* node; // Para referencia al nodo AST
 };
 
 struct Context {
@@ -163,8 +164,8 @@ char* strdup(const char* s) {
     }
     return p;
 }
-// Create a new type
 
+// Create a new type
 Type* create_type(Context* context, const char* name) {
     // Check if type or protocol with this name already exists
     for (int i = 0; i < context->type_count; i++) {
@@ -205,7 +206,6 @@ Protocol* create_protocol(Context* context, const char* name) {
         if (strcmp(context->types[i]->name, name) == 0) {
             return NULL;  // Type with same name exists
         }
-    }
     
     for (int i = 0; i < context->protocol_count; i++) {
         if (strcmp(context->protocols[i]->name, name) == 0) {
@@ -215,6 +215,7 @@ Protocol* create_protocol(Context* context, const char* name) {
     
     // Create new protocol
     Protocol* new_protocol = (Protocol*)malloc(sizeof(Protocol));
+    new_protocol->base = create_type(context, name);
     new_protocol->name = strdup(name);
     new_protocol->parent = NULL;
     new_protocol->methods = NULL;
@@ -225,6 +226,7 @@ Protocol* create_protocol(Context* context, const char* name) {
     context->protocols[context->protocol_count++] = new_protocol;
     
     return new_protocol;
+    }
 }
 
 Attribute* create_attribute(char* name, Type* type) {
@@ -405,7 +407,6 @@ void initialize_builtin_types(Context* context) {
 
 }
 
-
 Scope* create_scope(Scope* parent) {
     Scope* scope = malloc(sizeof(Scope));
     scope->locals = NULL;
@@ -424,7 +425,7 @@ Scope* create_scope(Scope* parent) {
     return scope;
 }
 
-// Funciones de utilidad
+// ---------------------------Funciones de utilidad------------------------------
 bool conforms_to(Type* type, Type* other);
 bool method_implements(Method* method, Method* other);
 
@@ -500,8 +501,6 @@ Type* get_lowest_common_ancestor(Type** types, int type_count) {
     return lca;
 }
 
-
-
 bool conforms_to(Type* type, Type* other) {
     if (other->name == "<auto>" || other->name == "<error>") {
         return true;
@@ -540,7 +539,7 @@ bool method_implements(Method* method, Method* other) {
     return true;
 }
 
-// Funciones para manejar atributos y métodos
+// ---------------------------Funciones para manejar atributos----------------------------
 Attribute* get_attribute(Type* type, char* name) {
     for (int i = 0; i < type->attribute_count; i++) {
         if (strcmp(type->attributes[i]->name, name) == 0) {
@@ -606,6 +605,7 @@ void set_attribute_error(Type* type, const char* attr_name) {
     type->attributes[type->attribute_count - 1] = error_attr;
 }
 
+//-------------------------------Funciones para manejar metodos-----------------------------
 Method* get_method(Type* type, char* name) {
     for (int i = 0; i < type->method_count; i++) {
         if (strcmp(type->methods[i]->name, name) == 0) {
@@ -708,7 +708,7 @@ Method* protocol_get_method(Protocol* protocol, char* name) {
     return NULL;
 }
 
-// Funciones para manejar el contexto
+// ----------------------------Funciones para manejar el contexto--------------------------------------
 
 Type* context_get_type(Context* ctx, char* name) {
     for (int i = 0; i < ctx->type_count; i++) {
@@ -730,16 +730,20 @@ Protocol* context_get_protocol(Context* ctx, char* name) {
     return NULL;
 }
 
-TypeOrProtocol context_get_type_or_protocol(Context* ctx, char* name) {
-    TypeOrProtocol result;
-    result.type = context_get_type(ctx, name);
-    if(result.type != NULL) return result;
+Type* context_get_type_or_protocol(Context* ctx, char* name) {
+    for (int i = 0; i < ctx->type_count; i++) {
+        if (strcmp(ctx->types[i]->name, name) == 0) {
+            return ctx->types[i];
+        }
+    }
+    
+    for (int i = 0; i < ctx->protocol_count; i++) {
+        if (strcmp(ctx->protocols[i]->name, name) == 0) {
+            return (Type*)ctx->protocols[i];
+        }
+    }
 
-    result.protocol = context_get_protocol(ctx, name);
-    if(result.protocol != NULL) return result;
-
-    result.type = context_get_type(ctx, "<error>");
-    return result;
+    return NULL;
 }
 void context_set_type_error(Context* ctx, const char* type_name) {
     // Buscar el tipo en el contexto
@@ -835,7 +839,8 @@ void context_set_function_error(Context* ctx, const char* function_name) {
     ctx->functions = (Method**)realloc(ctx->functions, sizeof(Method*) * (ctx->function_count + 1));
     ctx->functions[ctx->function_count - 1] = error_function;
 }
-// Funciones para manejar el scope
+
+//--------------------------------Funciones para manejar el scope-------------------------------------
 VariableInfo* scope_find_variable(Scope* scope, char* name, int index) {
     int start = (index == -1) ? 0 : index;
     int end = (index == -1) ? scope->locals_count : index + 1;
@@ -868,7 +873,7 @@ VariableInfo* scope_define_variable(Scope* scope, char* name, Type* type, bool i
     return info;
 }
 
-// Funciones para liberar memoria
+//--------------------------------- Funciones para liberar memoria-----------------------------------
 void free_type(Type* type) {
     if (type == NULL) return;
     

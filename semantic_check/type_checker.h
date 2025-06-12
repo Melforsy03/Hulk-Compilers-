@@ -2,17 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "semanticErrors.h"
+#include "semantic_errors.h"
 #include "semantic.h"
-#include "ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 // Estructura del Type Checker
 typedef struct TypeChecker {
     Context* context;
     Type* current_type;
     Method* current_method;
-    HulkSemanticError** errors;
-    int error_count;
+    HulkErrorList* errors;
 } TypeChecker;
 
 // Funciones auxiliares
@@ -24,17 +23,20 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
 bool conforms_to(Type* type, Type* other);
 
 // Funciones visitantes para cada tipo de nodo
-void visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope);
-void visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* scope);
-void visit_type_attribute(TypeChecker* tc, TypeAttributeNode* node, Scope* scope);
-void visit_method_declaration(TypeChecker* tc, MethodDeclarationNode* node, Scope* scope);
-void visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node, Scope* scope);
-void visit_var_declaration(TypeChecker* tc, VarDeclarationNode* node, Scope* scope);
-void visit_conditional(TypeChecker* tc, ConditionalNode* node, Scope* scope);
+void visit_program(TypeChecker* tc, Node* node, Scope* scope); // OK
+//Declarations
+void visit_type_declaration(TypeChecker* tc, Node* node, Scope* scope); // Falta chequeo de argumentos del padre con parametros
+void visit_type_attribute(TypeChecker* tc, Node* node, Scope* scope); //OK
+void visit_method_declaration(TypeChecker* tc, Node* node, Scope* scope); // OK
+void visit_function_declaration(TypeChecker* tc, Node* node, Scope* scope); // OK
+void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope); //OK
+//Expressions
+void visit_conditional(TypeChecker* tc, Node* node, Scope* scope);
 void visit_let_in(TypeChecker* tc, LetInNode* node, Scope* scope);
 void visit_while(TypeChecker* tc, WhileNode* node, Scope* scope);
 void visit_for(TypeChecker* tc, ForNode* node, Scope* scope);
 void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope);
+
 void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope);
 void visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope);
 void visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope);
@@ -69,12 +71,12 @@ TypeChecker* create_type_checker(Context* context) {
     return tc;
 }
 
-void add_error(TypeChecker* tc, const char* message, int row, int column) {
-    HulkSemanticError* error = (HulkSemanticError*)malloc(sizeof(HulkSemanticError));
-    HulkSemanticError_init(error, message, row, column);
+void add_error(TypeChecker* tc, const char* error_msg, int row, int column) {
     
-    tc->errors = (HulkSemanticError**)realloc(tc->errors, sizeof(HulkSemanticError*) * (tc->error_count + 1));
-    tc->errors[tc->error_count++] = error;
+    HulkSemanticError error;
+    HulkSemanticError_init(&error, error_msg, row, column);
+    HulkErrorList_add(tc->errors, (HulkError*)&error);
+    free(error_msg);
 }
 
 bool is_error_type(Type* type) {
@@ -117,25 +119,29 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
     return var_type;
 }
 
-// Implementación de funciones visitantes
 
-void visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
-    node->base.scope = scope;
+
+
+// ============================Implementación de funciones visitantes==================================
+
+void visit_program(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
     
-    for (int i = 0; i < node->declaration_count; i++) {
-        DeclarationNode* decl = node->declarations[i];
+    for (int i = 0; i < node->base.child_count; i++) {
+        Node* child = node->children[i];
         Scope* child_scope = create_scope(scope);
         
         // Dispatch based on declaration type
-        switch (decl->base.tipo) {
-            case NODE_TYPE_DEF:
-                visit_type_declaration(tc, (TypeDeclarationNode*)decl, child_scope);
+        switch (child->tipo) {
+            //-------------declarations----------------------
+            case NODE_TYPE_DECLARATION:
+                visit_type_declaration(tc, child, child_scope);
                 break;
-            case NODE_FUNCTION_DEF:
-                visit_function_declaration(tc, (FunctionDeclarationNode*)decl, child_scope);
+            case NODE_FUNCTION_DECLARATION:
+                visit_function_declaration(tc, child, child_scope);
                 break;
-            case NODE_LET:
-                visit_var_declaration(tc, (VarDeclarationNode*)decl, child_scope);
+            case NODE_VAR_DECLARATION:
+                visit_var_declaration(tc, child, child_scope);
                 break;
             default:
                 break;
@@ -144,37 +150,60 @@ void visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
     
     tc->current_type = NULL;
     tc->current_method = NULL;
-    
-    // Check main expression
-    if (node->expression != NULL) {
-        // Type checking for the expression would go here
+
+     for (int i = 0; i < node->child_count; i++) {
+        Node* child = node->children[i];
+        Scope* child_scope = create_scope(scope);
+        
+        // Dispatch based on declaration type
+        switch (child->tipo) {
+             //-----------------expressions---------------------
+            case NODE_CONDITIONAL:
+                visit_conditional(tc, child, child_scope);
+                break;
+            case NODE_LET_IN:
+                visit_let_in(tc, child, child_scope);
+                break;
+            case NODE_WHILE:
+                visit_while(tc, child, child_scope);
+                break;
+            case NODE_FOR:
+                visit_for(tc, child, child_scope);
+            case NODE_DESTRUCTURING:
+                visit_destr(tc, child, child_scope);
+            default:
+                break;
+        }
     }
 }
-/* ==================== DECLARATIONS ==================== */
+ 
 
-void visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* scope) {
-    node->base.scope = scope;
+
+//==================== DECLARATIONS ==================== 
+
+void visit_type_declaration(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
     
     // Check if it's a built-in Hulk type
     bool is_hulk_type = false;
     for (int i = 0; i < tc->context->hulk_type_count; i++) {
-        if (strcmp(node->name, tc->context->hulk_types[i]) == 0) {
+        if (strcmp(node->lexeme, tc->context->hulk_types[i]) == 0) {
             is_hulk_type = true;
             break;
         }
     }
     if (is_hulk_type) return;
     
-    tc->current_type = get_type(tc->context, node->name);
+    tc->current_type = context_get_type(tc->context, node->lexeme);
     if (is_error_type(tc->current_type)) return;
     
     // Handle type parameters
     if (tc->current_type->param_count > 0) {
         for (int i = 0; i < tc->current_type->param_count; i++) {
-            define_variable(scope, tc->current_type->param_names[i], 
+            scope_define_variable(scope, tc->current_type->param_names[i], 
                           tc->current_type->param_types[i], true);
         }
-        
+        /*
         // Check parent arguments
         if (!is_error_type(tc->current_type->parent)) {
             if (node->parent_args_count != tc->current_type->parent->param_count) {
@@ -182,8 +211,7 @@ void visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* s
                     tc->current_type->parent->name, 
                     tc->current_type->parent->param_count, 
                     node->parent_args_count);
-                add_error(tc, error_msg, node->base.row, node->base.column);
-                free(error_msg);
+                add_error(tc, error_msg, node->base.base.row, node->base.base.column);
             } else {
                 for (int i = 0; i < node->parent_args_count; i++) {
                     // Type check each argument
@@ -192,47 +220,52 @@ void visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* s
                     //            node->base.row, node->base.column);
                 }
             }
-        }
+        }*/
     }
     
     // Check attributes
-    for (int i = 0; i < node->attribute_count; i++) {
-        visit_type_attribute(tc, node->attributes[i], scope);
+    for (int i = 0; i < node->child_count; i++) {
+        if(node->children[i]->tipo == NODE_TYPE_ATTRIBUTE){
+            visit_type_attribute(tc, node->children[i], scope);
+        }
     }
     
     // Check methods
-    for (int i = 0; i < node->method_count; i++) {
-        Scope* method_scope = create_scope(scope);
-        visit_method_declaration(tc, node->methods[i], method_scope);
+    for (int i = 0; i < node->child_count; i++) {
+        if(node->children[i]->tipo == NODE_METHOD_DECLARATION){
+            Scope* method_scope = create_scope(scope);
+            visit_method_declaration(tc, node->methods[i], method_scope);
+
+        }
     }
 }
 
-void visit_type_attribute(TypeChecker* tc, TypeAttributeNode* node, Scope* scope) {
-    node->base.scope = scope;
+void visit_type_attribute(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
     tc->current_method = NULL;
     
-    Attribute* attribute = get_attribute(tc->current_type, node->name);
+    Attribute* attribute = get_attribute(tc->current_type, node->lexeme);
     if (is_error_type((Type*)attribute)) return;
     
     // Check attribute value
-    // Type* expr_type = visit(tc, node->value, scope);
-    // Type* var_type = assign_type(tc, attribute->type, expr_type, node->base.row, node->base.column);
-    // attribute->type = var_type;
+    Type* expr_type = visit(tc, node->children[0], scope);
+    Type* var_type = assign_type(tc, attribute->type, expr_type, node->row, node->column);
+    attribute->type = var_type;
 }
 
-void visit_method_declaration(TypeChecker* tc, MethodDeclarationNode* node, Scope* scope) {
-    node->base.scope = scope;
-    tc->current_method = get_method(tc->current_type, node->name);
+void visit_method_declaration(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
+    tc->current_method = get_method(tc->current_type, node->lexeme);
     
     if (is_error_type((Type*)tc->current_method)) return;
     
     // Check for invalid override
     if (tc->current_type->parent != NULL) {
-        Method* parent_method = get_method(tc->current_type->parent, node->name);
+        Method* parent_method = get_method(tc->current_type->parent, node->lexeme);
         if (parent_method != NULL && tc->current_method != parent_method) {
             char* error_msg = format_string(HULK_SEM_INVALID_OVERRIDE, 
-                node->name, tc->current_type->name);
-            add_error(tc, error_msg, node->base.row, node->base.column);
+                node->lexeme, tc->current_type->name);
+            add_error(tc, error_msg, node->row, node->column);
             free(error_msg);
         }
     }
@@ -243,28 +276,28 @@ void visit_method_declaration(TypeChecker* tc, MethodDeclarationNode* node, Scop
                       tc->current_method->param_types[i], true);
     }
     
-    // Check return type
-    // Type* expr_type = visit(tc, node->body, scope);
-    // Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
-    //                               node->base.row, node->base.column);
-    // tc->current_method->inferred_return_type = return_type;
+    //Check return type
+    Type* expr_type = visit(tc, node->children[node->child_count-1], scope);
+    Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
+                                    node->row, node->column);
+    tc->current_method->inferred_return_type = return_type;
 }
 
-void visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node, Scope* scope) {
+void visit_function_declaration(TypeChecker* tc, Node* node, Scope* scope) {
     tc->current_type = NULL;
-    node->base.scope = scope;
+    node->scope = scope;
     
     // Check if it's a built-in Hulk function
     bool is_hulk_func = false;
     for (int i = 0; i < tc->context->hulk_function_count; i++) {
-        if (strcmp(node->name, tc->context->hulk_functions[i]) == 0) {
+        if (strcmp(node->lexeme, tc->context->hulk_functions[i]) == 0) {
             is_hulk_func = true;
             break;
         }
     }
     if (is_hulk_func) return;
     
-    tc->current_method = get_function(tc->context, node->name);
+    tc->current_method = context_get_function(tc->context, node->lexeme);
     if (is_error_type((Type*)tc->current_method)) return;
     
     // Define parameters in scope
@@ -273,45 +306,47 @@ void visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node, 
                       tc->current_method->param_types[i], true);
     }
     
-    // Check return type
-    // Type* expr_type = visit(tc, node->body, scope);
-    // Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
-    //                               node->base.row, node->base.column);
-    // tc->current_method->inferred_return_type = return_type;
+    //Check return type
+    Type* expr_type = visit(tc, node->children[node->child_count-1], scope);
+    Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
+                                    node->row, node->column);
+    tc->current_method->inferred_return_type = return_type;
 }
 
-void visit_var_declaration(TypeChecker* tc, VarDeclarationNode* node, Scope* scope) {
-    node->base.scope = scope;
+void visit_var_declaration(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
     
-    if (find_variable(scope, node->name, -1) != NULL) {
-        char* error_msg = format_string(HULK_SEM_VARIABLE_IS_DEFINED, node->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
+    if (scope_find_variable(scope, node->lexeme, -1) != NULL) {
+        char* error_msg = format_string(HULK_SEM_VARIABLE_IS_DEFINED, node->lexeme);
+        add_error(tc, error_msg, node->row, node->column);
         free(error_msg);
         return;
     }
     
     Type* var_type;
-    if (node->type != NULL) {
-        var_type = get_type(tc->context, node->type);
+    if (node->symbol->name != NULL) {
+        var_type = context_get_type(tc->context, node->symbol->name);
         if (is_error_type(var_type)) {
             char* error_msg = format_string(HULK_SEM_NOT_DEFINED, node->type);
-            add_error(tc, error_msg, node->base.row, node->base.column);
+            add_error(tc, error_msg, node->row, node->column);
             free(error_msg);
         }
     } else {
-        var_type = get_type(tc->context, "<auto>");
+        var_type = context_get_type(tc->context, "<auto>");
     }
     
     // Check variable value
-    // Type* expr_type = visit(tc, node->value, scope);
-    // var_type = assign_type(tc, var_type, expr_type, node->base.row, node->base.column);
+    Type* expr_type = visit(tc, node->children[0], scope);
+    var_type = assign_type(tc, var_type, expr_type, node->row, node->column);
     define_variable(scope, node->name, var_type, false);
 }
 
-/* ==================== EXPRESSIONS ==================== */
 
-void visit_conditional(TypeChecker* tc, ConditionalNode* node, Scope* scope) {
-    node->base.scope = scope;
+// ==================== EXPRESSIONS ==================== 
+/*
+void visit_conditional(TypeChecker* tc, Node* node, Scope* scope) {
+    node->scope = scope;
+
     Type* default_type = NULL;
     Type** types = (Type**)malloc(sizeof(Type*) * (node->condition_count + 1));
     
@@ -429,7 +464,7 @@ void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope) {
     return var_type;
 }
 
-/* ==================== BINARY ==================== */
+// ==================== BINARY ==================== 
 
 void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope) {
     node->base.scope = scope;
@@ -565,7 +600,7 @@ void visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope) 
     return get_type(tc->context, "String");
 }
 
-/* ==================== ATOMIC ==================== */
+// ==================== ATOMIC ==================== 
 
 void visit_expression_block(TypeChecker* tc, ExpressionBlockNode* node, Scope* scope) {
     node->base.scope = create_scope(scope);
@@ -861,7 +896,7 @@ void visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope) {
     return target_type;
 }
 
-/* ==================== UNARY ==================== */
+// ==================== UNARY ==================== 
 
 void visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope) {
     node->base.scope = scope;
@@ -897,7 +932,7 @@ void visit_boolean_unary(TypeChecker* tc, BooleanUnaryNode* node, Scope* scope) 
     return get_type(tc->context, "Boolean");
 }
 
-/* ==================== LITERALS ==================== */
+// ==================== LITERALS ==================== 
 
 void visit_boolean_node(TypeChecker* tc, BooleanNode* node, Scope* scope) {
     node->base.scope = scope;
@@ -939,7 +974,7 @@ void visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope) {
     return var->type;
 }
 
-/* ==================== DISPATCH ==================== */
+// ==================== DISPATCH ==================== 
 
 Type* visit(TypeChecker* tc, Node* node, Scope* scope) {
     if (node == NULL) return get_type(tc->context, "<error>");
@@ -1035,26 +1070,5 @@ Type* visit(TypeChecker* tc, Node* node, Scope* scope) {
             return get_type(tc->context, "<error>");
     }
 }
-// Función principal para realizar el type checking
-void type_check_program(ProgramNode* ast, Context* context) {
-    TypeChecker* tc = create_type_checker(context);
-    Scope* global_scope = create_scope(NULL);
-    
-    visit_program(tc, ast, global_scope);
-    
-    // Print errors if any
-    for (int i = 0; i < tc->error_count; i++) {
-        char* error_str = HulkSemanticError_to_string(tc->errors[i]);
-        printf("%s\n", error_str);
-        free(error_str);
-    }
-    
-    // Cleanup
-    for (int i = 0; i < tc->error_count; i++) {
-        HulkError_free((HulkError*)tc->errors[i]);
-        free(tc->errors[i]);
-    }
-    free(tc->errors);
-    free(tc);
-}
 
+*/
