@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include "ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 #ifndef SEMANTIC_H
 #define SEMANTIC_H

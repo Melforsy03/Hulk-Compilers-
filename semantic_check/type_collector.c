@@ -4,7 +4,7 @@
 #include "type_collector.h"
 #include "semantic.h" 
 #include "semantic_errors.h" 
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 TypeCollector collect_types(HulkErrorList* errors, Node* ast) {
     

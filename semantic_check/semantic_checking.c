@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 #include "semantic_errors.h"
 #include "type_collector.c"
 #include "type_builder.c"
