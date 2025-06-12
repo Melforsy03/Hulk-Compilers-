@@ -55,7 +55,7 @@ int main() {
     ActionEntryLR1* actions = NULL;
     int action_count = 0;
     Node* accepted = parser(table, input_symbols, input_len, &actions, &action_count);
-
+    
 
     // Limpieza
     free(actions);
