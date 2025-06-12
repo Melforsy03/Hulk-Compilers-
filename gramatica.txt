@@ -1,10 +1,8 @@
 NoTerminals:
-Program Type_function_list Expr_block Expr_list Expr_item_list Expr Or_expr And_expr Aritm_comp 
-Concat Arithmetic Term Pow Factor Conditional Cond_other_case Let_expr Assignment Destr_assig 
-Atom Call_func Member Params Method_signature Inline_form Full_form Func Arguments 
-While_loop For_loop Cast_type Check_type Sign Type_block Type_member_list Type_member_item 
-Type Type_dec Type_inst Protocol_block Method_dec_list Protocol Vector Vector_exp Vector_imp 
-Vector_item_list Index_object Non_empty_expr_list 
+Program Expr_item_list Expr_block Non_empty_expr_list Expr Let_expr Assignment
+Conditional Cond_other_case While_loop For_loop Or_expr And_expr Check_type Aritm_comp
+Concat Arithmetic Term Pow Sign Factor Atom Cast_type Call_func Arguments Type_inst
+Vector Vector_exp Vector_imp Vector_item_list Index_object Member
  
 Terminals:
 LBRACE  RBRACE SEMICOLON LPAREN RPAREN COMMA : Dot COLON_EQUAL := 
