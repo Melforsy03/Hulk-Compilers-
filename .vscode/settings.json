@@ -6,7 +6,8 @@
         "stdlib.h": "c",
         "symbol.h": "c",
         "semanticerrors.h": "c",
-        "type_builder.h": "c"
+        "type_builder.h": "c",
+        "type_checker.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

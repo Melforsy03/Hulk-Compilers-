@@ -2,79 +2,80 @@
 #ifndef AST_NODES_H
 #define AST_NODES_H
 
-#include "grammar/symbol.h"  
+#include "../grammar/symbol.h"  
 
 typedef enum {
-    // Nodo raíz del programa
-    NODE_PROGRAM,        // Contiene declaraciones y una expresión principal
-    
-    // Declaraciones
-    NODE_LET,            // Declaración de variable (let)
-    NODE_FUNCTION_DEF,   // Declaración de función
-    NODE_TYPE_DEF,       // Declaración de tipo
-    NODE_INHERITS,       // Herencia entre tipos (no usado directamente)
-    NODE_ASSIGN,         // Asignación (=)
-    NODE_COLON_ASSIGN,   // Asignación con tipo (:=)
-    
-    // Estructuras de control
-    NODE_IF,             // Condicional if
-    NODE_LET_IN,
-    NODE_WHILE,          // Bucle while
-    NODE_FOR,            // Bucle for
-    NODE_RANGE,          // Rango (para bucles)
-    NODE_RETURN,         // Retorno de función
-    NODE_PRINT,          // Impresión en consola
-    
-    // Operadores binarios
-    NODE_ADD,            // Suma (+)
-    NODE_SUB,            // Resta (-)
-    NODE_MUL,            // Multiplicación (*)
-    NODE_DIV,            // División (/)
-    NODE_POW,            // Potenciación (^)
-    NODE_MOD,            // Módulo (%)
-    NODE_EQ,             // Igualdad (==)
-    NODE_NEQ,            // Desigualdad (!=)
-    NODE_LT,             // Menor que (<)
-    NODE_LTE,            // Menor o igual que (<=)
-    NODE_GT,             // Mayor que (>)
-    NODE_GTE,            // Mayor o igual que (>=)
-    NODE_AND,            // AND lógico (&&)
-    NODE_OR,             // OR lógico (||)
-    NODE_IS,
-    NODE_NOT,            // NOT lógico (!)
-    NODE_POSITIVE,
-    NODE_NEGATIVE,
-    NODE_CONCAT,         // Concatenación de strings (++)
-    
-    // Llamadas
-    NODE_CALL,           // Llamada genérica (obsoleto)
-    NODE_CALL_FUNC,      // Llamada a función
-    NODE_CALL_METHOD,    // Llamada a método
-    NODE_CALL_TYPE_ATTRIBUTE,
+    // Nodo raíz
+    NODE_PROGRAM,        // Programa completo (declaraciones + expresión principal)
 
-    // Accesos
-    NODE_ACCESS,         // Acceso a atributo/método
-    
-    // Literales y átomos
-    NODE_VAR,            // Referencia a variable
-    NODE_NUMBER,         // Literal numérico
-    NODE_STRING,         // Literal de string
-    NODE_BOOLEAN,        // Literal booleano
-    NODE_SELF,           // Referencia a self
-    NODE_BASE,           // Referencia a base
-    
-    // Estructuras
-    NODE_BLOCK,          // Bloque de expresiones
-    NODE_TYPE_INSTANTIATION, // Instanciación de tipo
-    
-    // Vectores
-    NODE_EXPLICIT_VECTOR, // Vector explícito [...]
-    NODE_IMPLICIT_VECTOR, // Vector implícito [for x in y -> expr]
-    
-    // Operaciones específicas
-    NODE_CAST,           // Casting de tipos
-    NODE_CHECK_TYPE,     // Verificación de tipo (is)
-    NODE_INDEX           // Indexación (obsoleto, usar NODE_ACCESS)
+    // Declaraciones
+    NODE_METHOD_SIGNATURE,      // Firma de método (nombre/params/retorno)
+    NODE_METHOD_DECLARATION,    // Método completo (firma + cuerpo)
+    NODE_FUNCTION_DECLARATION,  // Función independiente
+    NODE_TYPE_CONSTRUCTOR_SIGNATURE, // Constructor de tipo
+    NODE_TYPE_ATTRIBUTE,        // Atributo de tipo/clase
+    NODE_TYPE_DECLARATION,      // Declaración de tipo/clase
+    NODE_PROTOCOL_DECLARATION,  // Protocolo/interfaz
+    NODE_VAR_DECLARATION,       // Variable (let x = valor)
+
+    // Expresiones
+    NODE_CONDITIONAL,    // If/else
+    NODE_LET_IN,         // Bloque let-in
+    NODE_WHILE,          // Ciclo while
+    NODE_FOR,            // Ciclo for
+    NODE_DESTRUCTURING,  // Destructuración
+    NODE_ATOMIC,         // Expresión simple
+    NODE_BINARY,         // Operación binaria
+    NODE_UNARY,          // Operación unaria
+
+    // Operadores binarios
+    NODE_BOOLEAN_BINARY,     // AND/OR
+    NODE_COMPARISON_BINARY,  // < > <= >=
+    NODE_EQUALITY_BINARY,    // == !=
+    NODE_STRING_BINARY,      // ++
+    NODE_ARITHMETIC_BINARY,  // + - * /
+    NODE_CHECK_TYPE,         // is
+
+    // Operadores unarios
+    NODE_ARITHMETIC_UNARY,   // +num -num
+    NODE_RETURN,             // return
+    NODE_BOOLEAN_UNARY,      // !
+
+    // Atómicos
+    NODE_LITERAL,            // Valor literal
+    NODE_EXPRESSION_BLOCK,   // Bloque {expresiones}
+    NODE_CALL_FUNC,          // Llamada función
+    NODE_TYPE_INSTANTIATION, // New Tipo()
+    NODE_EXPLICIT_VECTOR,    // [1,2,3]
+    NODE_IMPLICIT_VECTOR,    // [for x in y -> expr]
+    NODE_INDEX_OBJECT,       // obj[pos]
+    NODE_CALL_METHOD,        // obj.metodo()
+    NODE_CALL_TYPE_ATTRIBUTE,// obj.atributo
+    NODE_CAST_TYPE,          // obj as Tipo
+
+    // Operadores
+    NODE_OR, // ||
+    NODE_AND, // &&
+    NODE_NOT,  // !       
+    NODE_EQUAL, // ==
+    NODE_NOT_EQUAL,  // !=         
+    NODE_GREATER, // >
+    NODE_GREATER_EQUAL, // >=    
+    NODE_LESS, // <
+    NODE_LESS_EQUAL, // <=         
+    NODE_CONCAT, // +
+    NODE_DOUBLE_CONCAT, // ++ 
+    NODE_PLUS, NODE_MINUS, NODE_MULT,     // + - *
+    NODE_DIV, NODE_MOD, NODE_POW,         // / % ^
+    NODE_POSITIVE, NODE_NEGATIVE,         // +num -num
+
+    // Literales
+    NODE_BOOLEAN,     // true/false
+    NODE_VAR,         // variable
+    NODE_NUMBER,      // 123
+    NODE_STRING       // "texto"
+        
+
 } NodeType;
 
 //--------------------------------------------Base Node---------------------------------------------
