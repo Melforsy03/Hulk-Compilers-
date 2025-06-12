@@ -3,7 +3,7 @@
 #define AST_NODES_H
 
 #include "../grammar/symbol.h"  
-
+#include "../semantic_check/semantic.h"
 typedef enum {
     // Nodo raíz
     NODE_PROGRAM,        // Programa completo (declaraciones + expresión principal)
