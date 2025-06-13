@@ -294,12 +294,14 @@ typedef struct LiteralNode {
 typedef struct ExpressionBlockNode {
     AtomicNode base;
     void* expressions;     // Lista de ExpressionNode*
+    int expression_counter;
 } ExpressionBlockNode;
 
 typedef struct CallFuncNode {
     AtomicNode base;
     char* name;
     void* arguments;       // Lista de argumentos
+    int arguments_counter;
 } CallFuncNode;
 
 typedef struct TypeInstantiationNode {

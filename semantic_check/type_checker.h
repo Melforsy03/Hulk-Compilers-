@@ -35,15 +35,16 @@ void visit_conditional(TypeChecker* tc, ConditionalNode* node, Scope* scope); //
 void visit_let_in(TypeChecker* tc, LetInNode* node, Scope* scope);//OK
 void visit_while(TypeChecker* tc, WhileNode* node, Scope* scope);//Ok
 void visit_for(TypeChecker* tc, ForNode* node, Scope* scope);//Ok
-void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope);
+void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope);//ok
 //Binary
-void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope);
-void visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope);
-void visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope);
-void visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scope);
-void visit_check_type(TypeChecker* tc, CheckTypeNode* node, Scope* scope);
-void visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope);
+void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope);//ok
+void visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope);//ok
+void visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope);//ok
+void visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scope); //Ok
+void visit_check_type(TypeChecker* tc, CheckTypeNode* node, Scope* scope);//ok
+void visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope);//ok
 
+//Atomic
 void visit_expression_block(TypeChecker* tc, ExpressionBlockNode* node, Scope* scope);
 void visit_call_func(TypeChecker* tc, CallFuncNode* node, Scope* scope);
 void visit_type_instantiation(TypeChecker* tc, TypeInstantiationNode* node, Scope* scope);
@@ -53,8 +54,11 @@ void visit_index_object(TypeChecker* tc, IndexObjectNode* node, Scope* scope);
 void visit_call_method(TypeChecker* tc, CallMethodNode* node, Scope* scope);
 void visit_call_type_attribute(TypeChecker* tc, CallTypeAttributeNode* node, Scope* scope);
 void visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope);
+
+//Unary
 void visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope);
 void visit_boolean_unary(TypeChecker* tc, BooleanUnaryNode* node, Scope* scope);
+//Literals
 void visit_boolean_node(TypeChecker* tc, BooleanNode* node, Scope* scope);
 void visit_string_node(TypeChecker* tc, StringNode* node, Scope* scope);
 void visit_number_node(TypeChecker* tc, NumberNode* node, Scope* scope);
@@ -478,116 +482,122 @@ void visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope) {
 // ==================== BINARY ==================== 
 
 void visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope) {
-    node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
-    Type* right_type = visit(tc, node->right, scope);
+    node->base.base.base.scope = scope;
+    Type* left_type = visit(tc, (Node*)node->left, scope);
+    Type* right_type = visit(tc, (Node*)node->right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
-        return get_type(tc->context, "Boolean");
+        return context_get_type(tc->context, "Boolean");
     }
     
     // Check valid combinations
     bool valid = false;
-    if (strcmp(left_type->name, "Boolean") == 0 && strcmp(right_type->name, "Boolean") == 0) ||
+    if ((strcmp(left_type->name, "Boolean") == 0 && strcmp(right_type->name, "Boolean") == 0) ||
         (strcmp(left_type->name, "Number") == 0 && strcmp(right_type->name, "Number") == 0) ||
-        (is_auto_type(left_type) && is_auto_type(right_type)) {
+        (is_auto_type(left_type) && is_auto_type(right_type))) {
         valid = true;
     }
     
     if (!valid) {
         char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
+        add_error(tc, error_msg, node->base.base.base.row, node->base.base.base.column);
         free(error_msg);
     }
     
-    return get_type(tc->context, "Boolean");
+    return context_get_type(tc->context, "Boolean");
 }
 
 void visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope) {
-    node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
-    Type* right_type = visit(tc, node->right, scope);
+    node->base.base.base.scope = scope;
+    Type* left_type = visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
-        return get_type(tc->context, "Boolean");
+        return context_get_type(tc->context, "Boolean");
     }
-    
-    // Check valid combinations (only numbers)
-    if (strcmp(left_type->name, "Number") != 0 || strcmp(right_type->name, "Number") != 0) {
-        char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
-        free(error_msg);
+    if((strcmp(left_type->name, "Number") && strcmp(right_type->name, "Number")) || 
+    (strcmp(left_type->name, "<auto>") && strcmp(right_type->name, "<auto>")) ||
+    (strcmp(left_type->name, "<auto>") && strcmp(right_type->name, "Number")) ||
+    (strcmp(left_type->name, "Number") && strcmp(right_type->name, "<auto>"))){
+        return context_get_type(tc->context, "Boolean");
+    }else if (strcmp(left_type->name,"<auto>"))
+    {
+        left_type = context_get_type(tc->context, "Number");
+    }else if(strcmp(right_type->name, "<auto>")){
+        right_type = context_get_type(tc->context, "<auto>")
     }
+
+    char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
+    add_error(tc, error_msg, node->base.base.base.row, node->base.base.base.column);
+    free(error_msg);
     
-    return get_type(tc->context, "Boolean");
+    return context_get_type(tc->context, "Boolean");
 }
 
 void visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope) {
     node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
-    Type* right_type = visit(tc, node->right, scope);
+    Type* left_type = visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
-        return get_type(tc->context, "Number");
+        return context_get_type(tc->context, "Number");
     }
     
     // Check valid combinations (only numbers)
     if ((strcmp(left_type->name, "Number") != 0 && !is_auto_type(left_type)) ||
         (strcmp(right_type->name, "Number") != 0 && !is_auto_type(right_type))) {
         char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
+        add_error(tc, error_msg, node->base.base.base.row, node->base.base.base.column);
         free(error_msg);
     }
     
-    return get_type(tc->context, "Number");
+    return context_get_type(tc->context, "Number");
 }
 
 void visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scope) {
-    node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
-    Type* right_type = visit(tc, node->right, scope);
+    node->base.base.base.scope = scope;
+    Type* left_type = visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
-        return get_type(tc->context, "Boolean");
+        return context_get_type(tc->context, "Boolean");
     }
     
     // Check valid combinations (only booleans)
     if ((strcmp(left_type->name, "Boolean") != 0 && !is_auto_type(left_type)) ||
         (strcmp(right_type->name, "Boolean") != 0 && !is_auto_type(right_type))) {
         char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
+        add_error(tc, error_msg, node->base.base.base.row, node->base.base.base.column);
         free(error_msg);
     }
     
-    return get_type(tc->context, "Boolean");
+    return context_get_type(tc->context, "Boolean");
 }
 
 void visit_check_type(TypeChecker* tc, CheckTypeNode* node, Scope* scope) {
-    node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
+    node->base.base.scope = scope;
+    Type* left_type = visit(tc, (Node*)node->left, scope);
     
     if (is_error_type(left_type)) {
-        return get_type(tc->context, "Boolean");
+        return context_get_type(tc->context, "Boolean");
     }
     
     // Check if right type exists
-    Type* right_type = get_type(tc->context, node->right);
+    Node* right = (Node*)node->right;
+    Type* right_type = context_get_type_or_protocol(tc->context, right->lexeme);
     if (right_type == NULL) {
-        Protocol* protocol = get_protocol(tc->context, node->right);
-        if (protocol == NULL) {
-            char* error_msg = format_string(HULK_SEM_INVALID_IS_OPERATION, node->right);
-            add_error(tc, error_msg, node->base.row, node->base.column);
-            free(error_msg);
-        }
+        char* error_msg = format_string(HULK_SEM_INVALID_IS_OPERATION, right->lexeme);
+        add_error(tc, error_msg, node->base.base.row, node->base.base.column);
+        free(error_msg);
     }
     
-    return get_type(tc->context, "Boolean");
+    return context_get_type(tc->context, "Boolean");
 }
 
 void visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope) {
-    node->base.scope = scope;
-    Type* left_type = visit(tc, node->left, scope);
-    Type* right_type = visit(tc, node->right, scope);
+    node->base.base.base.scope = scope;
+    Type* left_type = visit(tc, (Node*)node->left, scope);
+    Type* right_type = visit(tc, (Node*)node->right, scope);
     
     // Check if types are valid for string operations
     bool left_valid = strcmp(left_type->name, "String") == 0 || 
@@ -604,24 +614,24 @@ void visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope) 
     
     if (!left_valid || !right_valid) {
         char* error_msg = format_string(HULK_SEM_INVALID_OPERATION, left_type->name, right_type->name);
-        add_error(tc, error_msg, node->base.row, node->base.column);
+        add_error(tc, error_msg, node->base.base.base.row, node->base.base.base.column);
         free(error_msg);
     }
     
-    return get_type(tc->context, "String");
+    return context_get_type(tc->context, "String");
 }
-/*
+
 // ==================== ATOMIC ==================== 
 
 void visit_expression_block(TypeChecker* tc, ExpressionBlockNode* node, Scope* scope) {
     node->base.scope = create_scope(scope);
     Type* last_type = NULL;
     
-    for (int i = 0; i < node->expression_count; i++) {
+    for (int i = 0; i < node.ex; i++) {
         last_type = visit(tc, node->expressions[i], node->base.scope);
     }
     
-    return last_type ? last_type : get_type(tc->context, "<error>");
+    return last_type ? last_type : context_get_type(tc->context, "<error>");
 }
 
 void visit_call_func(TypeChecker* tc, CallFuncNode* node, Scope* scope) {
@@ -906,7 +916,7 @@ void visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope) {
     
     return target_type;
 }
-
+/*
 // ==================== UNARY ==================== 
 
 void visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope) {
