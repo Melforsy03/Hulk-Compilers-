@@ -333,6 +333,7 @@ typedef struct IndexObjectNode {
 typedef struct CallMethodNode {
     AtomicNode base;
     char* inst_name;
+    void* inst; //nodo
     char* method_name;
     void* method_args;     // Lista de argumentos
     int method_args_counter;
@@ -341,12 +342,14 @@ typedef struct CallMethodNode {
 typedef struct CallTypeAttributeNode {
     AtomicNode base;
     char* inst_name;
+    void* inst; // nodo
     char* attribute;
 } CallTypeAttributeNode;
 
 typedef struct CastTypeNode {
     AtomicNode base;
     char* inst_name;
+    void* inst; //nodo
     char* type_cast;
 } CastTypeNode;
 

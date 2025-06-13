@@ -18,7 +18,6 @@ typedef struct Context Context;
 typedef struct VariableInfo VariableInfo;
 typedef struct Scope Scope;
 typedef struct Node Node;
-
 //Prototipos de func
 Type* context_get_type(Context* ctx, char* name);
 void initialize_builtin_types(Context* context);
@@ -28,6 +27,9 @@ void free_type(Type* type);
 void free_scope(Scope* scope);
 void free_context(Context* ctx);
 void free_protocol(Protocol* protocol);
+char* format_string(const char* format, ...);
+bool conforms_to(Type* type, Type* other);
+
 
 struct Type {
 
@@ -88,7 +90,8 @@ typedef struct SelfType {
 typedef struct VectorType {
     Type base;
     Type* element_type;
-} VectorType;
+}VectorType;
+
 
 struct Protocol {
     Type* base;
@@ -873,6 +876,110 @@ VariableInfo* scope_define_variable(Scope* scope, char* name, Type* type, bool i
     
     return info;
 }
+
+
+VectorType* create_vector_type(Context* context, Type* element_type) {
+    // Crear el nombre del tipo vector
+    char* type_name = format_string("%s[]", element_type->name);
+    
+    // Verificar si el tipo vector ya existe
+    Type* existing_type = context_get_type(context, type_name);
+    if (existing_type != NULL) {
+        free(type_name);
+        return (VectorType*)existing_type;
+    }
+    
+    // Crear el nuevo tipo vector
+    VectorType* vector_type = (VectorType*)malloc(sizeof(VectorType));
+    vector_type->base.name = type_name;
+    vector_type->base.parent = context_get_type(context, "Object");
+    vector_type->element_type = element_type;
+    
+    // Inicializar atributos y métodos
+    vector_type->base.attributes = NULL;
+    vector_type->base.attribute_count = 0;
+    vector_type->base.methods = NULL;
+    vector_type->base.method_count = 0;
+    vector_type->base.param_names = NULL;
+    vector_type->base.param_types = NULL;
+    vector_type->base.param_count = 0;
+    vector_type->base.node = NULL;
+    
+    // Definir métodos del vector
+    char** no_params = NULL;
+    Type** no_param_types = NULL;
+    
+    // Método size()
+    define_method((Type*)vector_type, context, "size", no_params, no_param_types, 0, 
+                 context_get_type(context, "Number"));
+    
+    // Método next()
+    define_method((Type*)vector_type, context, "next", no_params, no_param_types, 0, 
+                 context_get_type(context, "Boolean"));
+    
+    // Método current()
+    define_method((Type*)vector_type, context, "current", no_params, no_param_types, 0, 
+                 element_type);
+    
+    // Añadir al contexto
+    context->types = (Type**)realloc(context->types, sizeof(Type*) * (context->type_count + 1));
+    context->type_count++;
+    context->types[context->type_count] = (Type*)vector_type;
+    
+    return vector_type;
+}
+
+Type* get_vector_element_type(VectorType* vector_type) {
+    if (vector_type == NULL) return NULL;
+    return vector_type->element_type;
+}
+
+bool vector_conforms_to(VectorType* self, Type* other) {
+    if (other == NULL) return false;
+    
+    // Si el otro tipo no es un vector, usar la conformidad normal
+    if (strstr(other->name, "[]") == NULL) {
+        return conforms_to((Type*)self, other);
+    }
+    
+    // Si es un vector, comparar los tipos de elemento
+    VectorType* other_vector = (VectorType*)other;
+    Type* self_elem = get_vector_element_type(self);
+    Type* other_elem = get_vector_element_type(other_vector);
+    
+    return conforms_to(self_elem, other_elem);
+}
+
+Type* get_vector_type(Context* context, Type** item_types, int item_count) {
+    Type* element_type = NULL;
+    int count_auto = 0;
+    
+    for (int i = 0; i < item_count; i++) {
+        if (strcmp(item_types[i]->name, "<auto>") == 0) {
+            count_auto++;
+        } 
+        else if (element_type == NULL && strcmp(item_types[i]->name, "<error>") != 0) {
+            element_type = item_types[i];
+        }
+        else if (element_type != NULL && 
+                 strcmp(item_types[i]->name, element_type->name) != 0 && 
+                 strcmp(item_types[i]->name, "<error>") != 0) {
+            // Tipos inconsistentes - error
+            return context_get_type(context, "<error>");
+        }
+    }
+    
+    if (count_auto == item_count) {
+        return context_get_type(context, "<auto>");
+    }
+    
+    if (element_type == NULL) {
+        return context_get_type(context, "<error>");
+    }
+    
+    return (Type*)create_vector_type(context, element_type);
+}
+
 
 //--------------------------------- Funciones para liberar memoria-----------------------------------
 void free_type(Type* type) {
