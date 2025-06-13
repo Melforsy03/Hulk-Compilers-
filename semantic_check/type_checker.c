@@ -9,7 +9,7 @@
 
 
 // Función principal para realizar el type checking
-void type_check_program(Node* ast, Context* context, HulkErrorList* output_errors) {
+void type_check_program(ProgramNode* ast, Context* context, HulkErrorList* output_errors) {
     TypeChecker* tc = create_type_checker(context);
     Scope* global_scope = create_scope(NULL);
     
