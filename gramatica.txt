@@ -1,17 +1,17 @@
 NoTerminals:
 Program Type_function_list Expr_block Expr_list Expr_item_list Expr Or_expr And_expr Aritm_comp 
 Concat Arithmetic Term Pow Factor Conditional Cond_other_case Let_expr Assignment Destr_assig 
-Atom Call_func Member Params Method_signature Inline_form Full_form Func Arguments 
+Atom Call_func Member Params Method_signature Inline_form Func Arguments 
 While_loop For_loop Cast_type Check_type Sign Type_block Type_member_list Type_member_item 
 Type Type_dec Type_inst Protocol_block Method_dec_list Protocol Vector Vector_exp Vector_imp 
-Vector_item_list Index_object Non_empty_expr_list Params_list Arguments_list Signature
+Vector_item_list Index_object Non_empty_expr_list Params_list Arguments_list Signature Sig
  
 Terminals:
-LBRACE  RBRACE SEMICOLON LPAREN RPAREN COMMA : Dot COLON_EQUAL := 
+LBRACE  RBRACE SEMICOLON LPAREN RPAREN COMMA : Dot COLON_EQUAL ASSIGN 
 ARROW LBRACKET RBRACKET || OR AND EQUAL_EQUAL NOT_EQUAL GREATER GREATER_EQUAL 
 LESS LESS_EQUAL NOT ASSIGN AT AT_AT PLUS MINUS STAR SLASH POWER DSTAR MODULO
-IDENTIFIER LET IN function STRING IF EOF NUMBER THEN TRUE FALSE LBRACKET RBRACKET
-ELIF ELSE AS IS WHILE FOR type inherits NEW protocol extends 
+IDENTIFIER LET IN FUNCTION STRING IF EOF NUMBER THEN TRUE FALSE LBRACKET RBRACKET
+ELIF ELSE AS IS WHILE FOR TYPE inherits NEW protocol extends epsilon
 
 StartSymbol:Program
 
@@ -25,13 +25,13 @@ Params -> epsilon
 Params_list -> Params
 Params_list -> Params COMMA Params_list
 Method_signature -> IDENTIFIER LPAREN Params_list RPAREN 
-Inline_form -> Method_signature ARROW Expr SEMICOLON
-Full_form -> Method_signature Expr_block
-Func -> function Full_form
-Func -> function Inline_form
-Type -> type Type_dec Type_block
-Type -> type Type_dec inherits IDENTIFIER Type_block
-Type -> type Type_dec inherits IDENTIFIER LPAREN Arguments_list RPAREN Type_block
+Inline_form -> Method_signature Sig
+Sig -> ARROW Expr SEMICOLON
+Sig -> Expr_block
+Func -> FUNCTION Inline_form
+Type -> TYPE Type_dec Type_block
+Type -> TYPE Type_dec inherits IDENTIFIER Type_block
+Type -> TYPE Type_dec inherits IDENTIFIER LPAREN Arguments_list RPAREN Type_block
 Signature -> LPAREN Params RPAREN
 Signature -> epsilon
 Type_dec -> IDENTIFIER Signature
@@ -39,11 +39,11 @@ Type_block -> LBRACE Type_member_list RBRACE
 Type_member_list -> Type_member_item Type_member_list
 Type_member_list -> epsilon
 Type_member_item -> Inline_form
-Type_member_item -> Full_form
 Type_member_item -> IDENTIFIER ASSIGN Expr SEMICOLON
 Type_member_item -> IDENTIFIER : IDENTIFIER ASSIGN Expr SEMICOLON
 Expr_item_list -> Expr SEMICOLON
 Expr_item_list -> Expr_block
+Expr_item_list -> epsilon
 Expr_block -> LBRACE Non_empty_expr_list RBRACE
 Non_empty_expr_list -> Expr SEMICOLON
 Non_empty_expr_list -> Expr SEMICOLON Non_empty_expr_list
@@ -71,7 +71,6 @@ And_expr -> And_expr AND Check_type
 And_expr -> Check_type
 Check_type -> Aritm_comp
 Check_type -> Check_type IS IDENTIFIER
-Check_type -> Aritm_comp
 Aritm_comp -> Aritm_comp EQUAL_EQUAL Concat
 Aritm_comp -> Aritm_comp NOT_EQUAL Concat
 Aritm_comp -> Aritm_comp GREATER Concat
@@ -92,7 +91,6 @@ Term -> Pow
 Pow -> Sign POWER Pow
 Pow -> Sign DSTAR Pow
 Pow -> Sign
-Sign -> PLUS Factor
 Sign -> MINUS Factor
 Sign -> Factor
 Factor -> NOT Atom
@@ -124,4 +122,3 @@ Vector_item_list -> Expr
 Index_object -> Atom LBRACKET Expr RBRACKET
 Member -> Atom Dot Call_func
 Member -> Atom Dot IDENTIFIER
-Cast_type -> Atom AS IDENTIFIER
