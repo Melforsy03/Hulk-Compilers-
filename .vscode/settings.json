@@ -8,7 +8,9 @@
         "semanticerrors.h": "c",
         "type_builder.h": "c",
         "type_checker.h": "c",
-        "semantic_errors.h": "c"
+        "semantic_errors.h": "c",
+        "lr1_table.h": "c",
+        "grammar.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
