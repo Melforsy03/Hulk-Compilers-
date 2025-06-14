@@ -54,8 +54,8 @@ const char* token_type_to_string(TokenType type) {
         case TOKEN_LESS: return "LESS";
         case TOKEN_GREATER: return "GREATER";
         case TOKEN_NOT: return "NOT";
-
         case TOKEN_DOT: return "DOT";
+        case TOKEN_PUNTOS :return "PUNTOS";
         case TOKEN_LPAREN: return "LPAREN";
         case TOKEN_RPAREN: return "RPAREN";
         case TOKEN_LBRACE: return "LBRACE";
