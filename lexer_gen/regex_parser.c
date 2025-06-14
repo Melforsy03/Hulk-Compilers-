@@ -23,6 +23,18 @@ static char manejar_escape() {
         case 't': ptr++; return '\t';
         case 'r': ptr++; return '\r';
         case '\\': ptr++; return '\\';
+        case '*': ptr++; return '*';
+        case '+': ptr++; return '+';
+        case '|': ptr++; return '|';
+        case '&': ptr++; return '&';
+        case '^': ptr++; return '^';
+        case '(': ptr++; return '(';
+        case ')': ptr++; return ')';
+        case '{': ptr++; return '{';
+        case '}': ptr++; return '}';
+        case '[': ptr++; return '[';
+        case ']': ptr++; return ']';
+        case '"': ptr++; return '"';
         default: return *ptr++;
     }
 }
@@ -109,18 +121,21 @@ static FragmentoNFA clase() {
     FragmentoNFA out;
     int inicializado = 0;
 
-    for (int c = 0; c < 128; c++) {
-        int incluir = (!negada && presentes[c]) || (negada && !presentes[c]);
-        if (incluir) {
-            FragmentoNFA temp = crear_trans((char)c);
-            if (!inicializado) {
-                out = temp;
-                inicializado = 1;
-            } else {
-                out = alternar(out, temp);
-            }
+    for (int c = 1; c < 127; c++) {
+    // Filtrar manualmente los caracteres prohibidos en clase negada
+    if (negada && (c == '"' || c == '\\')) continue;
+
+    int pertenece = presentes[c];
+    if ((negada && !pertenece) || (!negada && pertenece)) {
+        FragmentoNFA temp = crear_trans((char)c);
+        if (!inicializado) {
+            out = temp;
+            inicializado = 1;
+        } else {
+            out = alternar(out, temp);
         }
     }
+}
 
     if (!inicializado) {
         fprintf(stderr, "Error: clase vacía o mal definida\n");
@@ -131,6 +146,12 @@ static FragmentoNFA clase() {
 }
 
 static FragmentoNFA parse_base() {
+    if (*ptr == '\0') {
+        fprintf(stderr, "Error: se esperaba un carácter pero se encontró fin de cadena\n");
+        exit(1);
+    }
+
+    // 1. Manejo de paréntesis para agrupación
     if (*ptr == '(') {
         ptr++;
         FragmentoNFA f = parse_expr();
@@ -140,14 +161,57 @@ static FragmentoNFA parse_base() {
         }
         ptr++;
         return f;
-    } else if (*ptr == '[') {
+    }
+    // 2. Manejo de clases de caracteres [a-z]
+    else if (*ptr == '[') {
         return clase();
-    } else if (*ptr == '\\') {
+    }
+    // 3. Manejo de strings entre comillas
+    else if (*ptr == '"') {
+        ptr++;  // Saltar la comilla inicial
+        EstadoNFA* inicio = nuevo_estado();
+        EstadoNFA* actual = inicio;
+        
+        while (*ptr && *ptr != '"') {
+            if (*ptr == '\\') {
+                // Carácter escapado dentro del string
+                char escaped = manejar_escape();
+                EstadoNFA* next = nuevo_estado();
+                actual->transiciones[(int)escaped] = next;
+                actual = next;
+            } else {
+                // Carácter normal dentro del string
+                EstadoNFA* next = nuevo_estado();
+                actual->transiciones[(int)*ptr] = next;
+                actual = next;
+                ptr++;
+            }
+        }
+        
+        if (*ptr != '"') {
+            fprintf(stderr, "Error: string sin cerrar\n");
+            exit(1);
+        }
+        ptr++;  // Saltar la comilla final
+        
+        return (FragmentoNFA){inicio, actual};
+    }
+    // 4. Manejo de secuencias de escape
+    else if (*ptr == '\\') {
         char escaped = manejar_escape();
         return crear_trans(escaped);
-    } else if (*ptr && !strchr("|)*+?", *ptr)) {
+    }
+    // 5. Manejo de caracteres especiales que no necesitan escape
+    else if (strchr("|*+?.^$", *ptr)) {
+        // Estos caracteres deben escaparse en regex normales, pero aquí los manejamos directamente
         return crear_trans(*ptr++);
-    } else {
+    }
+    // 6. Manejo de caracteres normales (no especiales)
+    else if (*ptr && !strchr("|)*+?", *ptr)) {
+        return crear_trans(*ptr++);
+    }
+    // 7. Error para caracteres inesperados
+    else {
         fprintf(stderr, "Error: carácter inesperado '%c'\n", *ptr);
         exit(1);
     }
