@@ -40,7 +40,8 @@ ASSIGN        =
 LESS          <
 GREATER       >
 NOT           !
-DOT           .             
+DOT           .   
+PUNTOS        :          
 LPAREN        \(             
 RPAREN        \)             
 LBRACE        \{             

@@ -945,7 +945,7 @@ void free_ast(Node* node) {
             free_ast(n->expression);
             break;
         }
-        case NODE_FUNCTION_DEF: {
+        case NODE_FUNCTION_DECLARATION: {
             FunctionDeclarationNode* n = (FunctionDeclarationNode*)node;
             free(n->name);
             // Liberar parámetros

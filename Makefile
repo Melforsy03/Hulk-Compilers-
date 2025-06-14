@@ -96,12 +96,6 @@ else
 	mkdir -p $(BUILD_DIR)
 endif
 
-$(LEXER_OUTPUT_DIR):
-ifeq ($(OS),Windows)
-	if not exist $(LEXER_OUTPUT_DIR) mkdir $(LEXER_OUTPUT_DIR)
-else
-	mkdir -p $(LEXER_OUTPUT_DIR)
-endif
 
 $(HULK_DIR):
 ifeq ($(OS),Windows)

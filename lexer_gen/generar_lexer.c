@@ -80,9 +80,9 @@ void leer_tokens(const char* archivo) {
 }
 
 
-
 void generar_lexer_c() {
-FILE* out = fopen("lexer.c", "w");
+    FILE* out = stdout;
+
     if (!out) { perror("No se pudo crear lexer.c"); exit(1); }
 
     // Cabecera del lexer

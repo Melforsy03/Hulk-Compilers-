@@ -48,6 +48,7 @@ typedef enum {
     TOKEN_NOT,
 
     TOKEN_DOT,
+    TOKEN_PUNTOS,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACE,
