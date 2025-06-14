@@ -1,6 +1,6 @@
-# ========= Configuración =========
+# ========= Configuración general =========
 CC = gcc
-CFLAGS = -Wall -O2 -Ilexer_gen -Iparser -Iast_nodes -Igrammar -Ilexer -Icodigo_generado
+CFLAGS = -Wall -O2 -Ilexer_gen -Iparser -Iast_nodes -Igrammar -Ilexer -Icodigo_generado -Isemantic_check
 
 BUILD_DIR = build
 LEXER_GEN_DIR = lexer_gen
@@ -14,10 +14,11 @@ LEXER_OUTPUT_DIR = lexer
 LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c
 HULK_DIR = hulk
 LLVM_FILE = $(HULK_DIR)/programa.ll
+SEMANTIC_DIR = semantic_check
 
 OS := $(shell uname 2>/dev/null || echo Windows)
 
-# ========= Archivos =========
+# ========= Archivos fuente =========
 LEXER_GEN_SRCS = $(wildcard $(LEXER_GEN_DIR)/*.c)
 LEXER_GEN_OBJS = $(patsubst $(LEXER_GEN_DIR)/%.c, $(BUILD_DIR)/%.o, $(LEXER_GEN_SRCS))
 LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer
@@ -37,26 +38,37 @@ LEXER_OBJS = $(patsubst $(LEXER_DIR)/%.c, $(BUILD_DIR)/lexer_%.o, $(LEXER_SRCS))
 GEN_SRCS = $(wildcard $(GEN_DIR)/*.c)
 GEN_OBJS = $(patsubst $(GEN_DIR)/%.c, $(BUILD_DIR)/gen_%.o, $(GEN_SRCS))
 
+SEMANTIC_SRCS = $(wildcard $(SEMANTIC_DIR)/*.c)
+SEMANTIC_OBJS = $(patsubst $(SEMANTIC_DIR)/%.c, $(BUILD_DIR)/semantic_%.o, $(SEMANTIC_SRCS))
+
 MAIN_SRC = $(SRC_DIR)/main.c
 MAIN_OBJ = $(BUILD_DIR)/main.o
 
-ALL_OBJS = $(PARSER_OBJS) $(AST_OBJS) $(GRAMMAR_OBJS) $(LEXER_OBJS) $(GEN_OBJS) $(MAIN_OBJ)
+ALL_OBJS = $(PARSER_OBJS) $(AST_OBJS) $(GRAMMAR_OBJS) $(LEXER_OBJS) $(GEN_OBJS) $(SEMANTIC_OBJS) $(MAIN_OBJ)
 MAIN_EXEC = $(HULK_DIR)/main
 
-# ========= Targets =========
+# ========= Tareas principales =========
 
 .PHONY: compile
 compile: $(MAIN_EXEC)
+# Compila todo el proyecto y genera el ejecutable principal
 
 .PHONY: lexer
 lexer: $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
 	./$(LEXER_GEN_EXEC) > $(LEXER_FILE)
+# Ejecuta el generador de lexer y guarda su salida en lexer/lexer.c
 
 .PHONY: execute
 execute: $(MAIN_EXEC)
 	./$(MAIN_EXEC)
 	@echo "\n--- Código LLVM generado (programa.ll) ---"
 	@cat $(LLVM_FILE)
+# Ejecuta el programa compilado y muestra el contenido del código LLVM
+
+.PHONY: run
+run: $(MAIN_EXEC)
+	./$(MAIN_EXEC)
+# Ejecuta el programa compilado (más corto que `make execute`, sin imprimir el LLVM)
 
 # ========= Reglas de compilación =========
 
@@ -81,13 +93,16 @@ $(BUILD_DIR)/lexer_%.o: $(LEXER_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/gen_%.o: $(GEN_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/semantic_%.o: $(SEMANTIC_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(MAIN_EXEC): lexer $(ALL_OBJS) | $(HULK_DIR)
 	$(CC) $(CFLAGS) $(ALL_OBJS) -o $@
 
-# ========= Directorios =========
+# ========= Crear directorios si no existen =========
 
 $(BUILD_DIR):
 ifeq ($(OS),Windows)
@@ -96,7 +111,6 @@ else
 	mkdir -p $(BUILD_DIR)
 endif
 
-
 $(HULK_DIR):
 ifeq ($(OS),Windows)
 	if not exist $(HULK_DIR) mkdir $(HULK_DIR)
@@ -104,7 +118,7 @@ else
 	mkdir -p $(HULK_DIR)
 endif
 
-# ========= Limpiar =========
+# ========= Limpieza =========
 
 .PHONY: clean
 clean:
