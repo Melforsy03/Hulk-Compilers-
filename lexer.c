@@ -537,13 +537,12 @@ static EstadoDFA dfa_NUMBER[] = {
 
 static EstadoDFA dfa_STRING[] = {
     { -1, 1, {{1, '"'}}, 0, TOKEN_STRING },
-    { -1, 4, {{2, '"'}, {3, '\\'}, {4, '^'}, {5, 'n'}}, 0, TOKEN_STRING },
-    { 54, 4, {{2, '"'}, {3, '\\'}, {4, '^'}, {5, 'n'}}, 1, TOKEN_STRING },
-    { -1, 4, {{2, '"'}, {3, '\\'}, {4, '^'}, {5, 'n'}}, 0, TOKEN_STRING },
-    { -1, 4, {{2, '"'}, {3, '\\'}, {4, '^'}, {5, 'n'}}, 0, TOKEN_STRING },
-    { -1, 4, {{2, '"'}, {3, '\\'}, {4, '^'}, {5, 'n'}}, 0, TOKEN_STRING },
+    { -1, 2, {{2, '\\'}}, 0, TOKEN_STRING },  
+    { -1, 3, {{3, '"'}}, 0, TOKEN_STRING },  
+    { 1, 1, {}, 0, TOKEN_STRING },            
+    { 1, 1, {}, 0, TOKEN_STRING },            
+    { 0, 0, {}, 1, TOKEN_STRING },
 };
-
 static EstadoDFA dfa_WHITESPACE[] = {
     { -1, 5, {{1, ' '}, {2, '\\'}, {3, 'n'}, {4, 'r'}, {5, 't'}}, 0, TOKEN_WHITESPACE },
     { 55, 5, {{1, ' '}, {2, '\\'}, {3, 'n'}, {4, 'r'}, {5, 't'}}, 1, TOKEN_WHITESPACE },

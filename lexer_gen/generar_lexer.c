@@ -68,7 +68,6 @@ void leer_tokens(const char* archivo) {
             end--;
         }
 
-        printf("→ Guardando: nombre='%s', regex='%s'\n", nombre, regex_inicio);
 
         strncpy(tokens[num_tokens].nombre, nombre, sizeof(tokens[num_tokens].nombre) - 1);
         tokens[num_tokens].regex = strdup(regex_inicio);
@@ -76,7 +75,7 @@ void leer_tokens(const char* archivo) {
     }
 
     fclose(f);
-    printf("--- Fin de lectura ---\n\n");
+ 
 }
 
 

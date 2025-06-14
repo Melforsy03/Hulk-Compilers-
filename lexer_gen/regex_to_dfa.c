@@ -71,52 +71,8 @@ FragmentoNFA parse_literal(const char* regex) {
 }
 
 // ---------- NFA to DFA (simplificado) ---------- //
-
 DFA compilar_regex(char* regex, int token_id) {
-    DFA dfa;
-    memset(&dfa, 0, sizeof(DFA));
-
-    if (regex[0] == '[') {
-        // Clase de caracteres [a-zA-Z_]
-        char buffer[128] = {0};
-        int j = 0;
-        for (int i = 1; regex[i] && regex[i] != ']'; i++) {
-            if (regex[i+1] == '-' && regex[i+2] && regex[i+2] != ']') {
-                for (char c = regex[i]; c <= regex[i+2]; c++)
-                    buffer[j++] = c;
-                i += 2;
-            } else {
-                buffer[j++] = regex[i];
-            }
-        }
-        FragmentoNFA f = clase(buffer);
-        f.fin->es_final = 1;
-        DFA d;
-        d.cantidad_estados = 0;
-        EstadoDFA* s = &d.estados[d.cantidad_estados++];
-        s->id = 0;
-        for (int i = 0; i < j; i++)
-            agregar_transicion(s, buffer[i], 1);
-        EstadoDFA* s1 = &d.estados[d.cantidad_estados++];
-        s1->id = 1;
-        s1->es_final = true;
-        s1->id = token_id;
-        return d;
-    }
-
-    // Fallback: cadena literal
-    int len = strlen(regex);
-    for (int i = 0; i <= len; i++) {
-        dfa.estados[i].id = i;
-        dfa.estados[i].num_transiciones = 0;
-        dfa.estados[i].es_final = false;
-        dfa.estados[i].id = -1;
-        dfa.cantidad_estados++;
-    }
-    for (int i = 0; i < len; i++) {
-        agregar_transicion(&dfa.estados[i], regex[i], i + 1);
-    }
-    dfa.estados[len].es_final = true;
-    dfa.estados[len].id = token_id;
-    return dfa;
+    FragmentoNFA nfa = parse_regex(regex);                // 1) Parseo completo de la regex
+    nfa.fin->es_final = 1;                                // 2) Marco el estado final
+    return convertir_nfa_a_dfa(nfa.inicio, token_id);     // 3) Convierto NFA → DFA
 }

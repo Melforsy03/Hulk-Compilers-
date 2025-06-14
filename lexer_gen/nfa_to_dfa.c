@@ -59,6 +59,8 @@ static void agregar_transicion_dfa(EstadoDFA* estado, char simbolo, int destino)
     estado->num_transiciones++;
 }
 
+
+// --- Funciones corregidas ---
 DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
     DFA dfa;
     dfa.cantidad_estados = 0;
@@ -66,6 +68,7 @@ DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
     ConjuntoEstados conjuntos[MAX_DFA_STATES];
     int num_conjuntos = 0;
 
+    // Estado inicial
     EstadoNFA* iniciales[512];
     int iniciales_count = 0;
     int visitado[1024] = {0};
@@ -80,12 +83,13 @@ DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
     dfa.cantidad_estados = 1;
     dfa.estados[0].num_transiciones = 0;
     dfa.estados[0].es_final = 0;
-    dfa.estados[0].id = -1;
+    dfa.estados[0].tipo = -1;
 
+    // Verificar si es final
     for (int i = 0; i < iniciales_count; i++) {
         if (iniciales[i]->es_final) {
             dfa.estados[0].es_final = 1;
-            dfa.estados[0].id = token_id;
+            dfa.estados[0].tipo = token_id;
             break;
         }
     }
@@ -94,56 +98,55 @@ DFA convertir_nfa_a_dfa(EstadoNFA* inicio_nfa, int token_id) {
     int sin_procesar = 1;
 
     for (int idx = 0; idx < sin_procesar; idx++) {
-        EstadoDFA* estado_actual = &dfa.estados[idx];
-        ConjuntoEstados* conjunto_actual = &conjuntos[idx];
-
         for (char c = 1; c < 127; c++) {
             EstadoNFA* movidos[512];
             int movidos_count = 0;
+            mover(conjuntos[idx].estados, conjuntos[idx].cantidad, c, movidos, &movidos_count);
 
-            mover(conjunto_actual->estados, conjunto_actual->cantidad, c, movidos, &movidos_count);
             if (movidos_count == 0) continue;
 
             EstadoNFA* cerrados[512];
             int cerrados_count = 0;
             int vis[1024] = {0};
-
             for (int i = 0; i < movidos_count; i++) {
                 epsilon_closure(movidos[i], cerrados, &cerrados_count, vis);
             }
 
             int id_existente = buscar_conjunto_existente(conjuntos, num_conjuntos, cerrados, cerrados_count);
-            int id_nuevo;
 
             if (id_existente >= 0) {
-                agregar_transicion_dfa(estado_actual, c, id_existente);
+                agregar_transicion_dfa(&dfa.estados[idx], c, id_existente);
             } else {
-                id_nuevo = num_conjuntos;
-                conjuntos[id_nuevo].estados = malloc(sizeof(EstadoNFA*) * cerrados_count);
-                memcpy(conjuntos[id_nuevo].estados, cerrados, sizeof(EstadoNFA*) * cerrados_count);
-                conjuntos[id_nuevo].cantidad = cerrados_count;
+                conjuntos[num_conjuntos].estados = malloc(sizeof(EstadoNFA*) * cerrados_count);
+                memcpy(conjuntos[num_conjuntos].estados, cerrados, sizeof(EstadoNFA*) * cerrados_count);
+                conjuntos[num_conjuntos].cantidad = cerrados_count;
 
-                EstadoDFA* nuevo_estado = &dfa.estados[dfa.cantidad_estados];
-                nuevo_estado->id = estado_dfa_id_global++;
-                nuevo_estado->num_transiciones = 0;
-                nuevo_estado->es_final = 0;
-                nuevo_estado->id = -1;
+                dfa.estados[num_conjuntos].id = estado_dfa_id_global++;
+                dfa.estados[num_conjuntos].num_transiciones = 0;
+                dfa.estados[num_conjuntos].es_final = 0;
+                dfa.estados[num_conjuntos].tipo = -1;
 
                 for (int i = 0; i < cerrados_count; i++) {
                     if (cerrados[i]->es_final) {
-                        nuevo_estado->es_final = 1;
-                        nuevo_estado->id = token_id;
+                        dfa.estados[num_conjuntos].es_final = 1;
+                        dfa.estados[num_conjuntos].tipo = token_id;
                         break;
                     }
                 }
 
-                agregar_transicion_dfa(estado_actual, c, id_nuevo);
+                agregar_transicion_dfa(&dfa.estados[idx], c, num_conjuntos);
                 dfa.cantidad_estados++;
                 num_conjuntos++;
                 sin_procesar++;
             }
         }
     }
+
+    // Liberar memoria
+    for (int i = 1; i < num_conjuntos; i++) {
+        free(conjuntos[i].estados);
+    }
+    free(conjuntos[0].estados);
 
     return dfa;
 }

@@ -12,7 +12,20 @@ static FragmentoNFA parse_expr();
 static FragmentoNFA parse_term();
 static FragmentoNFA parse_factor();
 static FragmentoNFA parse_base();
-
+static char manejar_escape() {
+    ptr++;
+    if (*ptr == '\0') {
+        fprintf(stderr, "Error: secuencia de escape incompleta\n");
+        exit(1);
+    }
+    switch (*ptr) {
+        case 'n': ptr++; return '\n';
+        case 't': ptr++; return '\t';
+        case 'r': ptr++; return '\r';
+        case '\\': ptr++; return '\\';
+        default: return *ptr++;
+    }
+}
 static FragmentoNFA crear_trans(char c) {
     EstadoNFA* ini = nuevo_estado();
     EstadoNFA* fin = nuevo_estado();
@@ -55,27 +68,65 @@ static FragmentoNFA mas(FragmentoNFA f) {
 }
 
 static FragmentoNFA clase() {
-    char conjunto[128] = {0};
-    int j = 0;
+    char presentes[128] = {0};
+    int negada = 0;
 
-    if (*ptr != '[') { fprintf(stderr, "Error: clase debe comenzar con [\n"); exit(1); }
+    if (*ptr != '[') {
+        fprintf(stderr, "Error: clase debe comenzar con [\n");
+        exit(1);
+    }
     ptr++;
+
+    if (*ptr == '^') {
+        negada = 1;
+        ptr++;
+    }
 
     while (*ptr && *ptr != ']') {
         if (*(ptr+1) == '-' && *(ptr+2) && *(ptr+2) != ']') {
-            for (char c = *ptr; c <= *(ptr+2); c++) conjunto[j++] = c;
+            char inicio = *ptr;
+            char fin = *(ptr+2);
+            if (inicio > fin) {
+                fprintf(stderr, "Error: rango inválido [%c-%c]\n", inicio, fin);
+                exit(1);
+            }
+            for (char c = inicio; c <= fin; c++) {
+                presentes[(unsigned char)c] = 1;
+            }
             ptr += 3;
         } else {
-            conjunto[j++] = *ptr++;
+            char c = *ptr++;
+            presentes[(unsigned char)c] = 1;
         }
     }
-    if (*ptr != ']') { fprintf(stderr, "Error: clase sin cierre ]\n"); exit(1); }
+
+    if (*ptr != ']') {
+        fprintf(stderr, "Error: clase sin cierre ]\n");
+        exit(1);
+    }
     ptr++;
 
-    FragmentoNFA out = crear_trans(conjunto[0]);
-    for (int i = 1; i < j; i++) {
-        out = alternar(out, crear_trans(conjunto[i]));
+    FragmentoNFA out;
+    int inicializado = 0;
+
+    for (int c = 0; c < 128; c++) {
+        int incluir = (!negada && presentes[c]) || (negada && !presentes[c]);
+        if (incluir) {
+            FragmentoNFA temp = crear_trans((char)c);
+            if (!inicializado) {
+                out = temp;
+                inicializado = 1;
+            } else {
+                out = alternar(out, temp);
+            }
+        }
     }
+
+    if (!inicializado) {
+        fprintf(stderr, "Error: clase vacía o mal definida\n");
+        exit(1);
+    }
+
     return out;
 }
 
@@ -83,44 +134,33 @@ static FragmentoNFA parse_base() {
     if (*ptr == '(') {
         ptr++;
         FragmentoNFA f = parse_expr();
-        if (*ptr != ')') { fprintf(stderr, "Error: paréntesis no cerrado\n"); exit(1); }
+        if (*ptr != ')') {
+            fprintf(stderr, "Error: paréntesis no cerrado\n");
+            exit(1);
+        }
         ptr++;
         return f;
     } else if (*ptr == '[') {
         return clase();
     } else if (*ptr == '\\') {
-        ptr++;
-        return crear_trans(*ptr++);
-    } else if (*ptr && strchr("|)*+", *ptr) == NULL) {
+        char escaped = manejar_escape();
+        return crear_trans(escaped);
+    } else if (*ptr && !strchr("|)*+?", *ptr)) {
         return crear_trans(*ptr++);
     } else {
         fprintf(stderr, "Error: carácter inesperado '%c'\n", *ptr);
         exit(1);
     }
 }
-
 static FragmentoNFA parse_factor() {
-    FragmentoNFA frag = parse_base(); 
+    FragmentoNFA frag = parse_base();
     while (*ptr == '*' || *ptr == '+' || *ptr == '?') {
         if (*ptr == '*') {
             ptr++;
-            EstadoNFA* inicio = nuevo_estado();
-            EstadoNFA* fin = nuevo_estado();
-            agregar_epsilon(inicio, frag.inicio);
-            agregar_epsilon(inicio, fin);
-            agregar_epsilon(frag.fin, frag.inicio);
-            agregar_epsilon(frag.fin, fin);
-            frag.inicio = inicio;
-            frag.fin = fin;
+            frag = kleene(frag);
         } else if (*ptr == '+') {
             ptr++;
-            EstadoNFA* inicio = nuevo_estado();
-            EstadoNFA* fin = nuevo_estado();
-            agregar_epsilon(inicio, frag.inicio);
-            agregar_epsilon(frag.fin, frag.inicio);
-            agregar_epsilon(frag.fin, fin);
-            frag.inicio = inicio;
-            frag.fin = fin;
+            frag = mas(frag);
         } else if (*ptr == '?') {
             ptr++;
             EstadoNFA* inicio = nuevo_estado();
@@ -132,29 +172,48 @@ static FragmentoNFA parse_factor() {
             frag.fin = fin;
         }
     }
-    
-    
     return frag;
 }
 
 static FragmentoNFA parse_term() {
-    FragmentoNFA left = parse_factor();
-    while (*ptr && *ptr != '|' && *ptr != ')') {
-        FragmentoNFA right = parse_factor();
-        left = concatenar(left, right);
+    FragmentoNFA frag;
+    int iniciado = 0;
+
+    while (*ptr && *ptr != ')' && *ptr != '|') {
+        FragmentoNFA parte = parse_factor();
+        if (!iniciado) {
+            frag = parte;
+            iniciado = 1;
+        } else {
+            frag = concatenar(frag, parte);
+        }
     }
-    return left;
+
+    if (!iniciado) {
+        // Retornar NFA vacío (cadena vacía)
+        EstadoNFA* i = nuevo_estado();
+        EstadoNFA* f = nuevo_estado();
+        agregar_epsilon(i, f);
+        frag.inicio = i;
+        frag.fin = f;
+    }
+
+    return frag;
 }
 
+
 static FragmentoNFA parse_expr() {
-    FragmentoNFA left = parse_term();
+    FragmentoNFA izquierda = parse_term();
+
     while (*ptr == '|') {
-        ptr++;
-        FragmentoNFA right = parse_term();
-        left = alternar(left, right);
+        ptr++;  // consume '|'
+        FragmentoNFA derecha = parse_term();
+        izquierda = alternar(izquierda, derecha);
     }
-    return left;
+
+    return izquierda;
 }
+
 
 FragmentoNFA parse_regex(const char* regex) {
     ptr = regex;
