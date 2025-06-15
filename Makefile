@@ -99,7 +99,7 @@ $(BUILD_DIR)/semantic_%.o: $(SEMANTIC_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(MAIN_EXEC): lexer $(ALL_OBJS) | $(HULK_DIR)
+$(MAIN_EXEC): $(ALL_OBJS) | $(HULK_DIR)
 	$(CC) $(CFLAGS) $(ALL_OBJS) -o $@
 
 # ========= Crear directorios si no existen =========
@@ -116,6 +116,13 @@ ifeq ($(OS),Windows)
 	if not exist $(HULK_DIR) mkdir $(HULK_DIR)
 else
 	mkdir -p $(HULK_DIR)
+endif
+
+$(LEXER_OUTPUT_DIR):
+ifeq ($(OS),Windows)
+	if not exist $(LEXER_OUTPUT_DIR) mkdir $(LEXER_OUTPUT_DIR)
+else
+	mkdir -p $(LEXER_OUTPUT_DIR)
 endif
 
 # ========= Limpieza =========
