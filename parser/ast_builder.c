@@ -8,9 +8,12 @@
 
 
 Node* build_ast_node(Production* p, Node** children) {
-    Node* node = NULL;
-    int N = p->right_len;
+    printf("llegamos a la funcion build_ast_node");
     
+    Node* node = NULL;
+    printf(p);
+    int N = p->right_len;
+    printf(N);
     // Program
     if (strcmp(p->left->name, "Program") == 0) {
         node = (Node*)ast_make_program(
@@ -23,6 +26,8 @@ Node* build_ast_node(Production* p, Node** children) {
     // Type and Function declarations
     else if (strcmp(p->left->name, "Type_function_list") == 0 && N == 2) {
         // Just pass through the child nodes (handled in Program)
+        printf("entramos al if de type_function_list");
+
         node = children[0];
     }
     else if (strcmp(p->left->name, "Func") == 0) {

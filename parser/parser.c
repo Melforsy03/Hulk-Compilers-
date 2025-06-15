@@ -125,6 +125,8 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
             }
             case ACTION_REDUCE:{
                 Production* p = get_production_by_number(table->grammar, a.value);
+                printf("%s",p->right_len);
+            
                 printf("REDUCE: %s ->", p->left->name);
                 for (int i = 0; i < p->right_len; i++) {
                     printf(" %s", p->right[i]->name);
