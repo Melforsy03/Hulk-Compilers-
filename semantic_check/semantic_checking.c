@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include "../parser/ast_nodes.h"
 #include "semantic_errors.h"
-#include "type_collector.c"
-#include "type_builder.c"
-#include "type_checker.c"
+#include "type_collector.h"
+#include "type_builder.h"
+#include "type_checker.h"
 #include "semantic.h"
+#include "semantic_checking.h"
 
 
 // Función principal para el análisis semántico
@@ -56,7 +57,7 @@ HulkErrorList* semantic_analysis(ProgramNode* ast) {
     return errors;
 }
 
-// Ejemplo de uso desde el main
+/* Ejemplo de uso desde el main
 int main() {
     // Suponiendo que ya tienes el AST del parser
     ProgramNode* ast = NULL; // Esta función sería la del parser
@@ -80,4 +81,4 @@ int main() {
     HulkErrorList_destroy(semantic_errors);
     
     return 0;
-}
+}*/
