@@ -8,12 +8,11 @@
 
 
 Node* build_ast_node(Production* p, Node** children) {
-    printf("llegamos a la funcion build_ast_node");
+    printf("llegamos a la funcion build_ast_node \n");
     
     Node* node = NULL;
-    printf(p);
+    
     int N = p->right_len;
-    printf(N);
     // Program
     if (strcmp(p->left->name, "Program") == 0) {
         node = (Node*)ast_make_program(
@@ -70,8 +69,51 @@ Node* build_ast_node(Production* p, Node** children) {
     }
     // Expressions
     else if (strcmp(p->left->name, "Expr") == 0) {
-        // Just pass through the specific expression type
-        node = children[0];
+        // Crear el símbolo para el nodo
+        Symbol* sym = (Symbol*)malloc(sizeof(Symbol));
+        sym->name = strdup(p->left->name);
+        
+        // Crear el nodo base
+        node = create_node(sym, p->left->name, p->right_len, children);
+        
+        // Determinar el tipo específico de expresión basado en el hijo derecho
+        if (p->right_len > 0) {
+            // Verificar el tipo de expresión que estamos manejando
+            if (strcmp(p->right[0]->name, "Conditional") == 0) {
+                node->tipo = NODE_CONDITIONAL;
+            } 
+            else if (strcmp(p->right[0]->name, "While_loop") == 0) {
+                node->tipo = NODE_WHILE;
+            }
+            else if (strcmp(p->right[0]->name, "For_loop") == 0) {
+                node->tipo = NODE_FOR;
+            }
+            else if (strcmp(p->right[0]->name, "Or_expr") == 0) {
+                node->tipo = NODE_BOOLEAN_BINARY; // O más específico según operador
+            }
+            else if (strcmp(p->right[0]->name, "Let_expr") == 0) {
+                node->tipo = NODE_LET_IN;
+            }
+            else {
+                // Expresión genérica
+                node->tipo = NODE_EXPRESSION_BLOCK;
+            }
+        } else {
+            // Expresión vacía o no reconocida
+            node->tipo = NODE_EXPRESSION_BLOCK;
+        }
+        
+        // Si es una expresión binaria, determinar el operador específico
+        if (node->tipo == NODE_BOOLEAN_BINARY) {
+            if (p->right_len == 3) {
+                node->tipo = NODE_OR;
+            } 
+            else if (p->right_len == 1) {
+                node->tipo = NODE_AND;
+            }
+            // Puedes añadir más operadores aquí según sea necesario
+        }
+        
     }
     else if (strcmp(p->left->name, "Conditional") == 0) {
         ExpressionNode** conditions = malloc(sizeof(ExpressionNode*));
@@ -313,32 +355,65 @@ Node* build_ast_node(Production* p, Node** children) {
             0, 0
         );
     }
-    else if (strcmp(p->left->name, "Assignment") == 0 && (N == 3 || N == 5)) {
-        // Handle variable assignments (including destructuring)
-        if (children[0]->tipo == NODE_VAR) {
-            // Simple assignment
-            node = (Node*)ast_make_var_decl(
-                children[0]->lexeme,
-                (ExpressionNode*)children[2],
-                NULL, // Type annotation if present
-                0, 0
-            );
-        } else {
-            // Destructuring assignment
-            node = (Node*)ast_make_destr(
-                (ExpressionNode*)children[0],
-                (ExpressionNode*)children[2],
-                0, 0
-            );
+    else if (strcmp(p->left->name, "Assignment") == 0) {
+        Symbol* sym = (Symbol*)malloc(sizeof(Symbol));
+        sym->name = strdup(p->left->name);
+
+        // Crear nodo base
+        node = (Node*)create_node(sym, p->left->name, p->right_len, p->right);
+        //node->row ;
+        //node->column = p->left->column;
+
+        // Asignación simple (IDENTIFIER ASSIGN/COLON_EQUAL Expr)
+        if (p->right_len == 3 && 
+            (strcmp(p->right[1]->name, "ASSIGN") == 0 || 
+            strcmp(p->right[1]->name, "COLON_EQUAL") == 0)) {
+            
+            // Crear nodo de declaración de variable
+            VarDeclarationNode* var_node = (VarDeclarationNode*)malloc(sizeof(VarDeclarationNode));
+            var_node->base.base = *node;  // Copiar nodo base
+            var_node->base.base.tipo = NODE_VAR_DECLARATION;
+            var_node->name = strdup(p->right[0]->name);
+            var_node->value = p->right[2];  // ExpressionNode*
+            
+            
+            node = (Node*)var_node;
         }
-        
-        // Handle chained assignments
-        if (N == 5) {
-            Node** assignments = malloc(2 * sizeof(Node*));
-            assignments[0] = node;
-            assignments[1] = children[4];
-            node = create_node(p->left, NULL, 2, assignments);
-            node->tipo = NODE_DESTRUCTURING;
+        // Asignación múltiple (destructuring o encadenada)
+        else if (p->right_len == 5 && strcmp(p->right[3]->name, "COMMA") == 0) {
+            // Crear nodo de destructuración
+            DestrNode* destr_node = (DestrNode*)malloc(sizeof(DestrNode));
+            destr_node->base.base = *node;
+            destr_node->base.base.tipo = NODE_DESTRUCTURING;
+            
+            // Primer elemento (puede ser IDENTIFIER o patrón más complejo)
+            if (p->right[0]->type == TERMINAL && 
+                strcmp(p->right[0]->name, "IDENTIFIER") == 0) {
+                // Es un identificador simple
+                VarNode* var = (VarNode*)malloc(sizeof(VarNode));
+                var->base.base.base.base = *create_node(NULL, p->right[0]->name, 0, children);
+                var->base.base.base.base.tipo = NODE_VAR;
+                destr_node->var = (Node*)var;
+            } else {
+                // Patrón más complejo (delegar a otra función)
+                destr_node->var = children[0];
+            }
+            
+            // Expresión a asignar
+            destr_node->expr = children[2];
+            
+            // Si hay más asignaciones (encadenadas), crear una lista
+            if (children[4] != NULL) {
+                Node** assignments = malloc(2 * sizeof(Node*));
+                assignments[0] = (Node*)destr_node;
+                assignments[1] = children[4];  // Siguiente asignación
+                
+                // Reemplazar el nodo con una lista de asignaciones
+                node = create_node(sym, "destructuring_chain", 2, assignments);
+                node->tipo = NODE_DESTRUCTURING;
+            } else {
+                node = (Node*)destr_node;
+            }
         }
     }
     else if (strcmp(p->left->name, "Destr_assig") == 0) {
@@ -446,7 +521,7 @@ Node* build_ast_node(Production* p, Node** children) {
         }
     }
     // Default case for epsilon productions
-    else if (strcmp(p->right[0]->name, "epsilon") == 0) {
+    else if (strcmp(p->left->name, "epsilon") == 0) {
         node = create_node(p->left, NULL, 0, NULL);
     }
     // extras
@@ -622,8 +697,8 @@ Node* build_ast_node(Production* p, Node** children) {
     }
     // Final fallback for any unhandled cases
     else {
-        node = create_node(p->left, NULL, N, children);
-        printf("Unhandled production: %s -> ...\n", p->left->name);
+        printf("====Unhandled production: %s -> ...====\n", p->left->name);
+        return NULL;
     }
     
     return node;
@@ -1115,6 +1190,8 @@ BooleanBinaryNode* ast_make_boolean_binary(NodeType kind, const char* op, Expres
     n->base.left = left;
     n->base.right = right;
     n->base.operator = op ? strdup(op) : NULL; //puede ser null
+
+    return n;
 }
 
 CheckTypeNode* ast_make_check_type(NodeType kind, ExpressionNode* left, ExpressionNode* right, int row, int col) {
@@ -1142,6 +1219,7 @@ ComparisonBinaryNode* ast_make_comparison_binary(NodeType kind, const char* op, 
     n->base.left = left;
     n->base.right = right;
     n->base.operator = op ? strdup(op) : NULL; //puede ser null
+    return n;
 }
 
 EqualityBinaryNode* ast_make_equality_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col){
@@ -1152,6 +1230,8 @@ EqualityBinaryNode* ast_make_equality_binary(NodeType kind, const char* op, Expr
     n->base.left = left;
     n->base.right = right;
     n->base.operator = op ? strdup(op) : NULL; //puede ser null
+
+    return n;
 }
 
 StringBinaryNode* ast_make_string_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col){
@@ -1162,6 +1242,7 @@ StringBinaryNode* ast_make_string_binary(NodeType kind, const char* op, Expressi
     n->base.left = left;
     n->base.right = right;
     n->base.operator = op ? strdup(op) : NULL; //puede ser null
+    return n;
 }
 
 ArithmeticBinaryNode* ast_make_arithmetic_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col){
@@ -1172,6 +1253,7 @@ ArithmeticBinaryNode* ast_make_arithmetic_binary(NodeType kind, const char* op, 
     n->base.left = left;
     n->base.right = right;
     n->base.operator = op ? strdup(op) : NULL; //puede ser null
+    return n;
 }
 
 ArithmeticUnaryNode* ast_make_arithmetic_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col){
@@ -1181,6 +1263,8 @@ ArithmeticUnaryNode* ast_make_arithmetic_unary(NodeType kind, const char* op, Ex
     n->base.base.base.tipo = kind;
     n->base.operand = operand;
     n->base.operator = op ? strdup(op) : NULL;
+
+    return n;
 }
 
 BooleanUnaryNode* ast_make_boolean_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col){
@@ -1190,6 +1274,8 @@ BooleanUnaryNode* ast_make_boolean_unary(NodeType kind, const char* op, Expressi
     n->base.base.base.tipo = kind;
     n->base.operand = operand;
     n->base.operator = op ? strdup(op) : NULL;
+
+    return n;
 }
 
 

@@ -73,6 +73,7 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
     if (!*acts) return NULL;
 
     while(1){
+        printf("iteracion del while\n");
         int s = stack_top(st);
         if (s < 0 || s >= table->state_count) {
             printf("es aqui 1 %d, este es el s %d este era el table state count", s, table->state_count);
@@ -92,7 +93,6 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
 
         // Verificar límites de la tabla ACTION
         if (tidx >= table->terminal_count) {
-            printf("es aqui 2");
             fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", tidx);
             clear_stack(st);
             free(*acts);
@@ -103,9 +103,12 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
         (*acts)[(*actc)++]=a;
 
         printf("Estado %d, %d, Símbolo '%s':\n ", s, tidx, look->name);
-
+        printf("intento de printear a.action %d \n", a.value);
+        printf("a.action = %d \n", a.action);
         switch(a.action){
+           
             case ACTION_SHIFT:{
+                 printf("Action_shift \n");
                 Node* leaf;
                 if      (strcmp(look->name, "NUMBER") == 0)
                     leaf = (Node*)ast_make_literal(NODE_NUMBER, look->name, 0, 0);
@@ -124,10 +127,12 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
                 break;
             }
             case ACTION_REDUCE:{
+                printf("entro a reduce \n");
                 Production* p = get_production_by_number(table->grammar, a.value);
-                printf("%s",p->right_len);
+                printf("pasamos de get_production_by_number \n");
+                printf("%d \n",p->right_len);
             
-                printf("REDUCE: %s ->", p->left->name);
+                printf("REDUCE: %s -> \n", p->left->name);
                 for (int i = 0; i < p->right_len; i++) {
                     printf(" %s", p->right[i]->name);
                 }
@@ -138,23 +143,28 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
                     children[i] = ast[--top];
 
                 Node* node = build_ast_node(p, children);
-
-                if (!node) {
+                
+              /*  if (!node) {
                     fprintf(stderr, "Error: Failed to build AST node for production %s\n", p->left->name);
                     clear_stack(st);
                     free(*acts);
                     return NULL;
+                }*/
+                if(!node){
+                    printf("no se creo nodo \n");
+                }else{
+                    printf("Created node: %s, type %d, children %d\n", 
+                    p->left->name, node ? node->tipo : -1, N);
+                    ast[top++] = node;
                 }
-
-                printf("Created node: %s, type %d, children %d\n", 
-                p->left->name, node ? node->tipo : -1, N);
-                ast[top++] = node;
+                
 
                 // actualizar pila de estados
                 for (int i = 0; i < N; ++i) stack_pop(&st);
                 int nt  = nonterm_index(table->grammar, p->left);
                 int gto = table->goto_table[stack_top(st)][nt];
                 stack_push(&st, gto);
+                printf("llegamos hasta despues del update");
                 printf("GOTO state %d\n", gto);
                 break;
             }
@@ -199,6 +209,7 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts, 
                     clear_stack(st);
                     free(*acts);
                     return NULL;
+           
         }
     }
 }
