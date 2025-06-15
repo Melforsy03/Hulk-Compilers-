@@ -19,6 +19,12 @@ PRINT         Print
 RANGE         range
 PROTOCOL      protocol 
 EXTENDS       extends
+TAN           tan
+COS           cos
+SIN           sin
+LOG           log
+PI            PI
+COT           cot
 DSTAR         \*\*          
 ARROW         =>
 COLON_EQUAL   :=

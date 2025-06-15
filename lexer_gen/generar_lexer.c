@@ -28,15 +28,14 @@ void leer_tokens(const char* archivo) {
     int linea_num = 0;
     num_tokens = 0;
 
-    printf("\n--- Depuración: Leyendo tokens.def ---\n");
 
     while (fgets(linea, sizeof(linea), f)) {
         linea_num++;
-        printf("Línea %d: %s", linea_num, linea);  // Mostrar la línea original
+         // Mostrar la línea original
 
         // Ignora líneas vacías o comentarios
         if (linea[0] == '#' || linea[0] == '\n' || linea[0] == '\r') {
-            printf("Ignorado (comentario/vacío)\n");
+          
             continue;
         }
 
@@ -45,7 +44,7 @@ void leer_tokens(const char* archivo) {
 
         // Extrae el nombre (primera palabra)
         if (sscanf(linea, "%31s%n", nombre, &offset) != 1) {
-            fprintf(stderr, "❌ Error en línea %d: No se pudo leer el nombre del token\n", linea_num);
+           
             exit(1);
         }
 
@@ -57,7 +56,7 @@ void leer_tokens(const char* archivo) {
 
         // Verifica si la regex está vacía
         if (*regex_inicio == '\0') {
-            fprintf(stderr, "❌ Token '%s' (línea %d): Expresión regular vacía\n", nombre, linea_num);
+   
             exit(1);
         }
 
