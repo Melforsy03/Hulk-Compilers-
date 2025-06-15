@@ -3,7 +3,9 @@
 
 #include "ast_nodes.h"
 #include "../parser/parser.h"   
-#include "../lexer/lexer.h"     
+#include "../lexer/lexer.h"  
+   
+Node* build_ast_node(Production* p, Node** children);
 
 // Nodos principales
 ProgramNode* ast_make_program(DeclarationNode** decls, int decl_count, ExpressionNode* expr, int row, int col);
@@ -36,15 +38,15 @@ UnaryNode* ast_make_unary(NodeType kind, char* op, ExpressionNode* operand, int 
 LetInNode* ast_make_let_in(VarDeclarationNode** declarations, int decl_count, ExpressionNode* body, int row, int col);
 
 // Operadores binarios específicos
-BooleanBinaryNode* ast_make_boolean_binary(NodeType kind, char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
-ComparisonBinaryNode* ast_make_comparison_binary(NodeType kind, char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
-EqualityBinaryNode* ast_make_equality_binary(NodeType kind, char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
-StringBinaryNode* ast_make_string_binary(NodeType kind, char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
-ArithmeticBinaryNode* ast_make_arithmetic_binary(NodeType kind, char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
-
+BooleanBinaryNode* ast_make_boolean_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
+ComparisonBinaryNode* ast_make_comparison_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
+EqualityBinaryNode* ast_make_equality_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
+StringBinaryNode* ast_make_string_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
+ArithmeticBinaryNode* ast_make_arithmetic_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
+CheckTypeNode* ast_make_check_type(NodeType kind, ExpressionNode* left, ExpressionNode* right, int row, int col);
 // Operadores unarios específicos
-ArithmeticUnaryNode* ast_make_arithmetic_unary(NodeType kind, char* op, ExpressionNode* operand, int row, int col);
-BooleanUnaryNode* ast_make_boolean_unary(NodeType kind, char* op, ExpressionNode* operand, int row, int col);
+ArithmeticUnaryNode* ast_make_arithmetic_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col);
+BooleanUnaryNode* ast_make_boolean_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col);
 
 // Nodos atómicos
 LiteralNode* ast_make_literal(NodeType lit_kind, const char* lexeme, int row, int col);

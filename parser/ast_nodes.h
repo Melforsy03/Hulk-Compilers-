@@ -4,6 +4,11 @@
 
 #include "../grammar/symbol.h"  
 #include "../semantic_check/semantic.h"
+Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);
+static void _print(Node* node,int depth);
+static void _free(Node* node);
+void print_ast_root(Node* root);
+
 typedef enum {
     // Nodo raíz
     NODE_PROGRAM,        // Programa completo (declaraciones + expresión principal)

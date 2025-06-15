@@ -10,7 +10,8 @@
         "type_checker.h": "c",
         "semantic_errors.h": "c",
         "lr1_table.h": "c",
-        "grammar.h": "c"
+        "grammar.h": "c",
+        "ast_builder.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
