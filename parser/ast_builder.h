@@ -25,6 +25,9 @@ TypeDeclarationNode* ast_make_type(const char* name, DeclarationNode** params, i
 TypeAttributeNode* ast_make_type_attribute(const char* name, ExpressionNode* value, const char* type, int row, int col);
 ProtocolDeclarationNode* ast_make_protocol(const char* name, MethodSignatureNode** methods, 
                                          int method_count, const char* parent, int row, int col);
+TypeConstructorSignatureNode* ast_make_type_constructor_signature(const char* name, 
+    DeclarationNode** params, int param_count, int row, int col);
+
 
 // Expresiones
 ConditionalNode* ast_make_conditional(ExpressionNode** conditions, ExpressionNode** expressions, 

@@ -444,6 +444,177 @@ Node* build_ast_node(Production* p, Node** children) {
     else if (strcmp(p->right[0]->name, "epsilon") == 0) {
         node = create_node(p->left, NULL, 0, NULL);
     }
+    // extras
+    else if (strcmp(p->left->name, "Non_empty_expr_list") == 0) {
+        if (N == 2) {
+        // Single expression
+        node = (Node*)ast_make_expression_block(
+            (ExpressionNode**)children[0],
+            1,
+            0, 0
+        );
+        } else {
+            // Multiple expressions
+            int expr_count = 1 + children[1]->child_count;
+            ExpressionNode** exprs = malloc(expr_count * sizeof(ExpressionNode*));
+            exprs[0] = (ExpressionNode*)children[0];
+            for (int i = 0; i < children[1]->child_count; i++) {
+                exprs[i+1] = (ExpressionNode*)children[1]->children[i];
+            }
+            node = (Node*)ast_make_expression_block(exprs, expr_count, 0, 0);
+        }
+    }
+    else if (strcmp(p->left->name, "Expr_list") == 0) {
+        node = children[0]; // Pasa a través de Non_empty_expr_list o epsilon
+    }
+    else if (strcmp(p->left->name, "Expr_item_list") == 0) {
+        if (N == 2) {
+            // Single expression with semicolon
+            node = children[0];
+        } else {
+            // Expression block
+            node = children[0];
+        }
+    }
+    else if (strcmp(p->left->name, "Type_member_list") == 0) {
+        if (N == 2) {
+            // Combine members
+            int member_count = children[0]->child_count + children[1]->child_count;
+            Node** members = malloc(member_count * sizeof(Node*));
+            for (int i = 0; i < children[0]->child_count; i++) {
+                members[i] = children[0]->children[i];
+            }
+            for (int i = 0; i < children[1]->child_count; i++) {
+                members[children[0]->child_count + i] = children[1]->children[i];
+            }
+            node = create_node(p->left, NULL, member_count, members);
+        } else {
+            // Empty member list
+            node = create_node(p->left, NULL, 0, NULL);
+        }
+    }
+    else if (strcmp(p->left->name, "Type_dec") == 0) {
+        // Type_dec -> IDENTIFIER Signature
+        node = (Node*)ast_make_type_constructor_signature(
+            children[0]->lexeme,
+            (DeclarationNode**)children[1],
+            children[1] ? children[1]->child_count : 0,
+            0, 0
+        );
+    }
+    else if (strcmp(p->left->name, "Arguments_list") == 0) {
+        if (N == 1) {
+            node = children[0];
+        } else {
+            // Combine arguments
+            int arg_count = children[0]->child_count + children[2]->child_count;
+            Node** args = malloc(arg_count * sizeof(Node*));
+            for (int i = 0; i < children[0]->child_count; i++) {
+                args[i] = children[0]->children[i];
+            }
+            for (int i = 0; i < children[2]->child_count; i++) {
+                args[children[0]->child_count + i] = children[2]->children[i];
+            }
+            node = create_node(p->left, NULL, arg_count, args);
+        }
+    }
+    else if (strcmp(p->left->name, "Signature") == 0) {
+        if (N == 3) {
+            // LPAREN Params RPAREN
+            node = children[1];
+        } else {
+            // epsilon
+            node = create_node(p->left, NULL, 0, NULL);
+        }
+    }
+    else if (strcmp(p->left->name, "Params") == 0) {
+        if (N == 1) {
+            // Single parameter
+            node = (Node*)ast_make_var_decl(
+                children[0]->lexeme,
+                NULL, // No initial value
+                NULL, // No type annotation
+                0, 0
+            );
+        } else {
+            // epsilon
+            node = create_node(p->left, NULL, 0, NULL);
+        }
+    }
+    else if (strcmp(p->left->name, "Method_dec_list") == 0) {
+        // Similar to Type_member_list but for protocol methods
+        if (N == 2) {
+            int method_count = children[0]->child_count + children[1]->child_count;
+            Node** methods = malloc(method_count * sizeof(Node*));
+            for (int i = 0; i < children[0]->child_count; i++) {
+                methods[i] = children[0]->children[i];
+            }
+            for (int i = 0; i < children[1]->child_count; i++) {
+                methods[children[0]->child_count + i] = children[1]->children[i];
+            }
+            node = create_node(p->left, NULL, method_count, methods);
+        } else {
+            node = create_node(p->left, NULL, 0, NULL);
+        }
+    }
+    else if (strcmp(p->left->name, "Cond_other_case") == 0) {
+        if (N == 5) {  // ELIF LPAREN Expr RPAREN THEN Expr Cond_other_case
+        ConditionalNode* cond = (ConditionalNode*)node; // Asumiendo que el nodo padre es un ConditionalNode
+        // Expandir los arrays de condiciones y expresiones
+        ExpressionNode** new_conditions = realloc(cond->conditions, (cond->condition_counter + 1) * sizeof(ExpressionNode*));
+        ExpressionNode** new_exprs = realloc(cond->expressions, (cond->expression_counter + 1) * sizeof(ExpressionNode*));
+        
+        new_conditions[cond->condition_counter] = (ExpressionNode*)children[2];
+        new_exprs[cond->expression_counter] = (ExpressionNode*)children[5];
+        
+        cond->conditions = new_conditions;
+        cond->expressions = new_exprs;
+        cond->condition_counter++;
+        cond->expression_counter++;
+        
+        // Manejar el caso restante (puede ser otro ELIF o ELSE)
+        node = (Node*)children[6];
+        } 
+        else if (N == 2) {  // ELSE Expr
+            ConditionalNode* cond = (ConditionalNode*)node;
+            cond->default_expre = (ExpressionNode*)children[1];
+            node = (Node*)cond;
+        }
+    }
+    else if (strcmp(p->left->name, "Arguments") == 0) {
+        if (N == 3) {  // Expr COMMA Arguments
+            int arg_count = 1 + children[2]->child_count;
+            ExpressionNode** args = malloc(arg_count * sizeof(ExpressionNode*));
+            args[0] = (ExpressionNode*)children[0];
+            for (int i = 0; i < children[2]->child_count; i++) {
+                args[i + 1] = (ExpressionNode*)children[2]->children[i];
+            }
+            node = create_node(p->left, NULL, arg_count, (Node**)args);
+        } 
+        else {  // Expr
+            node = children[0];
+        }
+    }
+    else if (strcmp(p->left->name, "Protocol") == 0) {
+        if (N == 3) {  // PROTOCOL IDENTIFIER Protocol_block
+            node = (Node*)ast_make_protocol(
+                children[1]->lexeme,
+                (MethodSignatureNode**)children[2],
+                children[2] ? children[2]->child_count : 0,
+                NULL,  // No parent protocol
+                0, 0
+            );
+        }
+        else if (N == 5) {  // PROTOCOL IDENTIFIER EXTENDS IDENTIFIER Protocol_block
+            node = (Node*)ast_make_protocol(
+                children[1]->lexeme,
+                (MethodSignatureNode**)children[4],
+                children[4] ? children[4]->child_count : 0,
+                children[3]->lexeme,  // Parent protocol
+                0, 0
+            );
+        }
+    }
     // Final fallback for any unhandled cases
     else {
         node = create_node(p->left, NULL, N, children);
@@ -471,7 +642,26 @@ ProgramNode* ast_make_program(DeclarationNode** decls, int decl_count, Expressio
     return n;
 }
 
-
+TypeConstructorSignatureNode* ast_make_type_constructor_signature(const char* name, 
+    DeclarationNode** params, int param_count, int row, int col) {
+    TypeConstructorSignatureNode* n = malloc(sizeof *n);
+    n->base.base.row = row;
+    n->base.base.column = col;
+    n->base.base.tipo = NODE_TYPE_CONSTRUCTOR_SIGNATURE;
+    n->base.base.lexeme = strdup(name);
+    
+    n->name = strdup(name);
+    DeclarationNode** list = malloc((param_count + 1) * sizeof *list);
+    for (int i = 0; i < param_count; ++i) {
+        list[i] = params[i];
+    }
+    list[param_count] = NULL;
+    
+    n->params = list;
+    n->param_counter = param_count;
+    
+    return n;
+}
 FunctionDeclarationNode* ast_make_function(const char* name, DeclarationNode** params, int param_count, ExpressionNode* body, const char* returnType, int row, int col)
 {
     FunctionDeclarationNode* n = malloc(sizeof *n);
