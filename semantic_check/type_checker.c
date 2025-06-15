@@ -2,71 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "type_checker.h"
 #include "semantic_errors.h"
 #include "semantic.h"
 #include "../parser/ast_nodes.h"
 
-// Estructura del Type Checker
-typedef struct TypeChecker {
-    Context* context;
-    Type* current_type;
-    Method* current_method;
-    HulkErrorList* errors;
-} TypeChecker;
-
-void type_check_program(ProgramNode* ast, Context* context, HulkErrorList* output_errors);
-// Funciones auxiliares
-TypeChecker* create_type_checker(Context* context);
-void add_error(TypeChecker* tc, const char* message, int row, int column);
-bool is_error_type(Type* type);
-bool is_auto_type(Type* type);
-Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int col);
-bool conforms_to(Type* type, Type* other);
-
-// Funciones visitantes para cada tipo de nodo
-void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope); // OK
-//Declarations
-void* visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* scope); // OK
-void* visit_type_attribute(TypeChecker* tc, TypeAttributeNode* node, Scope* scope); //OK
-void* visit_method_declaration(TypeChecker* tc, MethodDeclarationNode* node, Scope* scope); // OK
-void* visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node, Scope* scope); // OK
-void* visit_var_declaration(TypeChecker* tc, VarDeclarationNode* node, Scope* scope); //OK
-//Expressions
-void* visit_conditional(TypeChecker* tc, ConditionalNode* node, Scope* scope); //OK
-void* visit_let_in(TypeChecker* tc, LetInNode* node, Scope* scope);//OK
-void* visit_while(TypeChecker* tc, WhileNode* node, Scope* scope);//Ok
-void* visit_for(TypeChecker* tc, ForNode* node, Scope* scope);//Ok
-void* visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope);//ok
-//Binary
-void* visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope);//ok
-void* visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope);//ok
-void* visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope);//ok
-void* visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scope); //Ok
-void* visit_check_type(TypeChecker* tc, CheckTypeNode* node, Scope* scope);//ok
-void* visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope);//ok
-
-//Atomic
-void* visit_expression_block(TypeChecker* tc, ExpressionBlockNode* node, Scope* scope);//ok
-void* visit_call_func(TypeChecker* tc, CallFuncNode* node, Scope* scope);//ok
-void* visit_type_instantiation(TypeChecker* tc, TypeInstantiationNode* node, Scope* scope); //ok
-void* visit_explicit_vector(TypeChecker* tc, ExplicitVectorNode* node, Scope* scope);//ok
-void* visit_implicit_vector(TypeChecker* tc, ImplicitVectorNode* node, Scope* scope);//ok
-void* visit_index_object(TypeChecker* tc, IndexObjectNode* node, Scope* scope);//ok
-void* visit_call_method(TypeChecker* tc, CallMethodNode* node, Scope* scope);//ok
-void* visit_call_type_attribute(TypeChecker* tc, CallTypeAttributeNode* node, Scope* scope);//ok
-void* visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope);//ok
-
-//Unary
-void* visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope); //ok
-void* visit_boolean_unary(TypeChecker* tc, BooleanUnaryNode* node, Scope* scope);//ok
-//Literals
-Type* visit_boolean_node(TypeChecker* tc, BooleanNode* node, Scope* scope);
-Type* visit_string_node(TypeChecker* tc, StringNode* node, Scope* scope);
-Type* visit_number_node(TypeChecker* tc, NumberNode* node, Scope* scope);
-Type* visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope);
-
-//================Dispatcher================================
-Type* visit(TypeChecker* tc, Node* node, Scope* scope); //OK
 
 // Implementación de funciones auxiliares
 // Función principal para realizar el type checking
@@ -196,6 +136,7 @@ void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
                 break;
         }
     }
+    return tc->current_type;
 }
  
 
@@ -237,7 +178,7 @@ void* visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* 
                 Node** args = (Node**)node->parent_args;
                 for (int i = 0; i < node->parent_args_count; i++) {
                     // Type check each argument
-                    Type* arg_type = visit(tc, args[i], scope);
+                    Type* arg_type = tc_visit(tc, args[i], scope);
                     assign_type(tc, tc->current_type->parent->param_types[i], arg_type, 
                                 node->base.base.row, node->base.base.column);
                 }
@@ -263,6 +204,8 @@ void* visit_type_declaration(TypeChecker* tc, TypeDeclarationNode* node, Scope* 
 
         }
     }
+
+    return tc->current_type;
 }
 
 void* visit_type_attribute(TypeChecker* tc, TypeAttributeNode* node, Scope* scope) {
@@ -273,7 +216,7 @@ void* visit_type_attribute(TypeChecker* tc, TypeAttributeNode* node, Scope* scop
     if (is_error_type((Type*)attribute)) return context_get_type(tc->context, "<error>");;
     
     // Check attribute value
-    Type* expr_type = visit(tc, (Node*)node->value, scope);
+    Type* expr_type = tc_visit(tc, (Node*)node->value, scope);
     Type* var_type = assign_type(tc, attribute->type, expr_type, node->base.base.row, node->base.base.column);
     attribute->type = var_type;
 
@@ -304,12 +247,12 @@ void* visit_method_declaration(TypeChecker* tc, MethodDeclarationNode* node, Sco
     }
     
     //Check return type
-    Type* expr_type = visit(tc, (Node*)node->body, scope);
+    Type* expr_type = tc_visit(tc, (Node*)node->body, scope);
     Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
                                     node->base.base.row, node->base.base.column);
     tc->current_method->inferred_return_type = return_type;
 
-    context_get_type(tc->context, "<error>");
+    return context_get_type(tc->context, "<error>");
 }
 
 void* visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node, Scope* scope) {
@@ -336,7 +279,7 @@ void* visit_function_declaration(TypeChecker* tc, FunctionDeclarationNode* node,
     }
     
     //Check return type
-    Type* expr_type = visit(tc, node->body, scope);
+    Type* expr_type = tc_visit(tc, node->body, scope);
     Type* return_type = assign_type(tc, tc->current_method->return_type, expr_type, 
                                     node->base.base.row, node->base.base.column);
     tc->current_method->inferred_return_type = return_type;
@@ -367,7 +310,7 @@ void* visit_var_declaration(TypeChecker* tc, VarDeclarationNode* node, Scope* sc
     }
     
     // Check variable value
-    Type* expr_type = visit(tc, (Node*)node->value, scope);
+    Type* expr_type = tc_visit(tc, (Node*)node->value, scope);
     var_type = assign_type(tc, var_type, expr_type, node->base.base.row, node->base.base.column);
     scope_define_variable(scope, node->name, var_type, false);
     
@@ -388,25 +331,25 @@ void* visit_conditional(TypeChecker* tc, ConditionalNode* node, Scope* scope) {
     Node** expressions = (Node**)node->expressions;
 
     for (int i = 0; i < node->condition_counter; i++) {
-        Type* cond_type = visit(tc, conditions[i], scope);
+        Type* cond_type = tc_visit(tc, conditions[i], scope);
         if (!is_error_type(cond_type) && !is_auto_type(cond_type) && 
             strcmp(cond_type->name, "Boolean") != 0) {
             char* error_msg = format_string(HULK_SEM_INCOMPATIBLE_TYPES, cond_type->name, "Boolean");
             add_error(tc, error_msg, node->base.base.row, node->base.base.column);
             free(error_msg);
         }
-        types[i] = visit(tc, expressions[i], scope);
+        types[i] = tc_visit(tc, expressions[i], scope);
         // Special case for 'true' condition
         if (conditions[i]->tipo == NODE_BOOLEAN && 
             strcmp(((BooleanNode*)conditions[i])->base.lex, "true") == 0) {
-            Type* result = visit(tc, expressions[i], scope);
+            Type* result = tc_visit(tc, expressions[i], scope);
             free(types);
             return result;
         }
     }
     
     // Check default expression
-    default_type = visit(tc, (Node*)node->default_expre, scope);
+    default_type = tc_visit(tc, (Node*)node->default_expre, scope);
     types[node->condition_counter] = default_type;
     
     // Get lowest common ancestor
@@ -427,14 +370,14 @@ void* visit_let_in(TypeChecker* tc, LetInNode* node, Scope* scope) {
     }
     
     // Check body expression
-    return visit(tc, (Node*)node->body, current_scope);
+    return tc_visit(tc, (Node*)node->body, current_scope);
 }
 
 void* visit_while(TypeChecker* tc, WhileNode* node, Scope* scope) {
     node->base.base.scope = scope;
     
     // Check condition
-    Type* cond_type = visit(tc, (Node*)node->condition, scope);
+    Type* cond_type = tc_visit(tc, (Node*)node->condition, scope);
     if (!is_error_type(cond_type) && !is_auto_type(cond_type) && 
         strcmp(cond_type->name, "Boolean") != 0) {
         char* error_msg = format_string(HULK_SEM_INCOMPATIBLE_TYPES, cond_type->name, "Boolean");
@@ -443,14 +386,14 @@ void* visit_while(TypeChecker* tc, WhileNode* node, Scope* scope) {
     }
     
     // Check body
-    return visit(tc, (Node*)node->body, scope);
+    return tc_visit(tc, (Node*)node->body, scope);
 }
 
 void* visit_for(TypeChecker* tc, ForNode* node, Scope* scope) {
     node->base.base.scope = create_scope(scope);
     
     // Check iterable
-    Type* iterable_type = visit(tc, (Node*)node->iterable, node->base.base.scope);
+    Type* iterable_type = tc_visit(tc, (Node*)node->iterable, node->base.base.scope);
     Protocol* iterable_protocol = context_get_protocol(tc->context, "Iterable");
     
     if (!is_error_type(iterable_type) && !is_auto_type(iterable_type)) {
@@ -471,17 +414,17 @@ void* visit_for(TypeChecker* tc, ForNode* node, Scope* scope) {
     }
     
     // Check body
-    return visit(tc, (Node*)node->body, node->base.base.scope);
+    return tc_visit(tc, (Node*)node->body, node->base.base.scope);
 }
 
 void* visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope) {
     node->base.base.scope = scope;
     
     // Check variable
-    Type* var_type = visit(tc, (Node*)node->var, scope);
+    Type* var_type = tc_visit(tc, (Node*)node->var, scope);
     
     // Check expression
-    Type* expr_type = visit(tc, (Node*)node->expr, scope);
+    Type* expr_type = tc_visit(tc, (Node*)node->expr, scope);
     
     // Special case for 'self'
     if (tc->current_type != NULL && tc->current_method != NULL && 
@@ -506,8 +449,8 @@ void* visit_destr(TypeChecker* tc, DestrNode* node, Scope* scope) {
 
 void* visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* left_type = visit(tc, (Node*)node->base.left, scope);
-    Type* right_type = visit(tc, (Node*)node->base.right, scope);
+    Type* left_type = tc_visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = tc_visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
         return context_get_type(tc->context, "Boolean");
@@ -532,8 +475,8 @@ void* visit_equality_binary(TypeChecker* tc, EqualityBinaryNode* node, Scope* sc
 
 void* visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* left_type = visit(tc, (Node*)node->base.left, scope);
-    Type* right_type = visit(tc, (Node*)node->base.right, scope);
+    Type* left_type = tc_visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = tc_visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
         return context_get_type(tc->context, "Boolean");
@@ -559,8 +502,8 @@ void* visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope
 
 void* visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* left_type = visit(tc, (Node*)node->base.left, scope);
-    Type* right_type = visit(tc, (Node*)node->base.right, scope);
+    Type* left_type = tc_visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = tc_visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
         return context_get_type(tc->context, "Number");
@@ -579,8 +522,8 @@ void* visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope
 
 void* visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* left_type = visit(tc, (Node*)node->base.left, scope);
-    Type* right_type = visit(tc, (Node*)node->base.right, scope);
+    Type* left_type = tc_visit(tc, (Node*)node->base.left, scope);
+    Type* right_type = tc_visit(tc, (Node*)node->base.right, scope);
     
     if (is_error_type(left_type) || is_error_type(right_type)) {
         return context_get_type(tc->context, "Boolean");
@@ -599,7 +542,7 @@ void* visit_boolean_binary(TypeChecker* tc, BooleanBinaryNode* node, Scope* scop
 
 void* visit_check_type(TypeChecker* tc, CheckTypeNode* node, Scope* scope) {
     node->base.base.scope = scope;
-    Type* left_type = visit(tc, (Node*)node->left, scope);
+    Type* left_type = tc_visit(tc, (Node*)node->left, scope);
     
     if (is_error_type(left_type)) {
         return context_get_type(tc->context, "Boolean");
@@ -621,8 +564,8 @@ void* visit_string_binary(TypeChecker* tc, StringBinaryNode* node, Scope* scope)
     node->base.base.base.scope = scope;
     Node* left = (Node*)node->base.left;
     Node* right = (Node*)node->base.right;
-    Type* left_type = visit(tc, left, scope);
-    Type* right_type = visit(tc, right, scope);
+    Type* left_type = tc_visit(tc, left, scope);
+    Type* right_type = tc_visit(tc, right, scope);
     
     // Check if types are valid for string operations
     bool left_valid = strcmp(left_type->name, "String") == 0 || 
@@ -654,7 +597,7 @@ void* visit_expression_block(TypeChecker* tc, ExpressionBlockNode* node, Scope* 
     
     Node** expressions = (Node**)node->expressions;
     for (int i = 0; i < node->expression_counter; i++) {
-        last_type = visit(tc, expressions[i], node->base.base.base.scope);
+        last_type = tc_visit(tc, expressions[i], node->base.base.base.scope);
     }
     
     return last_type ? last_type : context_get_type(tc->context, "<error>");
@@ -695,7 +638,7 @@ void* visit_call_func(TypeChecker* tc, CallFuncNode* node, Scope* scope) {
     // Check argument types
     Node** arguments = (Node**)node->arguments;
     for (int i = 0; i < node->arguments_counter; i++) {
-        Type* arg_type = visit(tc, arguments[i], scope);
+        Type* arg_type = tc_visit(tc, arguments[i], scope);
         Type* param_type = function->param_types[i];
         
         if (!is_error_type(arg_type) && !is_error_type(param_type)) {
@@ -712,7 +655,7 @@ void* visit_call_func(TypeChecker* tc, CallFuncNode* node, Scope* scope) {
     // Special case for print function
     if (strcmp(node->name, "print") == 0 && node->arguments_counter > 0) {
         Node** arguments = (Node**)node->arguments;
-        return visit(tc, arguments[0], scope);
+        return tc_visit(tc, arguments[0], scope);
     }
     
     return function->inferred_return_type;
@@ -742,7 +685,7 @@ void* visit_type_instantiation(TypeChecker* tc, TypeInstantiationNode* node, Sco
     // Check argument types
     Node** arguments = (Node**)node->arguments;
     for (int i = 0; i < node->arguments_counter; i++) {
-        Type* arg_type = visit(tc, (Node*)arguments[i], scope);
+        Type* arg_type = tc_visit(tc, (Node*)arguments[i], scope);
         Type* param_type = type->param_types[i];
         
         if (!is_error_type(arg_type)) {
@@ -770,7 +713,7 @@ void* visit_explicit_vector(TypeChecker* tc, ExplicitVectorNode* node, Scope* sc
     Type** item_types = (Type**)malloc(sizeof(Type*) * node->item_counter);
     Node** items = (Node**)node->items;
     for (int i = 0; i < node->item_counter; i++) {
-        item_types[i] = visit(tc, items[i], scope);
+        item_types[i] = tc_visit(tc, items[i], scope);
     }
     
     Type* common_type = get_vector_type(tc->context, item_types, node->item_counter);
@@ -789,7 +732,7 @@ void* visit_implicit_vector(TypeChecker* tc, ImplicitVectorNode* node, Scope* sc
     // Check iterable
     Node* item = (Node*)node->item;
     Node* iterable = (Node*)node->iterable;
-    Type* iterable_type = visit(tc, iterable, node->base.base.base.scope);
+    Type* iterable_type = tc_visit(tc, iterable, node->base.base.base.scope);
     Protocol* iterable_protocol = context_get_protocol(tc->context, "Iterable");
     
     if (!is_error_type(iterable_type) && !is_auto_type(iterable_type)) {
@@ -809,7 +752,7 @@ void* visit_implicit_vector(TypeChecker* tc, ImplicitVectorNode* node, Scope* sc
     }
     
     // Check expression
-    Type* expr_type = visit(tc, (Node*)node->expr, node->base.base.base.scope);
+    Type* expr_type = tc_visit(tc, (Node*)node->expr, node->base.base.base.scope);
     return create_vector_type(tc->context, expr_type);
 }
 
@@ -817,7 +760,7 @@ void* visit_index_object(TypeChecker* tc, IndexObjectNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
     
     // Check index
-    Type* pos_type = visit(tc, (Node*)node->pos, scope);
+    Type* pos_type = tc_visit(tc, (Node*)node->pos, scope);
     if (!is_error_type(pos_type) && !is_auto_type(pos_type) && 
         strcmp(pos_type->name, "Number") != 0) {
         char* error_msg = format_string(HULK_SEM_INVALID_INDEXING_OPERATION, pos_type->name);
@@ -826,7 +769,7 @@ void* visit_index_object(TypeChecker* tc, IndexObjectNode* node, Scope* scope) {
     }
     
     // Check object
-    Type* object_type = visit(tc, (Node*)node->object, scope);
+    Type* object_type = tc_visit(tc, (Node*)node->object, scope);
     if (is_error_type(object_type)) {
         return context_get_type(tc->context, "<error>");
     }
@@ -847,7 +790,7 @@ void* visit_call_method(TypeChecker* tc, CallMethodNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
     
     // Check instance
-    Type* owner_type = visit(tc, (Node*)node->inst, scope);//REVISAR LUEGO
+    Type* owner_type = tc_visit(tc, (Node*)node->inst, scope);//REVISAR LUEGO
     if (is_error_type(owner_type)) {
         return context_get_type(tc->context, "<error>");
     }
@@ -873,7 +816,7 @@ void* visit_call_method(TypeChecker* tc, CallMethodNode* node, Scope* scope) {
     // Check argument types
     Node** methods_args = (Node**)node->method_args;
     for (int i = 0; i < node->method_args_counter; i++) {
-        Type* arg_type = visit(tc, methods_args[i], scope);
+        Type* arg_type = tc_visit(tc, methods_args[i], scope);
         Type* param_type = method->param_types[i];
         
         if (!is_error_type(arg_type)) {
@@ -894,7 +837,7 @@ void* visit_call_type_attribute(TypeChecker* tc, CallTypeAttributeNode* node, Sc
     node->base.base.base.scope = scope;
     
     // Check instance
-    Type* owner_type = visit(tc, (Node*)node->inst, scope); //revisar luego!!
+    Type* owner_type = tc_visit(tc, (Node*)node->inst, scope); //revisar luego!!
     if (is_error_type(owner_type)) {
         return context_get_type(tc->context, "<error>");
     }
@@ -923,7 +866,7 @@ void* visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
     
     // Check instance
-    Type* inst_type = visit(tc, (Node*)node->inst, scope);
+    Type* inst_type = tc_visit(tc, (Node*)node->inst, scope);
     if (is_error_type(inst_type)) {
         return context_get_type(tc->context, "<error>");
     }
@@ -951,7 +894,7 @@ void* visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope) {
 
 void* visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* operand_type = visit(tc, (Node*)node->base.operand, scope);
+    Type* operand_type = tc_visit(tc, (Node*)node->base.operand, scope);
     
     if (is_error_type(operand_type)) {
         return context_get_type(tc->context, "Number");
@@ -968,7 +911,7 @@ void* visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* 
 
 void* visit_boolean_unary(TypeChecker* tc, BooleanUnaryNode* node, Scope* scope) {
     node->base.base.base.scope = scope;
-    Type* operand_type = visit(tc, (Node*)node->base.operand, scope);
+    Type* operand_type = tc_visit(tc, (Node*)node->base.operand, scope);
     
     if (is_error_type(operand_type)) {
         return context_get_type(tc->context, "Boolean");
@@ -1028,7 +971,7 @@ Type* visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope) {
 // ==================== DISPATCH ==================== 
 
 
-Type* visit(TypeChecker* tc, Node* node, Scope* scope) {
+Type* tc_visit(TypeChecker* tc, Node* node, Scope* scope) {
     if (node == NULL) return context_get_type(tc->context, "<error>");
     
     switch (node->tipo) {

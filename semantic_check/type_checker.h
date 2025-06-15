@@ -68,6 +68,6 @@ Type* visit_number_node(TypeChecker* tc, NumberNode* node, Scope* scope);
 Type* visit_var_node(TypeChecker* tc, VarNode* node, Scope* scope);
 
 //================Dispatcher================================
-Type* visit(TypeChecker* tc, Node* node, Scope* scope); //OK
+Type* tc_visit(TypeChecker* tc, Node* node, Scope* scope); //OK
 
 

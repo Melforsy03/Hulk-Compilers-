@@ -56,27 +56,27 @@ Protocol* create_protocol(Context* context, const char* name) {
         if (strcmp(context->types[i]->name, name) == 0) {
             return NULL;  // Type with same name exists
         }
-    
-    for (int i = 0; i < context->protocol_count; i++) {
-        if (strcmp(context->protocols[i]->name, name) == 0) {
-            return NULL;  // Protocol already exists
+      }
+        for (int i = 0; i < context->protocol_count; i++) {
+            if (strcmp(context->protocols[i]->name, name) == 0) {
+                return NULL;  // Protocol already exists
+            }
         }
-    }
-    
-    // Create new protocol
-    Protocol* new_protocol = (Protocol*)malloc(sizeof(Protocol));
-    new_protocol->base = create_type(context, name);
-    new_protocol->name = strdup(name);
-    new_protocol->parent = NULL;
-    new_protocol->methods = NULL;
-    new_protocol->method_count = 0;
-    
-    // Add to context
-    context->protocols = (Protocol**)realloc(context->protocols, sizeof(Protocol*) * (context->protocol_count + 1));
-    context->protocols[context->protocol_count++] = new_protocol;
-    
-    return new_protocol;
-    }
+        
+        // Create new protocol
+        Protocol* new_protocol = (Protocol*)malloc(sizeof(Protocol));
+        new_protocol->base = create_type(context, name);
+        new_protocol->name = strdup(name);
+        new_protocol->parent = NULL;
+        new_protocol->methods = NULL;
+        new_protocol->method_count = 0;
+        
+        // Add to context
+        context->protocols = (Protocol**)realloc(context->protocols, sizeof(Protocol*) * (context->protocol_count + 1));
+        context->protocols[context->protocol_count++] = new_protocol;
+        
+        return new_protocol;
+  
 }
 
 Attribute* create_attribute(char* name, Type* type) {
