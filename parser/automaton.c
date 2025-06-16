@@ -1,10 +1,10 @@
 #include "automaton.h"
-#include "../grammar/grammar.h"
+#include "grammar/grammar.h"
 #include "first_follow.h"
 #include "item.h"
 #include "lr1_table.h"
 #include "state.h"
-#include "../grammar/symbol.h"
+#include "grammar/symbol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -119,16 +119,22 @@ Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts
 
 
                 // Si beta puede derivar epsilon, añadir los lookaheads del item original
+                // if (beta_len == 0 || (first_beta && first_beta->contains_epsilon)) {
+                //     if (padre->lookaheads) {
+                //         first_beta = padre->lookaheads;
+                //     }
+                //     printf("Beta deriva epsilon, añadiendo lookaheads originales\n");
+                //     printf("Lookaheads antes de añadir: ");
+                //     print_containerset(first_beta, "first_beta");
+                //     printf("Lookaheads a añadir: ");
+                //     print_containerset(padre->lookaheads, "item->lookaheads");
+                // }
+                
+                ContainerSet* alt_lookaheads = copy_containerset(first_beta);
                 if (beta_len == 0 || (first_beta && first_beta->contains_epsilon)) {
-                    if (padre->lookaheads) {
-                        first_beta = padre->lookaheads;
-                    }
-                   // printf("Beta deriva epsilon, añadiendo lookaheads originales\n");
-                   // printf("Lookaheads antes de añadir: ");
-                    //print_containerset(first_beta, "first_beta");
-                   // printf("Lookaheads a añadir: ");
-                    //print_containerset(padre->lookaheads, "item->lookaheads");
+                    containerset_update(alt_lookaheads, padre->lookaheads);
                 }
+                first_beta = alt_lookaheads;
 
                 if(beta_len > 0)
                 if(first_beta->symbols[0]->type == TERMINAL)   // Si lo q esta en lookahead ahora es  un operador.
@@ -199,6 +205,7 @@ Item** closure(Item** items, int* count, Grammar* grammar, ContainerSet** firsts
                         containerset_update(item->lookaheads, new_item->lookaheads);
                     }
                 }
+                
             }
         }
     } while (changed);
@@ -469,7 +476,16 @@ State* build_LR1_automaton(Grammar* grammar, ContainerSet** firsts) {
         
         free(symbols_after_dot);
     }
+    State** states = visited_states;    // tu array de estados
+    int n_states = visited_count;       // total de estados generados
 
+    for (int i = 0; i < n_states; ++i) {
+        if (i <= 26)
+        {
+            //print_state_lookaheads(states[i], grammar);
+           
+        }
+    }
    // printf("\n=== Autómata LR(1) completado con %d estados ===\n", visited_count);
     free(visited_states);
     return start_state;

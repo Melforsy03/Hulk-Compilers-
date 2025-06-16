@@ -2,7 +2,8 @@
 #define STATE_H
 
 #include "item.h"
-#include "../grammar/symbol.h"
+#include "grammar/grammar.h"
+#include "grammar/symbol.h"
 
 typedef struct State State;
 typedef struct Transition Transition;
@@ -25,7 +26,7 @@ struct State {
 };
 // Crear un nuevo estado con un conjunto de items
 State* create_state(Item** items, int item_count);
-
+void print_state_lookaheads(State* st, Grammar* G);
 // Agregar una transición al estado
 void add_transition(State* from, Symbol* symbol, State* to);
 

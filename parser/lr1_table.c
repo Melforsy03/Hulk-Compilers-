@@ -1,5 +1,5 @@
 #include "lr1_table.h"
-#include "../grammar/grammar.h"
+#include "grammar/grammar.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -277,20 +277,20 @@ LR1Table* build_lr1_table(State* start, Grammar* grammar) {
 
 void print_lr1_table(LR1Table* table) 
 {
-    //printf("\nLR(1) ACTION Table:\n");
+    printf("\nLR(1) ACTION Table:\n");
     for (int i = 0; i < table->state_count; ++i) 
     {
-        //printf("State %d:\n", i);
+        printf("State %d:\n", i);
         for (int j = 0; j < table->terminal_count; ++j) 
         {
             if (table->action[i][j].action == ACTION_SHIFT)
-                //printf("  shift %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
+                printf("  shift %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
                 ;
             else if (table->action[i][j].action == ACTION_REDUCE)
-                //printf("  reduce %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
+                printf("  reduce %d with '%s'\n", table->action[i][j].value, table->grammar->terminals[j]->name)
                 ;
             else if (table->action[i][j].action == ACTION_ACCEPT)
-                //printf("  accept with '%s'\n", table->grammar->terminals[j]->name)
+                printf("  accept with '%s'\n", table->grammar->terminals[j]->name)
                 ;
         }
     }

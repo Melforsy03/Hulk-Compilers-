@@ -1,9 +1,13 @@
 #include "state.h"
+#include "grammar/grammar.h"
+#include "containerset.h"
+#include "item.h"  
+#include "containerset.h"      
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include "automaton.h"
+
 State* create_state(Item** items, int item_count) {
     if (!items || item_count <= 0) {
         fprintf(stderr, "Error: Intento de crear estado con items inválidos\n");
@@ -106,6 +110,29 @@ State* get_transition(State* from, Symbol* symbol) {
     }
     //printf("ERROR: No hay transición para %s desde estado %d\n", symbol->name, from->id);
     return NULL;  // Devuelve NULL en lugar de fallar
+}
+
+void print_state_lookaheads(State* st, Grammar* G) {
+    printf("=== Estado %d ===\n", st->id);
+    for (int i = 0; i < st->item_count; ++i) {
+        Item* it = st->items[i];
+
+        //printf("  %s → ", it->production->left->name);
+        for (int j = 0; j < it->production->right_len; ++j) {
+            if (j == it->pos) printf("· ");
+            printf("%s ", it->production->right[j]->name);
+        }
+        if (it->pos == it->production->right_len) printf("· ");
+        printf(", lookahead={");
+        for (int t = 0; t < G->terminals_count; ++t) {
+            Symbol* s = G->terminals[t];
+            if (containerset_contains(it->lookaheads, s)) {
+                printf("%s,", s->name);
+            }
+        }
+        printf("}\n");
+    }
+    printf("=== Fin Estado %d ===\n", st->id);
 }
 
 void print_state(State* state) 

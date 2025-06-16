@@ -1,7 +1,7 @@
 #ifndef CONTAINERSET_H
 #define CONTAINERSET_H
 
-#include "../grammar/symbol.h"
+#include "grammar/symbol.h"
 
 typedef struct ContainerSet 
 {
@@ -16,7 +16,7 @@ ContainerSet* create_containerset();
 
 // Agregar símbolo (evita duplicados)
 int add_symbol_to_set(ContainerSet* set, Symbol* sym);
-
+int containerset_contains(ContainerSet* set, Symbol* symbol);
 // Verifica si contiene un símbolo
 int set_contains_symbol(const ContainerSet* set, Symbol* sym);
 

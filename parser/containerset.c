@@ -23,7 +23,15 @@ ContainerSet* create_containerset()
     set->contains_epsilon = 0;
     return set;
 }
-
+int containerset_contains(ContainerSet* set, Symbol* symbol) {
+    if (!set || !symbol) return 0;
+    for (int i = 0; i < set->size; i++) {
+        if (strcmp(set->symbols[i]->name, symbol->name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
 int set_contains_symbol(const ContainerSet* set, Symbol* sym)
 {
     if (!set || !sym || !set->symbols) return 0;
