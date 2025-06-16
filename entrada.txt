@@ -1,1 +1,1 @@
-let x = 5 in print(X);
+let x = 5;
