@@ -1,6 +1,6 @@
 # Ignorar cualquier carpeta llamada build en cualquier lugar
 **/build/
-
+Informe/
 
 # Ignorar objetos compilados
 *.o
