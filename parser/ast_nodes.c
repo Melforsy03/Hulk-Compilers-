@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
- Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children) {
+Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children) {
     Node* node = malloc(sizeof(Node));
     node->symbol = symbol;
     node->lexeme = lexeme ? strdup(lexeme) : NULL;
@@ -17,9 +17,9 @@
 
 static void _print(Node* node,int depth) {
     if(!node) return;
-    printf("llego");
+    printf("|");
     for(int i=0;i<depth;i++) 
-        printf("  ");
+        printf("---");
     printf("%s", node->symbol->name);
     if(node->lexeme) 
         printf("(%s)", node->lexeme);

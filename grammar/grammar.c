@@ -27,7 +27,7 @@ Grammar* create_grammar() {
 
     // Símbolos especiales
     g->epsilon = create_symbol("epsilon", EPSILON);
-    g->eof = create_symbol("$", EOF_SYM);
+    g->eof = create_symbol("EOF", EOF_SYM);
     
     if (!g->epsilon || !g->eof) {
         free(g);

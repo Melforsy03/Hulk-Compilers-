@@ -2,12 +2,9 @@
 #ifndef AST_NODES_H
 #define AST_NODES_H
 
-#include "../grammar/symbol.h"  
-#include "../semantic_check/semantic.h"
-Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);
-static void _print(Node* node,int depth);
-static void _free(Node* node);
-void print_ast_root(Node* root);
+#include "../grammar/symbol.h" 
+//#include "../semantic_check/semantic.h"
+// static void _free(Node* node);
 
 typedef enum {
     // Nodo raíz
@@ -96,7 +93,7 @@ typedef struct Node {
     struct Node** children;
     int child_count;
     char* lexeme;
-    Scope* scope;
+    //Scope* scope;
     NodeType tipo ;
 } Node;
 
@@ -464,7 +461,8 @@ typedef struct StringNode {
 
 // Constructor y liberación genéricos
 Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);
-void print_ast_root(Node* root); // imprime y libera
+void print_ast_root(Node* root); 
+static void _print(Node* node,int depth);
 void free_ast(Node* node);
 void print_ast(Node* root);
 
