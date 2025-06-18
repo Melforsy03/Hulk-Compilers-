@@ -11,7 +11,7 @@ LEXER_DIR = lexer
 GEN_DIR = codigo_generado
 SRC_DIR = src
 LEXER_OUTPUT_DIR = lexer
-LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c
+LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c # Archivo que será generado por generar_lexer
 HULK_DIR = hulk
 LLVM_FILE = $(HULK_DIR)/programa.ll
 SEMANTIC_DIR = semantic_check
@@ -21,7 +21,7 @@ OS := $(shell uname 2>/dev/null || echo Windows)
 # ========= Archivos fuente =========
 LEXER_GEN_SRCS = $(wildcard $(LEXER_GEN_DIR)/*.c)
 LEXER_GEN_OBJS = $(patsubst $(LEXER_GEN_DIR)/%.c, $(BUILD_DIR)/%.o, $(LEXER_GEN_SRCS))
-LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer
+LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer # El ejecutable que genera el lexer.c
 
 PARSER_SRCS = $(wildcard $(PARSER_DIR)/*.c)
 PARSER_OBJS = $(patsubst $(PARSER_DIR)/%.c, $(BUILD_DIR)/parser_%.o, $(PARSER_SRCS))
@@ -32,7 +32,8 @@ AST_OBJS = $(patsubst $(AST_DIR)/%.c, $(BUILD_DIR)/ast_%.o, $(AST_SRCS))
 GRAMMAR_SRCS = $(wildcard $(GRAMMAR_DIR)/*.c)
 GRAMMAR_OBJS = $(patsubst $(GRAMMAR_DIR)/%.c, $(BUILD_DIR)/grammar_%.o, $(GRAMMAR_SRCS))
 
-LEXER_SRCS = $(wildcard $(LEXER_DIR)/*.c)
+# Incluir lexer.c generado aquí
+LEXER_SRCS = $(LEXER_FILE) $(filter-out $(LEXER_FILE), $(wildcard $(LEXER_DIR)/*.c)) # Asegúrate de que lexer.c esté aquí
 LEXER_OBJS = $(patsubst $(LEXER_DIR)/%.c, $(BUILD_DIR)/lexer_%.o, $(LEXER_SRCS))
 
 GEN_SRCS = $(wildcard $(GEN_DIR)/*.c)
@@ -49,26 +50,31 @@ MAIN_EXEC = $(HULK_DIR)/main
 
 # ========= Tareas principales =========
 
+.PHONY: all
+all: $(MAIN_EXEC)
+
 .PHONY: compile
 compile: $(MAIN_EXEC)
-# Compila todo el proyecto y genera el ejecutable principal
 
-.PHONY: lexer
-lexer: $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
-	./$(LEXER_GEN_EXEC) > $(LEXER_FILE)
-# Ejecuta el generador de lexer y guarda su salida en lexer/lexer.c
+# Tarea para generar explícitamente el lexer.c
+.PHONY: generate_lexer
+generate_lexer: $(LEXER_FILE)
+
+# Regla para crear lexer.c si no existe o si generar_lexer ha cambiado
+$(LEXER_FILE): $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
+	@echo "Generando lexer..."
+	./$(LEXER_GEN_EXEC) > $@
+	@echo "Lexer generado en $@"
 
 .PHONY: execute
 execute: $(MAIN_EXEC)
 	./$(MAIN_EXEC)
 	@echo "\n--- Código LLVM generado (programa.ll) ---"
 	@cat $(LLVM_FILE)
-# Ejecuta el programa compilado y muestra el contenido del código LLVM
 
 .PHONY: run
 run: $(MAIN_EXEC)
 	./$(MAIN_EXEC)
-# Ejecuta el programa compilado (más corto que `make execute`, sin imprimir el LLVM)
 
 # ========= Reglas de compilación =========
 
@@ -87,6 +93,11 @@ $(BUILD_DIR)/ast_%.o: $(AST_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/grammar_%.o: $(GRAMMAR_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Regla explícita para compilar el lexer.c generado
+$(BUILD_DIR)/lexer_lexer.o: $(LEXER_FILE) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Regla genérica para otros archivos en LEXER_DIR (si los hay)
 $(BUILD_DIR)/lexer_%.o: $(LEXER_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -96,33 +107,19 @@ $(BUILD_DIR)/gen_%.o: $(GEN_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/semantic_%.o: $(SEMANTIC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR)
+$(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR) $(LEXER_FILE) # main.o debe depender del lexer generado
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(MAIN_EXEC): $(ALL_OBJS) | $(HULK_DIR)
-	$(CC) $(CFLAGS) $(ALL_OBJS) -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
-# ========= Crear directorios si no existen =========
+# ========= Crear directorios =========
 
-$(BUILD_DIR):
+$(BUILD_DIR) $(HULK_DIR) $(LEXER_OUTPUT_DIR):
 ifeq ($(OS),Windows)
-	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
+	if not exist "$@" mkdir "$@"
 else
-	mkdir -p $(BUILD_DIR)
-endif
-
-$(HULK_DIR):
-ifeq ($(OS),Windows)
-	if not exist $(HULK_DIR) mkdir $(HULK_DIR)
-else
-	mkdir -p $(HULK_DIR)
-endif
-
-$(LEXER_OUTPUT_DIR):
-ifeq ($(OS),Windows)
-	if not exist $(LEXER_OUTPUT_DIR) mkdir $(LEXER_OUTPUT_DIR)
-else
-	mkdir -p $(LEXER_OUTPUT_DIR)
+	mkdir -p $@
 endif
 
 # ========= Limpieza =========
@@ -130,9 +127,9 @@ endif
 .PHONY: clean
 clean:
 ifeq ($(OS),Windows)
-	if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
-	if exist $(HULK_DIR)\main del /f /q $(HULK_DIR)\main
-	if exist $(HULK_DIR)\programa.ll del /f /q $(HULK_DIR)\programa.ll
+	if exist "$(BUILD_DIR)" rmdir /s /q "$(BUILD_DIR)"
+	if exist "$(HULK_DIR)\main" del /f /q "$(HULK_DIR)\main"
+	if exist "$(HULK_DIR)\programa.ll" del /f /q "$(HULK_DIR)\programa.ll"
 else
 	rm -rf $(BUILD_DIR)
 	rm -f $(HULK_DIR)/main $(HULK_DIR)/programa.ll
@@ -141,7 +138,8 @@ endif
 .PHONY: clean-lexer
 clean-lexer:
 ifeq ($(OS),Windows)
-	if exist $(LEXER_FILE) del /f /q $(LEXER_FILE)
+	if exist "$(LEXER_FILE)" del /f /q "$(LEXER_FILE)"
+	if exist "$(LEXER_GEN_EXEC)" del /f /q "$(LEXER_GEN_EXEC)"
 else
-	rm -f $(LEXER_FILE)
+	rm -f $(LEXER_FILE) $(LEXER_GEN_EXEC)
 endif

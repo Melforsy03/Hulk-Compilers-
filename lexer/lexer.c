@@ -4,43 +4,23 @@
 #include <ctype.h>
 #include "lexer.h"
 
-static char* my_strndup(const char* src, size_t n) {
-    char* s = (char*)malloc(n + 1);
-    if (!s) return NULL;
-    strncpy(s, src, n);
-    s[n] = '\0';
-    return s;
-}
+static char* my_strndup(const char* src, size_t n) { char* s = (char*)malloc(n+1); if (!s) return NULL; strncpy(s, src, n); s[n] = '\0'; return s; }
 
 static int match_dfa(EstadoDFA* estados, int num_estados, const char* input, int* length) {
-    int estado_actual = 0;
-    int last_final = -1;
-    int match_length = 0;
-    
+    int estado_actual = 0, last_final = -1, match_length = 0;
     while (input[match_length]) {
-        char c = input[match_length];
-        int encontrado = 0;
-        
+        char c = input[match_length]; int encontrado = 0;
         for (int i = 0; i < estados[estado_actual].num_transiciones; i++) {
             if (estados[estado_actual].transiciones[i].simbolo == c) {
-                estado_actual = estados[estado_actual].transiciones[i].destino;
-                encontrado = 1;
-                break;
+                estado_actual = estados[estado_actual].transiciones[i].destino; encontrado = 1; break;
             }
         }
-        
         if (!encontrado) break;
         match_length++;
-        if (estados[estado_actual].es_final) {
-            last_final = match_length;
-        }
+        if (estados[estado_actual].es_final) last_final = match_length;
     }
-    if (last_final > 0) {
-        *length = last_final;
-        return estados[estado_actual].tipo;
-    }
-    return TOKEN_ERROR;
-}
+    if (last_final > 0) { *length = last_final; return estados[estado_actual].tipo; }
+    return TOKEN_ERROR; }
 
 static EstadoDFA dfa_LET[] = {
     { 0, 1, {{1, 'l'}}, 0, TOKEN_LET },
@@ -577,7 +557,7 @@ static EstadoDFA dfa_NUMBER[] = {
 };
 
 static EstadoDFA dfa_STRING[] = {
-    { 354, 1, {{1, '"'}}, 0, TOKEN_STRING },
+    { 354, 1, {{1, '\"'}}, 0, TOKEN_STRING },
     { 355, 0, {}, 0, TOKEN_STRING },
 };
 
@@ -587,526 +567,152 @@ static EstadoDFA dfa_WHITESPACE[] = {
     { 358, 0, {}, 0, TOKEN_WHITESPACE },
 };
 
+static int current_line = 1, current_column = 1;
 Token next_token(const char** input) {
-    // Saltar espacios en blanco
     while (**input && isspace(**input)) {
+        if (**input == '\n') { current_line++; current_column = 1; } else { current_column++; }
         (*input)++;
     }
-    
-    if (**input == '\0') {
-        return (Token){TOKEN_EOF, NULL, 0};
-    }
-    
-    int max_len = 0;
-    TokenType tipo = TOKEN_ERROR;
-    
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LET, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_IN, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_FUNCTION, 9, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_TYPE, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_IF, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_THEN, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_ELIF, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_ELSE, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_WHILE, 6, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_FOR, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_TRUE, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_FALSE, 6, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_NEW, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_INHERITS, 9, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_SELF, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_BASE, 5, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_RETURN, 7, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_PRINT, 6, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_RANGE, 6, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_PROTOCOL, 9, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_EXTENDS, 8, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_TAN, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_COS, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_SIN, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LOG, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_PI, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_COT, 4, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_DSTAR, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_ARROW, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_COLON_EQUAL, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_AT_AT, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_EQUAL_EQUAL, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_NOT_EQUAL, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LESS_EQUAL, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_GREATER_EQUAL, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_AND, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_OR, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_PLUS, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_MINUS, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_STAR, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_SLASH, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_MODULO, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_POWER, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_AT, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_ASSIGN, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LESS, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_GREATER, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_NOT, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_DOT, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_PUNTOS, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LPAREN, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_RPAREN, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LBRACE, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_RBRACE, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_COMMA, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_SEMICOLON, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_LBRACKET, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_RBRACKET, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_IDENTIFIER, 117, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_NUMBER, 23, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_STRING, 2, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    {
-        int len = 0;
-        TokenType t = match_dfa(dfa_WHITESPACE, 3, *input, &len);
-        if (t != TOKEN_ERROR && len > max_len) {
-            max_len = len;
-            tipo = t;
-        }
-    }
-    
+    if (**input == '\0') { return (Token){TOKEN_EOF, NULL, 0, current_line, current_column}; }
+    int max_len = 0; TokenType tipo = TOKEN_ERROR;
+    { int len = 0; TokenType t = match_dfa(dfa_LET, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_IN, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_FUNCTION, 9, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_TYPE, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_IF, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_THEN, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_ELIF, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_ELSE, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_WHILE, 6, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_FOR, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_TRUE, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_FALSE, 6, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_NEW, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_INHERITS, 9, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_SELF, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_BASE, 5, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_RETURN, 7, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_PRINT, 6, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_RANGE, 6, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_PROTOCOL, 9, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_EXTENDS, 8, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_TAN, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_COS, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_SIN, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LOG, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_PI, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_COT, 4, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_DSTAR, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_ARROW, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_COLON_EQUAL, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_AT_AT, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_EQUAL_EQUAL, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_NOT_EQUAL, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LESS_EQUAL, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_GREATER_EQUAL, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_AND, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_OR, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_PLUS, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_MINUS, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_STAR, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_SLASH, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_MODULO, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_POWER, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_AT, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_ASSIGN, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LESS, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_GREATER, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_NOT, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_DOT, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_PUNTOS, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LPAREN, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_RPAREN, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LBRACE, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_RBRACE, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_COMMA, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_SEMICOLON, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_LBRACKET, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_RBRACKET, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_IDENTIFIER, 117, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_NUMBER, 23, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_STRING, 2, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
+    { int len = 0; TokenType t = match_dfa(dfa_WHITESPACE, 3, *input, &len);
+      if (t != TOKEN_ERROR && len > max_len) { max_len = len; tipo = t; } }
     if (max_len > 0) {
         char* lexema = my_strndup(*input, max_len);
+        int token_line = current_line, token_column = current_column;
+        for (int i = 0; i < max_len; i++) {
+            if ((*input)[i] == '\n') { current_line++; current_column = 1; } else { current_column++; }
+        }
         *input += max_len;
-        return (Token){tipo, lexema, max_len};
+        return (Token){tipo, lexema, max_len, token_line, token_column};
     }
-    
-    // Manejo de errores: avanzar un carácter
     char* error_lexema = my_strndup(*input, 1);
+    int error_line = current_line, error_column = current_column;
+    if (**input == '\n') { current_line++; current_column = 1; } else { current_column++; }
     (*input)++;
-    return (Token){TOKEN_ERROR, error_lexema, 1};
+    return (Token){TOKEN_ERROR, error_lexema, 1, error_line, error_column};
 }
 
 void print_token(Token t) {
@@ -1176,14 +782,14 @@ void print_token(Token t) {
         "EOF",
         "ERROR"
     };
-    
+
     if (t.type == TOKEN_EOF) {
         printf("<EOF>\n");
     } else if (t.type == TOKEN_ERROR) {
-        printf("<ERROR, '%.*s'>\n", t.length, t.lexema);
+        printf("<ERROR, '%.*s', línea %d, columna %d>\n", t.length, t.lexema, t.line, t.column);
     } else {
-        printf("<%s, '%.*s'>\n", token_names[t.type], t.length, t.lexema);
+        printf("<%s, '%.*s', línea %d, columna %d>\n", token_names[t.type], t.length, t.lexema, t.line, t.column);
     }
-    
     if (t.lexema) free(t.lexema);
 }
+

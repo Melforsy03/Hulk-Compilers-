@@ -91,6 +91,8 @@ typedef struct {
     TokenType type;
     const char* lexema;
     int length;
+    int line;    // <--- añadir
+    int column; 
 } Token;
 
 Token next_token(const char** input);
