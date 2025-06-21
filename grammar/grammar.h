@@ -38,7 +38,7 @@ void add_production(Grammar* grammar, Symbol* left, Symbol** right, int right_le
 // Imprimir gramática
 void print_grammar(Grammar* grammar);
 
-Symbol* get_terminal(Grammar* grammar, const char* name);
+Symbol* get_terminal(Grammar* grammar, const char* name, int row, int colum);
 
 void free_grammar(Grammar* g);
 

@@ -4,29 +4,75 @@
 #include "ast_nodes.h"
 #include "../parser/parser.h"   
 #include "../lexer/lexer.h"  
-   
+
+typedef struct StackNode {
+    int state;
+    struct StackNode*next;
+} StackNode;
+
+
+typedef union {
+    ProgramNode* program;
+    FunctionDeclarationNode* function;
+    TypeDeclarationNode* type;
+    ExpressionNode* expr;
+    ExpressionBlockNode* exprB;
+    ConditionalNode* conditional;
+    WhileNode* while_;
+    ForNode* for_;
+    LetInNode* let;
+    StringBinaryNode* string;
+    BinaryNode* binary;
+    UnaryNode* unary;
+    LiteralNode* literal;
+    VarDeclarationNode* varD;
+    ArithmeticBinaryNode* arith_binary;
+    ComparisonBinaryNode* comp_binary;
+    EqualityBinaryNode* eq_binary;
+    BooleanBinaryNode* bool_binary;
+    BooleanUnaryNode* bool_unary;
+    ArithmeticUnaryNode* arith_unary;
+    CallFuncNode* call;
+
+    void* any; 
+} TypedNode;
+
+typedef struct {
+    TypedNode* items;
+    NodeType* types;
+    int top;
+    int capacity;
+} TypedStack;
+
+void stack_push(StackNode**s,int st);
+int stack_top(StackNode*s);
+void stack_pop(StackNode**s);
+void clear_stack(StackNode* s);
+
+TypedStack* create_typed_stack(int capacity);
+void typed_push(TypedStack* s, TypedNode node, NodeType type);
+TypedNode typed_pop(TypedStack* s);
+NodeType typed_peek_type(TypedStack* s);
+void free_typed_stack(TypedStack* s);
+
+Node* build_conditional(Production* p, Node** children);
+Node* build_while_loop(Production* p, Node** children);
+Node* build_for_loop(Production* p, Node** children);
 Node* build_ast_node(Production* p, Node** children);
 
 // Nodos principales
 ProgramNode* ast_make_program(DeclarationNode** decls, int decl_count, ExpressionNode* expr, int row, int col);
 
 // Declaraciones
-MethodSignatureNode* ast_make_method_signature(const char* name, DeclarationNode** params, int param_count,
-                                            const char* returnType, int row, int col);
+MethodSignatureNode* ast_make_method_signature(const char* name, DeclarationNode** params, int param_count, const char* returnType, int row, int col);
 VarDeclarationNode* ast_make_var_decl(const char* name, ExpressionNode* init, const char* type, int row, int col);
-FunctionDeclarationNode* ast_make_function(const char* name, DeclarationNode** params, int param_count, 
-                                         ExpressionNode* body, const char* returnType, int row, int col);
-MethodDeclarationNode* ast_make_method(const char* name, DeclarationNode** params, int param_count,
-                                     ExpressionNode* body, const char* returnType, int row, int col);
-TypeDeclarationNode* ast_make_type(const char* name, DeclarationNode** params, int param_count,
-                                  const char* parent, ExpressionNode** parent_args, int parent_args_count,
-                                  TypeAttributeNode** attributes, int attr_count,
-                                  MethodDeclarationNode** methods, int method_count, int row, int col);
+FunctionDeclarationNode* ast_make_function(const char* name, DeclarationNode** params, int param_count,  ExpressionNode* body, const char* returnType, int row, int col);
+MethodDeclarationNode* ast_make_method(const char* name, DeclarationNode** params, int param_count, ExpressionNode* body, const char* returnType, int row, int col);
+TypeDeclarationNode* ast_make_type(const char* name, DeclarationNode** params, int param_count, const char* parent, ExpressionNode** parent_args, int parent_args_count,
+                                  TypeAttributeNode** attributes, int attr_count, MethodDeclarationNode** methods, int method_count, int row, int col);
 TypeAttributeNode* ast_make_type_attribute(const char* name, ExpressionNode* value, const char* type, int row, int col);
-ProtocolDeclarationNode* ast_make_protocol(const char* name, MethodSignatureNode** methods, 
-                                         int method_count, const char* parent, int row, int col);
-TypeConstructorSignatureNode* ast_make_type_constructor_signature(const char* name, 
-    DeclarationNode** params, int param_count, int row, int col);
+ProtocolDeclarationNode* ast_make_protocol(const char* name, MethodSignatureNode** methods, int method_count, const char* parent, int row, int col);
+TypeConstructorSignatureNode* ast_make_type_constructor_signature(const char* name, DeclarationNode** params, int param_count, int row, int col);
 
 
 // Expresiones
@@ -47,6 +93,7 @@ EqualityBinaryNode* ast_make_equality_binary(NodeType kind, const char* op, Expr
 StringBinaryNode* ast_make_string_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
 ArithmeticBinaryNode* ast_make_arithmetic_binary(NodeType kind, const char* op, ExpressionNode* left, ExpressionNode* right, int row, int col);
 CheckTypeNode* ast_make_check_type(NodeType kind, ExpressionNode* left, ExpressionNode* right, int row, int col);
+
 // Operadores unarios específicos
 ArithmeticUnaryNode* ast_make_arithmetic_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col);
 BooleanUnaryNode* ast_make_boolean_unary(NodeType kind, const char* op, ExpressionNode* operand, int row, int col);
@@ -64,16 +111,5 @@ CallTypeAttributeNode* ast_make_call_type_attribute(ExpressionNode* inst, const 
 CastTypeNode* ast_make_cast_type(ExpressionNode* inst, const char* type_cast, int row, int col);
 ExpressionBlockNode* ast_make_expression_block(ExpressionNode** exprs, int expr_count, int row, int col);
 
-/*El resto de gente q faltan aqui q son los de depth 4 basta conque les hagas lo siguiente
-por ejemplo si fueras a crear un StringNode, eso es depth4, lo q significa que su definicion es simplemente esto 
 
-typedef struct StringNode {
-    LiteralNode base;
-} StringNode;
-
-o sea solo tendrias q crear un LiteralNode usando este metodo
-LiteralNode* ast_make_literal(NodeType lit_kind, const char* lexeme, int row, int col);
-y donde dice NodeType lit_lind le pasarias NODE_STRING y ya
-
-*/
 #endif

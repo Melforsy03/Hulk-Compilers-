@@ -71,14 +71,19 @@ Symbol* find_symbol(Grammar* g, const char* name) {
     return NULL;
 }
 
-Symbol* get_terminal(Grammar* grammar, const char* name) 
+Symbol* get_terminal(Grammar* grammar, const char* name, int row, int colum) 
 {
     for (int i = 0; i < grammar->symbol_count; ++i) 
     {
         Symbol* sym = grammar->symbols[i];
         if (sym->type == TERMINAL && strcmp(sym->name, name) == 0) 
+        {
+            sym->row = row;
+            sym->colum = colum;
             return sym;
+        }       
     }
+    printf("No se a encontrado el simbolo %s en la gramatica", name);
     return NULL;
 }
 

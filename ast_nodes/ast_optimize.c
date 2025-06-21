@@ -86,25 +86,25 @@ Node* optimize_ast(Node* node) {
         return node;
     }
 
-    if (strcmp(node->symbol->name,"Conditional")==0) {
+    // if (strcmp(node->symbol->name,"Conditional")==0) {
 
-        Node* cond = node->children[0];
-        Node* then_expr = node->children[1];
-        Node* cc = node->children[2];  
-        int cc_n = cc->child_count;
-        Node** kids = malloc((2 + cc_n)*sizeof(Node*));
-        kids[0] = cond;
-        kids[1] = then_expr;
+    //     Node* cond = node->children[0];
+    //     Node* then_expr = node->children[1];
+    //     Node* cc = node->children[2];  
+    //     int cc_n = cc->child_count;
+    //     Node** kids = malloc((2 + cc_n)*sizeof(Node*));
+    //     kids[0] = cond;
+    //     kids[1] = then_expr;
 
-        for(int i=0;i<cc_n;i++) kids[2+i] = cc->children[i];
-        free(cc->children);
-        free(cc);
-        free(node->children);
-        node->children    = kids;
-        node->child_count = 2 + cc_n;
-        node->symbol = lookup_symbol("IF");
-        return node;
-    }
+    //     for(int i=0;i<cc_n;i++) kids[2+i] = cc->children[i];
+    //     free(cc->children);
+    //     free(cc);
+    //     free(node->children);
+    //     node->children    = kids;
+    //     node->child_count = 2 + cc_n;
+    //     node->symbol = lookup_symbol("IF");
+    //     return node;
+    // }
 
     if (strcmp(node->symbol->name,"Method_signature")==0) {
         Node* idnode = node->children[0];

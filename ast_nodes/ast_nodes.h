@@ -12,6 +12,7 @@ typedef enum {
     NODE_SELF, 
     NODE_BASE,
     NODE_INHERITS,
+
     // Declaraciones
     NODE_METHOD_SIGNATURE,      // Firma de método (nombre/params/retorno)
     NODE_METHOD_DECLARATION,    // Método completo (firma + cuerpo)
@@ -60,21 +61,21 @@ typedef enum {
     NODE_CAST_TYPE,          // obj as Tipo
 
     // Operadores
-    NODE_OR, // ||
-    NODE_AND, // &&
-    NODE_NOT,  // !       
+    NODE_OR, // |
+    NODE_AND, // &
+    NODE_NOT,  // !      
     NODE_EQUAL, // ==
     NODE_NOT_EQUAL,  // !=         
     NODE_GREATER, // >
     NODE_GREATER_EQUAL, // >=    
-    NODE_LESS, // <
+    NODE_LESS,    // <
     NODE_LESS_EQUAL, // <=         
-    NODE_CONCAT, // +
-    NODE_DOUBLE_CONCAT, // ++ 
+    NODE_CONCAT,     // @
+    NODE_DOUBLE_CONCAT,  // @@
     NODE_PLUS, NODE_MINUS, NODE_MULT,     // + - *
     NODE_DIV, NODE_MOD, NODE_POW,         // / % ^
     NODE_POSITIVE, NODE_NEGATIVE,
-    NODE_ASSING, NODE_COLON_ASSING,     //=
+    NODE_ASSING, NODE_COLON_ASSING,     //= :=
     
     // Literales
     NODE_BOOLEAN,     // true/false

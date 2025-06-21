@@ -11,7 +11,10 @@ typedef enum
 
 typedef struct Symbol 
 {
+    char* lex; 
     char* name;
+    int row;
+    int colum;
     SymbolType type;
 } Symbol;
 

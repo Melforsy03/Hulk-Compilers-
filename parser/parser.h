@@ -4,6 +4,7 @@
 #include "lr1_table.h"
 #include "ast_nodes/ast_optimize.h"
 #include "grammar/grammar.h"
+#include "ast_nodes/ast_build.h"
 #include "ast_nodes/ast_nodes.h"
 
 typedef struct {
