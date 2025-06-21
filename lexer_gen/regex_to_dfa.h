@@ -13,8 +13,7 @@ typedef struct {
     char nombre_token[MAX_TOKEN_NAME];
     char* regex;
 } DefinicionToken;
- 
-typedef struct DFA DFA;
+
 DFA compilar_regex(char* regex, int token_id);
 
 FragmentoNFA parse_literal(const char* regex);

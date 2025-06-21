@@ -64,7 +64,12 @@ const char* token_type_to_string(TokenType type) {
         case TOKEN_SEMICOLON: return "SEMICOLON";
         case TOKEN_LBRACKET: return "LBRACKET";
         case TOKEN_RBRACKET: return "RBRACKET";
-
+        case TOKEN_COS : return "COS";
+        case TOKEN_SIN : return "SIN";
+        case TOKEN_TAN :return "TAN";
+        case TOKEN_PI: return "PI";
+        case TOKEN_LOG : return "LOG";
+        case TOKEN_COT : return "COT";
         case TOKEN_IDENTIFIER: return "IDENTIFIER";
         case TOKEN_NUMBER: return "NUMBER";
         case TOKEN_STRING: return "STRING";

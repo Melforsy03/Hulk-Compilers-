@@ -1,6 +1,7 @@
 // regex_to_dfa.c (v1 - soporte de clases y *, +, |)
 // MUY SIMPLIFICADO - ideal para regex tipo identificadores, números, etc.
 #include "regex_to_dfa.h"
+#include "regex_parser.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -71,8 +72,16 @@ FragmentoNFA parse_literal(const char* regex) {
 }
 
 // ---------- NFA to DFA (simplificado) ---------- //
+// Modificar la función compilar_regex para manejar explícitamente identificadores
 DFA compilar_regex(char* regex, int token_id) {
-    FragmentoNFA nfa = parse_regex(regex);                // 1) Parseo completo de la regex
-    nfa.fin->es_final = 1;                                // 2) Marco el estado final
-    return convertir_nfa_a_dfa(nfa.inicio, token_id);     // 3) Convierto NFA → DFA
+    FragmentoNFA nfa;
+    
+    if (strcmp(regex, "IDENTIFIER_PATTERN") == 0) {  // Usar un patrón especial
+        nfa = crear_identificador();
+    } else {
+        nfa = parse_regex(regex);
+    }
+    
+    nfa.fin->es_final = 1;
+    return convertir_nfa_a_dfa(nfa.inicio, token_id);
 }

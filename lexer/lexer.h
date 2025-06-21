@@ -1,7 +1,14 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include "utils.h"
+
+// Tipos de tokens - DEBE coincidir con el orden en tokens.def
 typedef enum {
+    TOKEN_STRING = 0,
+    TOKEN_NUMBER,
     TOKEN_LET,
     TOKEN_IN,
     TOKEN_FUNCTION,
@@ -39,20 +46,17 @@ typedef enum {
     TOKEN_GREATER_EQUAL,
     TOKEN_AND,
     TOKEN_OR,
-
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_STAR,
     TOKEN_SLASH,
     TOKEN_MODULO,
     TOKEN_POWER,
-
     TOKEN_AT,
     TOKEN_ASSIGN,
     TOKEN_LESS,
     TOKEN_GREATER,
     TOKEN_NOT,
-
     TOKEN_DOT,
     TOKEN_PUNTOS,
     TOKEN_LPAREN,
@@ -63,37 +67,22 @@ typedef enum {
     TOKEN_SEMICOLON,
     TOKEN_LBRACKET,
     TOKEN_RBRACKET,
-
     TOKEN_IDENTIFIER,
-    TOKEN_NUMBER,
-    TOKEN_STRING,
-
     TOKEN_WHITESPACE,
     TOKEN_EOF,
     TOKEN_ERROR
 } TokenType;
 
-
-typedef struct Transicion {
-    int destino;
-    char simbolo;
-} Transicion;
-
-typedef struct EstadoDFA {
-    int id;
-    int num_transiciones;
-    Transicion transiciones[128];
-    int es_final;
-    TokenType tipo;
-} EstadoDFA;
-
 typedef struct {
     TokenType type;
-    const char* lexema;
+    char* lexema;
     int length;
+    int line;
+    int column;
 } Token;
 
+// Funciones públicas
 Token next_token(const char** input);
 void print_token(Token t);
 
-#endif
+#endif // LEXER_H

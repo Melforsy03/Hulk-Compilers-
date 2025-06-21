@@ -1,43 +1,18 @@
-// regex_parser.c (versión corregida que maneja '|', '(', ')', '*' y '+' correctamente)
+// regex_parser.c con correcciones para el parsing de strings
 #include "regex_parser.h"
+#include "utils.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <ctype.h>
-#include "utils.h"
+
 static const char* ptr;
-static int estado_id_global = 0;
 
 static FragmentoNFA parse_expr();
 static FragmentoNFA parse_term();
 static FragmentoNFA parse_factor();
 static FragmentoNFA parse_base();
-static char manejar_escape() {
-    ptr++;
-    if (*ptr == '\0') {
-        fprintf(stderr, "Error: secuencia de escape incompleta\n");
-        exit(1);
-    }
-    switch (*ptr) {
-        case 'n': ptr++; return '\n';
-        case 't': ptr++; return '\t';
-        case 'r': ptr++; return '\r';
-        case '\\': ptr++; return '\\';
-        case '*': ptr++; return '*';
-        case '+': ptr++; return '+';
-        case '|': ptr++; return '|';
-        case '&': ptr++; return '&';
-        case '^': ptr++; return '^';
-        case '(': ptr++; return '(';
-        case ')': ptr++; return ')';
-        case '{': ptr++; return '{';
-        case '}': ptr++; return '}';
-        case '[': ptr++; return '[';
-        case ']': ptr++; return ']';
-        case '"': ptr++; return '"';
-        default: return *ptr++;
-    }
-}
+
 static FragmentoNFA crear_trans(char c) {
     EstadoNFA* ini = nuevo_estado();
     EstadoNFA* fin = nuevo_estado();
@@ -53,13 +28,15 @@ static FragmentoNFA concatenar(FragmentoNFA f1, FragmentoNFA f2) {
 static FragmentoNFA alternar(FragmentoNFA f1, FragmentoNFA f2) {
     EstadoNFA* ini = nuevo_estado();
     EstadoNFA* fin = nuevo_estado();
-    ini->epsilon1 = f1.inicio;
-    ini->epsilon2 = f2.inicio;
-    f1.fin->epsilon1 = fin;
-    f2.fin->epsilon1 = fin;
+    
+    // Usar agregar_epsilon en lugar de asignación directa
+    agregar_epsilon(ini, f1.inicio);
+    agregar_epsilon(ini, f2.inicio);
+    agregar_epsilon(f1.fin, fin);
+    agregar_epsilon(f2.fin, fin);
+    
     return (FragmentoNFA){ini, fin};
 }
-
 static FragmentoNFA kleene(FragmentoNFA f) {
     EstadoNFA* ini = nuevo_estado();
     EstadoNFA* fin = nuevo_estado();
@@ -79,6 +56,57 @@ static FragmentoNFA mas(FragmentoNFA f) {
     return (FragmentoNFA){ini, fin};
 }
 
+static FragmentoNFA opcional(FragmentoNFA f) {
+    EstadoNFA* ini = nuevo_estado();
+    EstadoNFA* fin = nuevo_estado();
+    ini->epsilon1 = f.inicio;
+    ini->epsilon2 = fin;
+    f.fin->epsilon1 = fin;
+    return (FragmentoNFA){ini, fin};
+}
+
+static char manejar_escape(int en_regex) {
+    if (*ptr != '\\') {
+        fprintf(stderr, "Error: se esperaba secuencia de escape\n");
+        exit(1);
+    }
+    ptr++; // Saltar el backslash
+    
+    if (*ptr == '\0') {
+        fprintf(stderr, "Error: secuencia de escape incompleta\n");
+        exit(1);
+    }
+
+    switch (*ptr) {
+        case 'n': ptr++; return '\n';
+        case 't': ptr++; return '\t';
+        case 'r': ptr++; return '\r';
+        case '\\': ptr++; return '\\';
+        case '"': ptr++; return '"';
+        case '\'': ptr++; return '\'';
+        case '.': 
+            ptr++;
+            return '.'; // literal punto
+        case '0': ptr++; return '\0';
+        case 'x': {
+            ptr++;
+            char hex[3] = {0};
+            if (!isxdigit(*ptr)) {
+                fprintf(stderr, "Error: secuencia hexadecimal incompleta\n");
+                exit(1);
+            }
+            hex[0] = *ptr++;
+            if (isxdigit(*ptr)) {
+                hex[1] = *ptr++;
+            }
+            return (char)strtol(hex, NULL, 16);
+        }
+        default:
+            // Para caracteres no especiales, devolver el carácter literal
+            return *ptr++;
+    }
+}
+
 static FragmentoNFA clase() {
     char presentes[128] = {0};
     int negada = 0;
@@ -95,19 +123,25 @@ static FragmentoNFA clase() {
     }
 
     while (*ptr && *ptr != ']') {
-        if (*(ptr+1) == '-' && *(ptr+2) && *(ptr+2) != ']') {
-            char inicio = *ptr;
-            char fin = *(ptr+2);
-            if (inicio > fin) {
-                fprintf(stderr, "Error: rango inválido [%c-%c]\n", inicio, fin);
-                exit(1);
-            }
-            for (char c = inicio; c <= fin; c++) {
-                presentes[(unsigned char)c] = 1;
-            }
-            ptr += 3;
+        char c;
+        if (*ptr == '\\') {
+            c = manejar_escape(1);
         } else {
-            char c = *ptr++;
+            c = *ptr++;
+        }
+
+        if (*ptr == '-' && *(ptr + 1) != ']' && *(ptr + 1) != '\0') {
+            ptr++;
+            char c2;
+            if (*ptr == '\\') {
+                c2 = manejar_escape(1);
+            } else {
+                c2 = *ptr++;
+            }
+            for (char ch = c; ch <= c2; ch++) {
+                presentes[(unsigned char)ch] = 1;
+            }
+        } else {
             presentes[(unsigned char)c] = 1;
         }
     }
@@ -122,20 +156,17 @@ static FragmentoNFA clase() {
     int inicializado = 0;
 
     for (int c = 1; c < 127; c++) {
-    // Filtrar manualmente los caracteres prohibidos en clase negada
-    if (negada && (c == '"' || c == '\\')) continue;
-
-    int pertenece = presentes[c];
-    if ((negada && !pertenece) || (!negada && pertenece)) {
-        FragmentoNFA temp = crear_trans((char)c);
-        if (!inicializado) {
-            out = temp;
-            inicializado = 1;
-        } else {
-            out = alternar(out, temp);
+        int pertenece = presentes[c];
+        if ((negada && !pertenece) || (!negada && pertenece)) {
+            FragmentoNFA temp = crear_trans((char)c);
+            if (!inicializado) {
+                out = temp;
+                inicializado = 1;
+            } else {
+                out = alternar(out, temp);
+            }
         }
     }
-}
 
     if (!inicializado) {
         fprintf(stderr, "Error: clase vacía o mal definida\n");
@@ -145,13 +176,95 @@ static FragmentoNFA clase() {
     return out;
 }
 
+static FragmentoNFA parse_string() {
+    if (*ptr != '"') {
+        fprintf(stderr, "Error: string debe comenzar con comillas\n");
+        exit(1);
+    }
+    ptr++; // Saltar comilla inicial
+    
+    EstadoNFA* inicio = nuevo_estado();
+    EstadoNFA* actual = inicio;
+    EstadoNFA* nuevo;
+    
+    while (*ptr && *ptr != '"') {
+        nuevo = nuevo_estado();
+        
+        if (*ptr == '\\') {
+            // Manejar secuencia de escape
+            ptr++;
+            if (!*ptr) {
+                fprintf(stderr, "Error: escape incompleto\n");
+                exit(1);
+            }
+            // Solo transición para el carácter escapado
+            actual->transiciones[(unsigned char)*ptr] = nuevo;
+            ptr++;
+        } else {
+            // Cualquier carácter excepto comilla o newline
+            if (*ptr == '\n') {
+                fprintf(stderr, "Error: salto de línea en string\n");
+                exit(1);
+            }
+            actual->transiciones[(unsigned char)*ptr] = nuevo;
+            ptr++;
+        }
+        actual = nuevo;
+    }
+    
+    if (*ptr != '"') {
+        fprintf(stderr, "Error: string no cerrado\n");
+        exit(1);
+    }
+    ptr++; // Saltar comilla final
+    
+    return (FragmentoNFA){inicio, actual};
+}
+static FragmentoNFA crear_trans_rango(char inicio, char fin) {
+    FragmentoNFA resultado;
+    int inicializado = 0;
+    
+    for (char c = inicio; c <= fin; c++) {
+        FragmentoNFA temp = crear_trans(c);
+        if (!inicializado) {
+            resultado = temp;
+            inicializado = 1;
+        } else {
+            resultado = alternar(resultado, temp);
+        }
+    }
+    
+    return resultado;
+}
+FragmentoNFA crear_identificador() {
+    // Crear componentes para la primera letra (debe ser letra o _)
+    FragmentoNFA letra_may = crear_trans_rango('A', 'Z');
+    FragmentoNFA letra_min = crear_trans_rango('a', 'z');
+    FragmentoNFA guion = crear_trans('_');
+    
+    // Combinar opciones para primer carácter
+    FragmentoNFA primer_caracter = alternar(letra_may, letra_min);
+    primer_caracter = alternar(primer_caracter, guion);
+    
+    // Crear componentes para caracteres siguientes (pueden ser letras, números o _)
+    FragmentoNFA digito = crear_trans_rango('0', '9');
+    FragmentoNFA resto_caracteres = alternar(alternar(letra_may, letra_min), alternar(digito, guion));
+    
+    // Aplicar cerradura de Kleene a los caracteres siguientes
+    FragmentoNFA resto_repeticiones = kleene(resto_caracteres);
+    
+    // Concatenar primer carácter con el resto
+    return concatenar(primer_caracter, resto_repeticiones);
+}
 static FragmentoNFA parse_base() {
     if (*ptr == '\0') {
         fprintf(stderr, "Error: se esperaba un carácter pero se encontró fin de cadena\n");
         exit(1);
     }
-
-    // 1. Manejo de paréntesis para agrupación
+    if (strncmp(ptr, "IDENTIFIER_PATTERN", 18) == 0) {
+        ptr += 18;
+        return crear_identificador();
+    }
     if (*ptr == '(') {
         ptr++;
         FragmentoNFA f = parse_expr();
@@ -161,61 +274,37 @@ static FragmentoNFA parse_base() {
         }
         ptr++;
         return f;
-    }
-    // 2. Manejo de clases de caracteres [a-z]
-    else if (*ptr == '[') {
+    } else if (*ptr == '[') {
         return clase();
-    }
-    // 3. Manejo de strings entre comillas
-    else if (*ptr == '"') {
-        ptr++;  // Saltar la comilla inicial
-        EstadoNFA* inicio = nuevo_estado();
-        EstadoNFA* actual = inicio;
-        
-        while (*ptr && *ptr != '"') {
-            if (*ptr == '\\') {
-                // Carácter escapado dentro del string
-                char escaped = manejar_escape();
-                EstadoNFA* next = nuevo_estado();
-                actual->transiciones[(int)escaped] = next;
-                actual = next;
-            } else {
-                // Carácter normal dentro del string
-                EstadoNFA* next = nuevo_estado();
-                actual->transiciones[(int)*ptr] = next;
-                actual = next;
-                ptr++;
+    } else if (*ptr == '\\') {
+        char escaped = manejar_escape(1);
+        return crear_trans(escaped);
+    } else if (*ptr == '.') {
+        ptr++;
+        FragmentoNFA out;
+        int inicializado = 0;
+        for (int c = 1; c < 127; c++) {
+            if (c != '\n') {
+                FragmentoNFA temp = crear_trans((char)c);
+                if (!inicializado) {
+                    out = temp;
+                    inicializado = 1;
+                } else {
+                    out = alternar(out, temp);
+                }
             }
         }
-        
-        if (*ptr != '"') {
-            fprintf(stderr, "Error: string sin cerrar\n");
-            exit(1);
-        }
-        ptr++;  // Saltar la comilla final
-        
-        return (FragmentoNFA){inicio, actual};
-    }
-    // 4. Manejo de secuencias de escape
-    else if (*ptr == '\\') {
-        char escaped = manejar_escape();
-        return crear_trans(escaped);
-    }
-    // 5. Manejo de caracteres especiales que no necesitan escape
-    else if (strchr("|*+?.^$", *ptr)) {
-        // Estos caracteres deben escaparse en regex normales, pero aquí los manejamos directamente
-        return crear_trans(*ptr++);
-    }
-    // 6. Manejo de caracteres normales (no especiales)
-    else if (*ptr && !strchr("|)*+?", *ptr)) {
-        return crear_trans(*ptr++);
-    }
-    // 7. Error para caracteres inesperados
-    else {
+        return out;
+    } else if (*ptr == '"') { 
+        return parse_string();
+    } else if (strchr("|)*+?", *ptr)) {
         fprintf(stderr, "Error: carácter inesperado '%c'\n", *ptr);
         exit(1);
+    } else {
+        return crear_trans(*ptr++);
     }
 }
+
 static FragmentoNFA parse_factor() {
     FragmentoNFA frag = parse_base();
     while (*ptr == '*' || *ptr == '+' || *ptr == '?') {
@@ -227,13 +316,7 @@ static FragmentoNFA parse_factor() {
             frag = mas(frag);
         } else if (*ptr == '?') {
             ptr++;
-            EstadoNFA* inicio = nuevo_estado();
-            EstadoNFA* fin = nuevo_estado();
-            agregar_epsilon(inicio, frag.inicio);
-            agregar_epsilon(inicio, fin);
-            agregar_epsilon(frag.fin, fin);
-            frag.inicio = inicio;
-            frag.fin = fin;
+            frag = opcional(frag);
         }
     }
     return frag;
@@ -254,23 +337,21 @@ static FragmentoNFA parse_term() {
     }
 
     if (!iniciado) {
-        // Retornar NFA vacío (cadena vacía)
-        EstadoNFA* i = nuevo_estado();
-        EstadoNFA* f = nuevo_estado();
-        agregar_epsilon(i, f);
-        frag.inicio = i;
-        frag.fin = f;
+        EstadoNFA* ini = nuevo_estado();
+        EstadoNFA* fin = nuevo_estado();
+        agregar_epsilon(ini, fin);
+        frag.inicio = ini;
+        frag.fin = fin;
     }
 
     return frag;
 }
 
-
 static FragmentoNFA parse_expr() {
     FragmentoNFA izquierda = parse_term();
-
+    
     while (*ptr == '|') {
-        ptr++;  // consume '|'
+        ptr++;
         FragmentoNFA derecha = parse_term();
         izquierda = alternar(izquierda, derecha);
     }
@@ -278,8 +359,12 @@ static FragmentoNFA parse_expr() {
     return izquierda;
 }
 
-
 FragmentoNFA parse_regex(const char* regex) {
+    if (!regex || *regex == '\0') {
+        fprintf(stderr, "Error: regex vacía o nula\n");
+        exit(1);
+    }
+    
     ptr = regex;
     FragmentoNFA f = parse_expr();
     f.fin->es_final = 1;

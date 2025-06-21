@@ -9,7 +9,7 @@ typedef struct {
     int cantidad;
 } ConjuntoEstados;
 
-static int estado_dfa_id_global = 0;
+ int estado_dfa_id_global = 0;
 
 static void epsilon_closure(EstadoNFA* estado, EstadoNFA** set, int* count, int* visited) {
     if (visited[estado->id]) return;
@@ -20,15 +20,24 @@ static void epsilon_closure(EstadoNFA* estado, EstadoNFA** set, int* count, int*
     if (estado->epsilon2) epsilon_closure(estado->epsilon2, set, count, visited);
 }
 
-static void mover(EstadoNFA** entrada, int entrada_count, char simbolo, EstadoNFA** resultado, int* resultado_count) {
+static void mover(EstadoNFA** entrada, int entrada_count, char simbolo,
+                 EstadoNFA** resultado, int* resultado_count) {
     *resultado_count = 0;
     for (int i = 0; i < entrada_count; i++) {
         EstadoNFA* e = entrada[i];
-        EstadoNFA* destino = e->transiciones[(int)simbolo];
-        if (destino) resultado[(*resultado_count)++] = destino;
+        // Considerar ambos casos para letras
+        if (isalpha(simbolo)) {
+            EstadoNFA* destino_min = e->transiciones[tolower(simbolo)];
+            EstadoNFA* destino_may = e->transiciones[toupper(simbolo)];
+            if (destino_min) resultado[(*resultado_count)++] = destino_min;
+            if (destino_may && destino_may != destino_min) 
+                resultado[(*resultado_count)++] = destino_may;
+        } else {
+            EstadoNFA* destino = e->transiciones[(int)simbolo];
+            if (destino) resultado[(*resultado_count)++] = destino;
+        }
     }
 }
-
 static int conjuntos_son_iguales(EstadoNFA** a, int na, EstadoNFA** b, int nb) {
     if (na != nb) return 0;
     for (int i = 0; i < na; i++) {

@@ -4,21 +4,11 @@
 #include <stdio.h> 
 #include <string.h>
 
-static int estado_id_global = 0;
+ int estado_id_global = 0;
 
-char* my_strndup(const char* src, size_t n) {
-    char* s = malloc(n + 1);
-    if (!s) return NULL;
-    strncpy(s, src, n);
-    s[n] = '\0';
-    return s;
-}
 EstadoNFA* nuevo_estado() {
-    EstadoNFA* e = malloc(sizeof(EstadoNFA));
+    EstadoNFA* e = calloc(1, sizeof(EstadoNFA));
     e->id = estado_id_global++;
-    e->es_final = 0;
-    e->epsilon1 = e->epsilon2 = NULL;
-    for (int i = 0; i < 128; i++) e->transiciones[i] = NULL;
     return e;
 }
 
