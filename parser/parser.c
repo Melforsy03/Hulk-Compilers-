@@ -355,20 +355,39 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 break;
             }
             case ACTION_ACCEPT:{
+                //printf("ACCEPT\n");
+
+                ////TypedNode typed_root = typed_pop(typed_stack);
+                ////print_typed_stack(typed_stack);
+                //
+                //Node* children[2];
+                //children[1] = ast[1];
+                //children[0] = ast[0];
+                //Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
+                ////root = optimize_ast(root);
+
+                ////print_ast_root(root);
+                //clear_stack(st);
+                //return root;
+
                 printf("ACCEPT\n");
 
-                //TypedNode typed_root = typed_pop(typed_stack);
-                //print_typed_stack(typed_stack);
-                
-                Node* children[2];
-                children[1] = ast[1];
-                children[0] = ast[0];
-                Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
-                //root = optimize_ast(root);
+                // El AST intermedio coloca en ast[0] la lista de declaraciones y en ast[1] la expresión principal.
+                DeclarationNode** decls = (DeclarationNode**)ast[0];
+                int decl_count = decls ? ((Node*)decls)->child_count : 0;   
+                ExpressionNode* expr = (ExpressionNode*)ast[1];
 
-                //print_ast_root(root);
+                //Creamos el nodo Program como raíz del AST
+                ProgramNode* program = ast_make_program(
+                    decls,
+                    decl_count,
+                    expr,
+                    0,
+                    0
+                );
+
                 clear_stack(st);
-                return root;
+                return (Node*)program;
             }
             case ACTION_ERROR:
             default:
