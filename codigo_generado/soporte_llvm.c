@@ -12,6 +12,14 @@ void declare_extern_functions() {
     fprintf(salida_llvm, "declare void @print_str(i8*)\n");
     fprintf(salida_llvm, "declare i8* @int_to_string(i32)\n");
     fprintf(salida_llvm, "declare i8* @strcat2(i8*, i8*)\n\n");
+    fprintf(salida_llvm, "declare i32 @strcmp(i8*, i8*)\n");
+    fprintf(salida_llvm, "declare i8* @float_to_string(float)\n");
+    fprintf(salida_llvm, "declare i8* @bool_to_string(i1)\n");
+    fprintf(salida_llvm, "declare float @my_sin(float)\n");
+    fprintf(salida_llvm, "declare float @my_cos(float)\n");
+    fprintf(salida_llvm, "declare float @my_tan(float)\n");
+    fprintf(salida_llvm, "declare float @my_cot(float)\n");
+    fprintf(salida_llvm, "declare void @print_float(float)\n");
 }
 void generar_funciones(ExpressionNode* expr) {
     if (!expr) return;
@@ -31,7 +39,7 @@ void generar_funciones(ExpressionNode* expr) {
             break;
         }
 
-        
+       
         case NODE_LET_IN: {
             LetInNode* let = (LetInNode*)expr;
             generar_funciones(let->body);
@@ -54,7 +62,6 @@ void generar_funciones(ExpressionNode* expr) {
         break;
     }
 
-
         case NODE_WHILE: {
             WhileNode* wh = (WhileNode*)expr;
             generar_funciones(wh->condition);
@@ -66,7 +73,6 @@ void generar_funciones(ExpressionNode* expr) {
             break;
     }
 }
-
 int registrar_string_global(const char* texto) {
     for (int i = 0; i < num_strings; i++) {
         if (strcmp(constantes_string[i].valor, texto) == 0)
@@ -113,7 +119,6 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
             recorrer_ast_para_strings(ret->expr);
             break;
         }
-
 
         case NODE_PLUS: case NODE_MINUS: case NODE_MULT:
         case NODE_DIV: case NODE_EQUAL: case NODE_LESS:
@@ -194,9 +199,8 @@ void generar_constantes_globales(ProgramNode* program) {
                i, len + 1, str_val);
     }
 }
-
-
 void asegurar_declaracion(const char* var_name) {
-    fprintf(salida_llvm, "  %%var_%s = alloca i32\\n", var_name);
-    fprintf(salida_llvm, "  store i32 0, i32* %%var_%s\\n", var_name);
+   fprintf(salida_llvm, "  %%var_%s = alloca i32\n", var_name);
+   fprintf(salida_llvm, "  store i32 0, i32* %%var_%s\n", var_name);
+
 }

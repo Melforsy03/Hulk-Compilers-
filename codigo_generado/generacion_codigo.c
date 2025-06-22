@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-EntradaFuncion funciones[100];  // ← Aquí SÍ las defines
+EntradaFuncion funciones[100];  
 int total_funciones = 0;
 int retorno_emitido = 0;
 char contexto_funcion[64] = "main";
@@ -38,7 +38,8 @@ void generar_programa(ProgramNode* program) {
     }
 
     // 2. Generar función principal (main)
-    fprintf(salida_llvm, "define i32 @main() {\n");
+    fprintf(salida_llvm, "define i32 @user_main() {\n");
+
     fprintf(salida_llvm, "entry:\n");
 
     registrar_variables(program);
@@ -53,6 +54,28 @@ void generar_programa(ProgramNode* program) {
 
     fprintf(salida_llvm, "}\n");
 }
+int generar_comparacion(BinaryNode* bin, const char* cmp) {
+    Node* izq_n = (Node*)bin->left;
+    Node* der_n = (Node*)bin->right;
+
+    int izq = get_valor(bin->left);
+    int der = get_valor(bin->right);
+    int temp = nuevo_temp();
+
+    int es_float = 0;
+    if (izq_n->tipo == NODE_NUMBER && strchr(((LiteralNode*)bin->left)->lex, '.'))
+        es_float = 1;
+    if (der_n->tipo == NODE_NUMBER && strchr(((LiteralNode*)bin->right)->lex, '.'))
+        es_float = 1;
+
+    if (es_float) {
+        fprintf(salida_llvm, "  %%%d = fcmp %s float %%%d, %%%d\n", temp, cmp, izq, der);
+    } else {
+        fprintf(salida_llvm, "  %%%d = icmp %s i32 %%%d, %%%d\n", temp, cmp, izq, der);
+    }
+
+    return temp;
+}
 
 int generar_codigo(ExpressionNode* expr) {
     if (!expr) return -1;
@@ -63,18 +86,17 @@ int generar_codigo(ExpressionNode* expr) {
     switch (tipo) {
 
         // ----- Literales -----
-        case NODE_NUMBER: {
+       case NODE_NUMBER: {
             LiteralNode* lit = (LiteralNode*)expr;
+            int temp = nuevo_temp();
 
             if (strchr(lit->lex, '.')) {
-                int temp = nuevo_temp();
                 fprintf(salida_llvm, "  %%%d = fadd float 0.0, %s\n", temp, lit->lex);
-                return temp;
             } else {
-                int temp = nuevo_temp();
                 fprintf(salida_llvm, "  %%%d = add i32 0, %s\n", temp, lit->lex);
-                return temp;
             }
+
+            return temp;
         }
 
         case NODE_BOOLEAN: {
@@ -138,51 +160,57 @@ int generar_codigo(ExpressionNode* expr) {
 
         // ----- Let y Let-In -----
         
-            case NODE_LET_IN: {
-                LetInNode* let_in = (LetInNode*)expr;
-                VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
+        case NODE_LET_IN: {
+            LetInNode* let_in = (LetInNode*)expr;
+            VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
 
-                for (int i = 0; declarations && declarations[i]; i++) {
-                    VarDeclarationNode* decl = declarations[i];
-                    const char* nombre = decl->name;
-                    ExpressionNode* valor = decl->value;
+            for (int i = 0; declarations && declarations[i]; i++) {
+                VarDeclarationNode* decl = declarations[i];
+                const char* nombre = decl->name;
+                ExpressionNode* valor = decl->value;
 
-                    // Inferir tipo real
-                    LLVMType tipo = tipo_expr(valor);
-                    const char* tipo_llvm = (tipo == TIPO_STRING) ? "i8*" : "i32";
+                // Inferir tipo real
+                LLVMType tipo = tipo_expr(valor);
+                const char* tipo_llvm = (tipo == TIPO_STRING) ? "i8*" :
+                                        (tipo == TIPO_FLOAT)  ? "float" :
+                                        "i32";
 
-                    // Registrar en entorno de variables
-                    variables_usadas[num_variables].nombre = strdup(nombre);
-                    variables_usadas[num_variables].tipo = (tipo == TIPO_STRING) ? VAR_TYPE_STRING : VAR_TYPE_INT;
-                    variables_usadas[num_variables].inicializada = 1;
-                    num_variables++;
+                // Registrar en entorno de variables
+                variables_usadas[num_variables].nombre = strdup(nombre);
+                variables_usadas[num_variables].tipo = (tipo == TIPO_STRING) ? VAR_TYPE_STRING :
+                                                    (tipo == TIPO_FLOAT)  ? VAR_TYPE_FLOAT :
+                                                    VAR_TYPE_INT;
+                variables_usadas[num_variables].inicializada = 1;
+                num_variables++;
 
-                    // Emitir alloca
-                    fprintf(salida_llvm, "  %%%s = alloca %s\n", nombre_llvm(nombre), tipo_llvm);
+                // Emitir alloca
+                fprintf(salida_llvm, "  %%%s = alloca %s\n", nombre_llvm(nombre), tipo_llvm);
 
+                if (valor) {
+                    int temp = generar_codigo(valor);
 
-                    if (valor) {
-                        int temp = generar_codigo(valor);
-
-                        // Si viene de comparación y es i1, convertir a i32
-                        if (tipo == TIPO_INT && es_comparacion(((Node*)valor)->tipo)) {
-                            int conv = nuevo_temp();
-                            fprintf(salida_llvm, "  %%%d = zext i1 %%%d to i32\n", conv, temp);
-                            temp = conv;
-                        }
-
-                        fprintf(salida_llvm, "  store %s %%%d, %s* %%%s\n", tipo_llvm, temp, tipo_llvm, nombre_llvm(nombre));
-
-                    } else {
-                        fprintf(salida_llvm, "  store %s %s, %s* %%var_%s\n",
-                            tipo_llvm,
-                            (tipo == TIPO_STRING) ? "null" : "0",
-                            tipo_llvm, nombre_llvm (nombre));
+                    // Si viene de comparación y es i1, convertir a i32
+                    if (tipo == TIPO_INT && es_comparacion(((Node*)valor)->tipo)) {
+                        int conv = nuevo_temp();
+                        fprintf(salida_llvm, "  %%%d = zext i1 %%%d to i32\n", conv, temp);
+                        temp = conv;
                     }
-                }
 
-                return generar_codigo((ExpressionNode*)let_in->body);
+                    fprintf(salida_llvm, "  store %s %%%d, %s* %%%s\n",
+                            tipo_llvm, temp, tipo_llvm, nombre_llvm(nombre));
+
+                } else {
+                    fprintf(salida_llvm, "  store %s %s, %s* %%var_%s\n",
+                            tipo_llvm,
+                            (tipo == TIPO_STRING) ? "null" :
+                            (tipo == TIPO_FLOAT)  ? "0.0" :
+                            "0",
+                            tipo_llvm, nombre_llvm(nombre));
+                }
             }
+
+            return generar_codigo((ExpressionNode*)let_in->body);
+        }
 
         // ----- Operaciones aritméticas -----
         case NODE_PLUS: return generar_binario((BinaryNode*)expr, "add");
@@ -706,6 +734,100 @@ int generar_codigo(ExpressionNode* expr) {
 
             return ultimo;
         }
+        case NODE_COLON_ASSING: {
+            BinaryNode* bin = (BinaryNode*)expr;
+            int right_val = generar_codigo(bin->right);
+            const char* var_name = obtener_nombre_variable((VarNode*)bin->left);
+
+            VarType tipo = obtener_tipo_variable(var_name);
+            const char* tipo_llvm = (tipo == VAR_TYPE_STRING) ? "i8*" : "i32";
+
+            fprintf(salida_llvm, "  store %s %%%d, %s* %%%s\n", tipo_llvm, right_val, tipo_llvm, nombre_llvm(var_name));
+
+            return right_val;
+        }
+            case NODE_DOUBLE_CONCAT: {
+                BinaryNode* bin = (BinaryNode*)expr;
+                int left = generar_codigo(bin->left);
+                int right = generar_codigo(bin->right);
+
+                int temp1 = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = call i8* @strcat2(i8* %%%d, i8* %%%d)\n", temp1, left, right);
+
+                int temp2 = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = call i8* @strcat2(i8* %%%d, i8* %%%d)\n", temp2, temp1, right);
+
+                return temp2;
+            }
+
+            case NODE_CALL_TYPE_ATTRIBUTE: {
+                CallTypeAttributeNode* call = (CallTypeAttributeNode*)expr;
+                int obj_ptr = generar_codigo((ExpressionNode*)call->inst);
+
+                int attr_idx = 0; // ⚠️ por ahora, suponemos offset 0. Si tienes layout del struct, lo puedes calcular.
+
+                int attr_ptr = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = getelementptr inbounds %%struct.%s, %%struct.%s* %%%d, i32 0, i32 %d\n",
+                        attr_ptr, call->inst_name, call->inst_name, obj_ptr, attr_idx);
+
+                int val = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%d\n", val, attr_ptr);
+
+                return val;
+            }
+
+        case NODE_EXPLICIT_VECTOR: {
+                ExplicitVectorNode* vec = (ExplicitVectorNode*)expr;
+                ExpressionNode** items = (ExpressionNode**)vec->items;
+
+                int vec_size = vec->item_counter;
+
+                int vec_ptr = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = alloca [%d x i32]\n", vec_ptr, vec_size);
+
+                for (int i = 0; i < vec_size; i++) {
+                    int item_val = generar_codigo(items[i]);
+
+                    int elem_ptr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = getelementptr inbounds [%d x i32], [%d x i32]* %%%d, i32 0, i32 %d\n",
+                            elem_ptr, vec_size, vec_size, vec_ptr, i);
+
+                    fprintf(salida_llvm, "  store i32 %%%d, i32* %%%d\n", item_val, elem_ptr);
+                }
+
+                return vec_ptr;
+            }
+
+        case NODE_IMPLICIT_VECTOR: {
+            ImplicitVectorNode* vec = (ImplicitVectorNode*)expr;
+
+            int iterable = generar_codigo((ExpressionNode*)vec->iterable);
+
+            // Por ahora: suponer iterable es un rango (start, end)
+            // generar bucle for (similar a tu nodo FOR)
+            // allocar vector, llenar con expr evaluada
+
+            // TODO: requiere más contexto sobre cómo defines tus iterables
+            fprintf(salida_llvm, "; [TODO] Generación para VECTOR IMPLÍCITO no implementada aún\n");
+
+            return -1;
+        }
+        case NODE_INDEX_OBJECT: {
+                IndexObjectNode* idx = (IndexObjectNode*)expr;
+
+                int obj_ptr = generar_codigo((ExpressionNode*)idx->object);
+                int index = generar_codigo((ExpressionNode*)idx->pos);
+
+                // ⚠️ Suponemos por ahora un vector de tamaño 10 (puedes parametrizarlo)
+                int elem_ptr = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = getelementptr inbounds [10 x i32], [10 x i32]* %%%d, i32 0, i32 %%%d\n",
+                        elem_ptr, obj_ptr, index);
+
+                int val = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%%d\n", val, elem_ptr);
+
+                return val;
+            }
 
         // ----- Nodo desconocido -----
         default:
