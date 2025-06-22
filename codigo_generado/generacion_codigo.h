@@ -1,7 +1,7 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
-#include "../parser/ast_nodes.h"
+#include "../ast_nodes/ast_nodes.h"
 #include <stdio.h>
 
 // ===== Tipos de datos y estructuras =====

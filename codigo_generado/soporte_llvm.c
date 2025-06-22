@@ -1,5 +1,5 @@
 #include "generacion_codigo.h"
-#include <string.h>   // ← para strdup, strcmp, strlen
+#include <string.h>  
 
 FILE* salida_llvm = NULL;
 StringConst constantes_string[MAX_STRING_CONSTS];
