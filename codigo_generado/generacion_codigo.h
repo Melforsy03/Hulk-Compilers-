@@ -1,7 +1,7 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
-#include "ast_nodes.h"
+#include "../ast_nodes/ast_nodes.h"
 #include <stdio.h>
 #define MAX_TIPOS 50
 #define MAX_CAMPOS 20

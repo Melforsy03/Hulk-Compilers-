@@ -1,5 +1,5 @@
 #include "state.h"
-#include "grammar/grammar.h"
+#include "../grammar/grammar.h"
 #include "containerset.h"
 #include "item.h"  
 #include "containerset.h"      

@@ -7,7 +7,7 @@
 #include "type_builder.h"
 #include "semantic.h" 
 #include "semantic_errors.h" 
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 
 // Implementación de las funciones visitantes

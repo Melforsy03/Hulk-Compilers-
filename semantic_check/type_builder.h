@@ -8,7 +8,7 @@
 
 #include "semantic.h" 
 #include "semantic_errors.h" 
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 
 // Estructura del TypeBuilder

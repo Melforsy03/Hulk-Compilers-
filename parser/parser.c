@@ -1,10 +1,10 @@
 #include "parser.h"
-#include "grammar/grammar.h"
+#include "../grammar/grammar.h"
 #include "lr1_table.h"
-#include "ast_nodes/ast_optimize.h"
-#include "ast_nodes/ast_builder.h"
-#include "ast_nodes/ast_build.h"
-#include "ast_nodes/ast_nodes.h"
+#include "../ast_nodes/ast_optimize.h"
+#include "../ast_nodes/ast_builder.h"
+#include "../ast_nodes/ast_build.h"
+#include "../ast_nodes/ast_nodes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -195,112 +195,116 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 } 
                 else if (strcmp(p->left->name, "Conditional") == 0) {
                     printf("\n====================Entro al Conditional===================\n");
-                    new_node = ast_make_conditional((ExpressionNode*)children[2], (ExpressionNode*)children[4], 0, (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
+
+                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
+                    new_node = (Node*)ast_make_conditional(conditions, (ExpressionNode*)children[4], 0, (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.conditional = (ConditionalNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "While_loop") == 0) {
                     printf("\n====================Entro al While_loop===================\n");
-                    new_node = ast_make_while((ExpressionNode*)children[2], (ExpressionNode*)children[4], 0 , 0);
+                    new_node = (Node*)ast_make_while((ExpressionNode*)children[2], (ExpressionNode*)children[4], 0 , 0);
                     if (new_node) {
                         typed_node.while_ = (WhileNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "For_loop") == 0) {
                     printf("\n====================Entro al For_loop===================\n");
-                    new_node = ast_make_for(children[2]->lexeme, (ExpressionNode*)children[4], (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
+                    new_node = (Node*)ast_make_for(children[2]->lexeme, (ExpressionNode*)children[4], (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.for_ = (ForNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Let_expr") == 0) {
                     printf("\n====================Entro al Let_expr===================\n");
-                    new_node = ast_make_let_in((ExpressionNode*)children[1], (ExpressionNode*)children[1]->child_count, (ExpressionNode*)children[3], lookahead->row, lookahead->colum);
+                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
+                    new_node = (Node*)ast_make_let_in(conditions, (ExpressionNode*)children[1]->child_count, (ExpressionNode*)children[3], lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.let = (LetInNode*)new_node;
                     }
                 }
                 else if (strcmp(p->left->name, "Or_expr") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Or===================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.bool_binary = (BooleanBinaryNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "And_expr") == 0 && p->right_len == 3) {
                     printf("\n====================Entro And===================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.bool_binary = (BooleanBinaryNode*)new_node;
                     }
                 }  
                 else if (strcmp(p->left->name, "Aritm_comp") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Aritm_c======================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.comp_binary = (ComparisonBinaryNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Concat") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Concat===================\n");
-                    new_node = build_binary_operation(p, children, p->right[0]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[0]->name);
                     if (new_node) {
                         typed_node.string = (StringBinaryNode*)new_node;
                     } 
                 }  
                 else if (strcmp(p->left->name, "Arithmetic") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Aritmet======================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Term") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Termino===================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Pow") == 0 && p->right_len == 3) {
                     printf("\n====================Entro Pow===================\n");
-                    new_node = build_binary_operation(p, children, p->right[1]->name);
+                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
                     if (new_node) {
                         typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Sign") == 0 && p->right_len == 2) {
                     printf("\n====================Entro Sign===================\n");
-                    new_node = build_unary_operation(p, children, p->right[0]->name);
+                    new_node = (Node*)build_unary_operation(p, children, p->right[0]->name);
                     if (new_node) {
                         typed_node.arith_unary = (ArithmeticUnaryNode*)new_node;
                     }
                 }
                 else if (strcmp(p->left->name, "Expr_block") == 0) {
                     printf("\n====================Entro al Expr_block===================\n");
-                    new_node = ast_make_expression_block(children[1], lookahead->row, lookahead->colum, 0);
+                    new_node = (Node*)ast_make_expression_block(children[1], lookahead->row, lookahead->colum, 0);
                     if (new_node) {
                         typed_node.exprB = (ExpressionBlockNode*)new_node;
                     }
                 } 
                 else if (strcmp(p->left->name, "Assignment") == 0 ){
                     printf("\n====================Entro al Assignment===================\n");
-                    new_node = ast_make_var_decl(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->tipo, lookahead->row, lookahead->colum);
+                    new_node = (Node*)ast_make_var_decl(children[0]->lexeme, (ExpressionNode*)children[2], "asignacion", lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.varD = (VarDeclarationNode*)new_node;
                     } 
                 }  
                 else if (strcmp(p->left->name, "Call_func") == 0){
                     printf("\n====================Entro al Call_func===================\n");
-                    new_node = ast_make_call_func(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->child_count, lookahead->row, lookahead->colum);
+                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
+                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, conditions, children[2]->child_count, lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.call = (CallFuncNode*)new_node;
                     }
                 }
                 else if (strcmp(p->left->name, "Print") == 0){
                     printf("\n====================Entro al Print===================\n");
-                    new_node = ast_make_call_func(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->child_count, lookahead->row, lookahead->colum);
+                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->child_count, lookahead->row, lookahead->colum);
                     if (new_node) {
                         typed_node.call = (CallFuncNode*)new_node;
                     }

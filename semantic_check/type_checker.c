@@ -5,7 +5,7 @@
 #include "type_checker.h"
 #include "semantic_errors.h"
 #include "semantic.h"
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 
 // Implementación de funciones auxiliares

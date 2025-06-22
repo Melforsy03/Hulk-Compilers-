@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "semantic_errors.h"
 #include "semantic.h"
-#include "../ast_nodes/ast_nodes.h"
+#include "../parser/ast_nodes.h"
 
 
 
