@@ -85,7 +85,7 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
 // ============================Implementación de funciones visitantes==================================
 
 void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
-    printf("entramos a visit_program");
+    printf("entramos a visit_program\n");
     node->base.scope = scope;
     
     Node** decl = (Node**)node->declarations;
@@ -115,7 +115,7 @@ void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
     
     Node** exp = (Node**)node->expression;
     for (int i = 0; exp[i] != NULL; i++) {
-
+        printf("hay exp");
         Scope* child_scope = create_scope(scope);
         
         // Dispatch based on declaration type
@@ -134,6 +134,10 @@ void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
                 visit_for(tc, (ForNode*)exp[i], child_scope);
             case NODE_DESTRUCTURING:
                 visit_destr(tc, (DestrNode*)exp[i], child_scope);
+            case NODE_ARITHMETIC_BINARY:
+                visit_arithmetic_binary(tc, (ArithmeticBinaryNode*)exp[i], child_scope);
+            case NODE_ARITHMETIC_UNARY:
+                visit_arithmetic_unary(tc, (ArithmeticUnaryNode*)exp[i], child_scope);
             default:
                 break;
         }
@@ -503,6 +507,7 @@ void* visit_comparison_binary(TypeChecker* tc, ComparisonBinaryNode* node, Scope
 }
 
 void* visit_arithmetic_binary(TypeChecker* tc, ArithmeticBinaryNode* node, Scope* scope) {
+    printf("arithmeticBinary\n");
     node->base.base.base.scope = scope;
     Type* left_type = tc_visit(tc, (Node*)node->base.left, scope);
     Type* right_type = tc_visit(tc, (Node*)node->base.right, scope);
@@ -895,6 +900,7 @@ void* visit_cast_type(TypeChecker* tc, CastTypeNode* node, Scope* scope) {
 // ==================== UNARY ==================== 
 
 void* visit_arithmetic_unary(TypeChecker* tc, ArithmeticUnaryNode* node, Scope* scope) {
+    printf("arithmeticUnary\n");
     node->base.base.base.scope = scope;
     Type* operand_type = tc_visit(tc, (Node*)node->base.operand, scope);
     
