@@ -3,7 +3,7 @@
 #define AST_NODES_H
 
 #include "../grammar/symbol.h" 
-//#include "../semantic_check/semantic.h"
+#include "../semantic_check/semantic.h"
 // static void _free(Node* node);
 
 typedef enum {
@@ -94,7 +94,7 @@ typedef struct Node {
     struct Node** children;
     int child_count;
     char* lexeme;
-    //Scope* scope;
+    Scope* scope;
     NodeType tipo ;
 } Node;
 

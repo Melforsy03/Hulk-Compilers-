@@ -1,6 +1,6 @@
-#include "parser/parser.h"
+#include "../parser/parser.h"
 #include "ast_build.h"
-#include "grammar/symbol.h"
+#include "../grammar/symbol.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
