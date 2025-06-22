@@ -57,7 +57,7 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
     stack_push(&st, 0);
     
     TypedStack* typed_stack = create_typed_stack(32);
-    print_tokens(input, toks);
+   // print_tokens(input, toks);
 
     int pos = 0;
     Symbol* lookahead = input[pos];
