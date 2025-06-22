@@ -42,44 +42,61 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
 
             // Constant folding
             if (izq->tipo == NODE_NUMBER && der->tipo == NODE_NUMBER) {
-                int val_izq = atoi(((LiteralNode*)bin->left)->lex);
-                int val_der = atoi(((LiteralNode*)bin->right)->lex);
-                int resultado;
-                int is_valid = 1;
+    const char* lex_izq = ((LiteralNode*)bin->left)->lex;
+    const char* lex_der = ((LiteralNode*)bin->right)->lex;
 
-                switch (tipo) {
-                    case NODE_PLUS: resultado = val_izq + val_der; break;
-                    case NODE_MINUS: resultado = val_izq - val_der; break;
-                    case NODE_MULT: resultado = val_izq * val_der; break;
-                    case NODE_DIV: 
-                        if (val_der != 0) resultado = val_izq / val_der;
-                        else is_valid = 0;
-                        break;
-                    case NODE_MOD:
-                        if (val_der != 0) resultado = val_izq % val_der;
-                        else is_valid = 0;
-                        break;
-                    case NODE_EQUAL:  resultado = (val_izq == val_der); break;
-                    case NODE_NOT_EQUAL: resultado = (val_izq != val_der); break;
-                    case NODE_LESS:  resultado = (val_izq <  val_der); break;
-                    case NODE_LESS_EQUAL: resultado = (val_izq <= val_der); break;
-                    case NODE_GREATER:  resultado = (val_izq >  val_der); break;
-                    case NODE_GREATER_EQUAL: resultado = (val_izq >= val_der); break;
-                    default: is_valid = 0; break;
-                }
+    int is_float = strchr(lex_izq, '.') || strchr(lex_der, '.');
 
-                if (is_valid) {
-                    char* buf = malloc(16);
-                    snprintf(buf, 16, "%d", resultado);
-                    NumberNode* reemplazo = calloc(1, sizeof(NumberNode));
-                    reemplazo->base.base.base.base.tipo = NODE_NUMBER;
-                    reemplazo->base.lex = buf;
-                    return (ExpressionNode*)reemplazo;
-                } else {
-                    fprintf(stderr, "[WARN] División o módulo por cero evitado.\n");
-                    return expr;
-                }
-            }
+    if (is_float) {
+        double val_izq = atof(lex_izq);
+        double val_der = atof(lex_der);
+        double resultado;
+
+        switch (tipo) {
+            case NODE_PLUS: resultado = val_izq + val_der; break;
+            case NODE_MINUS: resultado = val_izq - val_der; break;
+            case NODE_MULT: resultado = val_izq * val_der; break;
+            case NODE_DIV:
+                if (val_der != 0.0) resultado = val_izq / val_der;
+                else return expr;
+                break;
+            default: return expr;
+        }
+
+        char* buf = malloc(32);
+        snprintf(buf, 32, "%.6f", resultado);
+        NumberNode* reemplazo = calloc(1, sizeof(NumberNode));
+        reemplazo->base.base.base.base.tipo = NODE_NUMBER;
+        reemplazo->base.lex = buf;
+        return (ExpressionNode*)reemplazo;
+    } else {
+        int val_izq = atoi(lex_izq);
+        int val_der = atoi(lex_der);
+        int resultado;
+
+        switch (tipo) {
+            case NODE_PLUS: resultado = val_izq + val_der; break;
+            case NODE_MINUS: resultado = val_izq - val_der; break;
+            case NODE_MULT: resultado = val_izq * val_der; break;
+            case NODE_DIV:
+                if (val_der != 0) resultado = val_izq / val_der;
+                else return expr;
+                break;
+            case NODE_MOD:
+                if (val_der != 0) resultado = val_izq % val_der;
+                else return expr;
+                break;
+            default: return expr;
+        }
+
+        char* buf = malloc(16);
+        snprintf(buf, 16, "%d", resultado);
+        NumberNode* reemplazo = calloc(1, sizeof(NumberNode));
+        reemplazo->base.base.base.base.tipo = NODE_NUMBER;
+        reemplazo->base.lex = buf;
+        return (ExpressionNode*)reemplazo;
+    }
+}
 
             // Simplificación algebraica con constantes
             if (der->tipo == NODE_NUMBER) {
@@ -96,7 +113,7 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
 
             if (izq->tipo == NODE_NUMBER) {
                 int v = atoi(((LiteralNode*)bin->left)->lex);
-                if (tipo == NODE_PLUS && v == 0)
+                if (tipo == NODE_PLUS&& v == 0)
                     return bin->right;
                 if (tipo == NODE_MULT && v == 1)
                     return bin->right;
@@ -115,7 +132,7 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
                 exprs[i] = optimizar_constantes(exprs[i]);
             return expr;
         }
-       
+   
         case NODE_LET_IN: {
             LetInNode* let = (LetInNode*)expr;
             VarDeclarationNode** decls = (VarDeclarationNode**)let->variables;
