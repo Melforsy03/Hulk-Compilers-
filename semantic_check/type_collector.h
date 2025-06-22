@@ -3,7 +3,7 @@
 #include <string.h>
 #include "semantic.h" 
 #include "semantic_errors.h" 
-#include "../parser/ast_nodes.h"
+#include "../ast_nodes/ast_nodes.h"
 
 
 typedef struct TypeCollector {
