@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 #include "../parser/parser.h"
 #include "../grammar/symbol.h"
 #include "../ast_nodes/ast_nodes.h" 
 #include "../ast_nodes/ast_builder.h"
+=======
+#include "parser/parser.h"
+#include "../grammar/symbol.h"
+#include "ast_nodes/ast_nodes.h" 
+#include "ast_nodes/ast_builder.h"
+>>>>>>> 6e764b96613c6f4b61391a96648f3ca81f525162
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
