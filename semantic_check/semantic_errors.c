@@ -6,6 +6,7 @@
 
 
 
+
 // Implementación de HulkSemanticError
 char* HulkSemanticError_get_error_type() { return "SEMANTIC ERROR"; }
 
@@ -15,6 +16,7 @@ void HulkSemanticError_init(HulkSemanticError* error, const char* text, int line
     error->base.column = column;
     error->base.get_error_type = HulkSemanticError_get_error_type;
 }
+
 
 char* HulkSemanticError_to_string(HulkSemanticError* error) {
     char* buffer = (char*)malloc(256); // Tamaño suficiente para el mensaje

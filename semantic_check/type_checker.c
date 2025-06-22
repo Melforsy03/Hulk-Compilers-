@@ -5,19 +5,20 @@
 #include "type_checker.h"
 #include "semantic_errors.h"
 #include "semantic.h"
-#include "../parser/ast_nodes.h"
+#include "../ast_nodes/ast_nodes.h"
 
 
 // Implementación de funciones auxiliares
 // Función principal para realizar el type checking
 void type_check_program(ProgramNode* ast, Context* context, HulkErrorList* output_errors) {
+    printf("entramos a type_check\n");
     TypeChecker* tc = create_type_checker(context);
     Scope* global_scope = create_scope(NULL);
     
     output_errors = HulkErrorList_create();
     tc->errors = output_errors;
     tc->errors->count = 0;
-    
+    printf("inicializamos structs de type_check\n");
     visit_program(tc, ast, global_scope);
     
 }
@@ -84,6 +85,7 @@ Type* assign_type(TypeChecker* tc, Type* var_type, Type* expr_type, int row, int
 // ============================Implementación de funciones visitantes==================================
 
 void* visit_program(TypeChecker* tc, ProgramNode* node, Scope* scope) {
+    printf("entramos a visit_program");
     node->base.scope = scope;
     
     Node** decl = (Node**)node->declarations;

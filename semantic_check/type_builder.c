@@ -7,7 +7,7 @@
 #include "type_builder.h"
 #include "semantic.h" 
 #include "semantic_errors.h" 
-#include "../parser/ast_nodes.h"
+#include "../ast_nodes/ast_nodes.h"
 
 
 // Implementación de las funciones visitantes
@@ -19,7 +19,6 @@ void build_types(Context* context, ProgramNode* ast, HulkErrorList* output_error
     builder.current_type = NULL;
     
     // Inicializamos la lista de errores directamente
-    output_errors = HulkErrorList_create();
     builder.errors = output_errors;
     builder.errors->count = 0;
 
@@ -27,9 +26,11 @@ void build_types(Context* context, ProgramNode* ast, HulkErrorList* output_error
 }
 
 void tb_visit_program(TypeBuilder* builder, ProgramNode* node) {
-    DeclarationNode** decl = (DeclarationNode**)node->declarations;
 
+    printf("builder: visit program\n");
+    DeclarationNode** decl = (DeclarationNode**)node->declarations;
     for (int i = 0; decl[i]; i++) {
+        printf("builder: visit_program decls: %s", decl[i]->base.tipo);
         switch (decl[i]->base.tipo) {
             case NODE_TYPE_DECLARATION:
                 tb_visit_type_declaration(builder, (TypeDeclarationNode*)decl[i]);
@@ -42,6 +43,7 @@ void tb_visit_program(TypeBuilder* builder, ProgramNode* node) {
                 break;
         }
     }
+
 }
 
 void tb_visit_type_declaration(TypeBuilder* builder, TypeDeclarationNode* node) {

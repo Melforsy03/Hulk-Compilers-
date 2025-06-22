@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-
 #ifndef SEMANTIC_ERRORS_H
 #define SEMANTIC_ERRORS_H
 
@@ -12,13 +11,23 @@
 
 
 // Estructura base para errores
-typedef struct {
+typedef struct HulkError {
     char* text;
     int line;
     int column;
     char* (*get_error_type)(void);
-} HulkError;
+}HulkError;
 
+// Implementación de HulkErrorList
+typedef struct HulkErrorList {
+        HulkError** errors;
+        int count;
+        int capacity;
+}HulkErrorList;
+
+typedef struct HulkSemanticError {
+    HulkError base;
+} HulkSemanticError;
 
 // Constantes para HulkSemanticError
 #define HULK_SEM_WRONG_METHOD_RETURN_TYPE "Method \"%s\" in type \"%s\" has declared return type \"%s\" but returns \"%s\""
@@ -58,9 +67,7 @@ typedef struct {
 
 char* HulkSemanticError_get_error_type();
 
-typedef struct HulkSemanticError {
-    HulkError base;
-} HulkSemanticError;
+
 
 void HulkSemanticError_init(HulkSemanticError* error, const char* text, int line, int column);
 
@@ -70,13 +77,8 @@ char* HulkSemanticError_to_string(HulkSemanticError* error);
 void HulkError_free(HulkError* error);
 
 
-// Implementación de HulkErrorList
-    typedef struct HulkErrorList {
-        HulkError** errors;
-        int count;
-        int capacity;
-    } HulkErrorList;
-    HulkErrorList* HulkErrorList_create();
+
+HulkErrorList* HulkErrorList_create();
 
 void HulkErrorList_add(HulkErrorList* list, HulkError* error);
 
