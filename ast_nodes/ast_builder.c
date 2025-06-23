@@ -80,7 +80,7 @@ ProgramNode* ast_make_program(DeclarationNode** decls, int decl_count, Expressio
     for (int i = 0; i < decl_count; ++i) {
         list[i] = decls[i];
     }
-    list[decl_count] = NULL;
+    //list[decl_count] = NULL;
 
     n->declarations = list;
     n->expression   = expr;              

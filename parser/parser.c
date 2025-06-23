@@ -377,10 +377,10 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 printf("ACCEPT\n");
 
                 // El AST intermedio coloca en ast[0] la lista de declaraciones y en ast[1] la expresión principal.
-                DeclarationNode** decls = (DeclarationNode**)ast[0];
+                DeclarationNode** decls = typed_stack[0].items;
                 int decl_count = decls ? ((Node*)decls)->child_count : 0;   
-                ExpressionNode* expr = (ExpressionNode*)ast[1];
-
+                ExpressionNode* expr = typed_stack[1].items;
+                
                 //Creamos el nodo Program como raíz del AST
                 ProgramNode* program = ast_make_program(
                     decls,
