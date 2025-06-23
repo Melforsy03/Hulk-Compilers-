@@ -60,11 +60,11 @@ compile: $(MAIN_EXEC)
 .PHONY: generate_lexer
 generate_lexer: $(LEXER_FILE)
 
-# Regla para crear lexer.c si no existe o si generar_lexer ha cambiado
-#$(LEXER_FILE): $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
-#	@echo "Generando lexer..."
-#	./$(LEXER_GEN_EXEC) > $@
-#	@echo "Lexer generado en $@"
+Regla para crear lexer.c si no existe o si generar_lexer ha cambiado
+$(LEXER_FILE): $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
+	@echo "Generando lexer..."
+	./$(LEXER_GEN_EXEC) > $@
+	@echo "Lexer generado en $@"
 
 .PHONY: execute
 execute: $(MAIN_EXEC)
