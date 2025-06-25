@@ -108,40 +108,6 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 ast[top++] = create_node(lookahead,lookahead->name,0,NULL); \
                 stack_push(&st, a.value);
                 lookahead = (++pos < toks) ? input[pos] : table->grammar->eof;
-              
-                if(should_build_node_for_symbol(lookahead)) {
-                    // Crear nodo hoja genérico
-                    Node* leaf = create_node(lookahead, lookahead->name, 0, NULL);
-                    //semantic_push(sem_stack, leaf, NULL, 1);
-                    
-                    // Crear nodo tipado según el tipo de token
-                    TypedNode typed_leaf;
-                    NodeType leaf_type;
-                    
-                    if (strcmp(lookahead->name, "NUMBER") == 0) {
-                        leaf_type = NODE_NUMBER;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    } 
-                    else if (strcmp(lookahead->name, "IDENTIFIER") == 0) {
-                        leaf_type = NODE_VAR;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else if (strcmp(lookahead->name, "TRUE") == 0 || strcmp(lookahead->name, "FALSE") == 0) {
-                        leaf_type = NODE_BOOLEAN;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else if (strcmp(lookahead->name, "STRING") == 0) {
-                        leaf_type = NODE_STRING;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else {
-                        // Para operadores y otros, usamos el nodo genérico
-                        leaf_type = NODE_ATOMIC;
-                        typed_leaf.any = leaf;
-                    }
-                    
-                    typed_push(typed_stack, typed_leaf, leaf_type);
-                }
 
                 break;
             }
@@ -149,249 +115,40 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 printf("REDUCE por producción %d\n", a.value);
                 Production*p = get_production_by_number(table->grammar,a.value);
                 int N = p->right_len;
-                Node* children[N];
-                int actual_children = 0;
-
-                for(int i = N-1; i >= 0; i--) 
-                {
-                    children[i]=ast[--top];
+                
+                if(strcmp(p->left->name, "Atom") == 0 && p->right_len == 3){
+                    int N = 1;
                 }
+                Node* children[N];
+                for(int i = N-1;i>=0;i--) 
+                    children[i]=ast[--top];
 
                 Node* node = create_node(p->left,NULL,N,children);
                 ast[top++]=node;
 
                 for(int i=0; i < N;i++) 
                     stack_pop(&st);
-                
-                if (a.value != 0) {  // No es producción augmentada, goto
-                    int nt = nonterm_index(table->grammar, p->left);
-                    int gto = table->goto_table[stack_top(st)][nt];
-                    stack_push(&st, gto);
-                }
-                
-                
-                // Procesar pila tipada
-                TypedNode typed_children[MAX_CHILDREN];
-                NodeType child_types[MAX_CHILDREN];
-                int typed_child_count = 0;
-                for(int i = p->right_len - 1; i >= 0; i--) {
-                    if(should_build_node_for_symbol(p->right[i])) {
-                        typed_children[typed_child_count] = typed_pop(typed_stack);
-                        child_types[typed_child_count] = typed_peek_type(typed_stack);
-                        typed_child_count++;
-                    }
-                }
-                
-                // Construir nodo según la producción
-                Node* new_node = NULL;
-                TypedNode typed_node;
-                
-                if (strcmp(p->left->name, "Func") == 0) {
-                    printf("\n====================Entro al Function===================\n");
-                    // new_node = ast_make_function_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (ExpressionNode*)children[6]);
-                    // if (new_node) {
-                    //     typed_node.arith_unary = (ArithmeticUnaryNode*)new_node;
-                    // }
-                } 
-                else if (strcmp(p->left->name, "Conditional") == 0) {
-                    printf("\n====================Entro al Conditional===================\n");
 
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_conditional(conditions, (ExpressionNode*)children[4], 0, (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.conditional = (ConditionalNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "While_loop") == 0) {
-                    printf("\n====================Entro al While_loop===================\n");
-                    new_node = (Node*)ast_make_while((ExpressionNode*)children[2], (ExpressionNode*)children[4], 0 , 0);
-                    if (new_node) {
-                        typed_node.while_ = (WhileNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "For_loop") == 0) {
-                    printf("\n====================Entro al For_loop===================\n");
-                    new_node = (Node*)ast_make_for(children[2]->lexeme, (ExpressionNode*)children[4], (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.for_ = (ForNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Let_expr") == 0) {
-                    printf("\n====================Entro al Let_expr===================\n");
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_let_in(conditions, (ExpressionNode*)children[1]->child_count, (ExpressionNode*)children[3], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.let = (LetInNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Or_expr") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Or===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.bool_binary = (BooleanBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "And_expr") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro And===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.bool_binary = (BooleanBinaryNode*)new_node;
-                    }
-                }  
-                else if (strcmp(p->left->name, "Aritm_comp") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Aritm_c======================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.comp_binary = (ComparisonBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Concat") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Concat===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[0]->name);
-                    if (new_node) {
-                        typed_node.string = (StringBinaryNode*)new_node;
-                    } 
-                }  
-                else if (strcmp(p->left->name, "Arithmetic") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Aritmet======================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Term") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Termino===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Pow") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Pow===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Sign") == 0 && p->right_len == 2) {
-                    printf("\n====================Entro Sign===================\n");
-                    new_node = (Node*)build_unary_operation(p, children, p->right[0]->name);
-                    if (new_node) {
-                        typed_node.arith_unary = (ArithmeticUnaryNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Expr_block") == 0) {
-                    printf("\n====================Entro al Expr_block===================\n");
-                    new_node = (Node*)ast_make_expression_block(children[1], lookahead->row, lookahead->colum, 0);
-                    if (new_node) {
-                        typed_node.exprB = (ExpressionBlockNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Assignment") == 0 ){
-                    printf("\n====================Entro al Assignment===================\n");
-                    new_node = (Node*)ast_make_var_decl(children[0]->lexeme, (ExpressionNode*)children[2], "asignacion", lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.varD = (VarDeclarationNode*)new_node;
-                    } 
-                }  
-                else if (strcmp(p->left->name, "Call_func") == 0){
-                    printf("\n====================Entro al Call_func===================\n");
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, conditions, children[2]->child_count, lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.call = (CallFuncNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Print") == 0){
-                    printf("\n====================Entro al Print===================\n");
-                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->child_count, lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.call = (CallFuncNode*)new_node;
-                    }
-                }
-                // else{
-
-                //     printf("\n====================Entro al %s ===================\n", p->left->name);
-                // }
-
-                //else if (strcmp(p->left->name, "Method_decl") == 0) {
-                //     new_node = ast_make_method_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (ExpressionNode*)children[6]);
-                // } else if (strcmp(p->left->name, "Type_decl") == 0) {
-                //     new_node = ast_make_type_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (TypeAttributeList*)children[7], (MethodDeclList*)children[9]);
-                // } else if (strcmp(p->left->name, "Protocol_decl") == 0) {
-                //     new_node = ast_make_protocol_decl((IdentifierNode*)children[1], (MethodSigList*)children[3]);
-                // }
-
-
-                // llamadas
-                
-                // else if (strcmp(p->left->name, "Call_method") == 0) {
-                //     new_node = ast_make_call_method((ExpressionNode*)children[0], p->right[2]->name, (ExprList*)children[3]);
-                // } 
-                // else if (strcmp(p->left->name, "Call_attr") == 0) {
-                //     new_node = ast_make_call_attr((ExpressionNode*)children[0], p->right[2]->name);
-                // } 
-                // else if (strcmp(p->left->name, "Type_instantiation") == 0) {
-                //     new_node = ast_make_type_inst((IdentifierNode*)children[1], (ExprList*)children[3]);
-                // }
-
-                // Destructuring y return
-                // else if (strcmp(p->left->name, "Destructuring") == 0) {
-                //     new_node = ast_make_destruct((IdentifierNode*)children[0], (ExpressionNode*)children[2]);
-                // } else if (strcmp(p->left->name, "Return") == 0) {
-                //     new_node = ast_make_return((ExpressionNode*)children[1]);
-                // }
-
-                //  // Cast y check type
-                // else if (strcmp(p->left->name, "Cast_type")==0) {
-                //     new_node = ast_make_cast((ExpressionNode*)children[0], p->right[2]->name);
-                // } else if (strcmp(p->left->name, "Check_type")==0) {
-                //     new_node = ast_make_check_type(NODE_CAST_TYPE, (ExpressionNode*)children[0], (ExpressionNode*)children[2]);
-                // }
-            
-                // Genérico
-                // else {
-                //     new_node = ast_make_generic(p->left->name, (Node**)children, N);
-                // }
-
-                typed_push(typed_stack, typed_node, new_node ? new_node->tipo : NODE_ATOMIC);
-                //print_typed_stack(typed_stack);
+                int nt = nonterm_index(table->grammar,p->left);
+                int gto = table->goto_table[stack_top(st)][nt];
+                stack_push(&st,gto);
                 break;
             }
             case ACTION_ACCEPT:{
-                //printf("ACCEPT\n");
-
-                ////TypedNode typed_root = typed_pop(typed_stack);
-                ////print_typed_stack(typed_stack);
-                //
-                //Node* children[2];
-                //children[1] = ast[1];
-                //children[0] = ast[0];
-                //Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
-                ////root = optimize_ast(root);
-
-                ////print_ast_root(root);
-                //clear_stack(st);
-                //return root;
+                
+                Node* children[2];
+                children[1] = ast[1];
+                children[0] = ast[0];
 
                 printf("ACCEPT\n");
+                Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
+                //root =  create_node(create_symbol("Expr", NON_TERMINAL), "Expr", 2, node[0]);
+                //root = optimize_ast(root);
 
-                // El AST intermedio coloca en ast[0] la lista de declaraciones y en ast[1] la expresión principal.
-                DeclarationNode** decls = typed_stack[0].items;
-                int decl_count = decls ? ((Node*)decls)->child_count : 0;   
-                ExpressionNode* expr = typed_stack[1].items;
-                
-                //Creamos el nodo Program como raíz del AST
-                ProgramNode* program = ast_make_program(
-                    decls,
-                    decl_count,
-                    expr,
-                    0,
-                    0
-                );
-
+                printf("ACCEPT\n");
+                print_ast_root(root);
                 clear_stack(st);
-                return (Node*)program;
+                return root;
             }
             case ACTION_ERROR:
             default:
