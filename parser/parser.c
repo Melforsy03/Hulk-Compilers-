@@ -105,21 +105,17 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
         switch(a.action){
             case ACTION_SHIFT:{
                 printf("SHIFT a %d\n", a.value);
-                ast[top++] = create_node(lookahead,lookahead->name,0,NULL); \
-                stack_push(&st, a.value);
-                lookahead = (++pos < toks) ? input[pos] : table->grammar->eof;
-
+                ast[top++] = create_node(lookahead,lookahead->name,0,NULL);
+                stack_push(&st,a.value);
+                lookahead = (++pos < toks)? input[pos] : table->grammar->eof;
                 break;
             }
             case ACTION_REDUCE:{
                 printf("REDUCE por producción %d\n", a.value);
                 Production*p = get_production_by_number(table->grammar,a.value);
                 int N = p->right_len;
-                
-                if(strcmp(p->left->name, "Atom") == 0 && p->right_len == 3){
-                    int N = 1;
-                }
                 Node* children[N];
+
                 for(int i = N-1;i>=0;i--) 
                     children[i]=ast[--top];
 
@@ -135,17 +131,14 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 break;
             }
             case ACTION_ACCEPT:{
+                printf("ACCEPT\n");
                 
                 Node* children[2];
                 children[1] = ast[1];
                 children[0] = ast[0];
-
-                printf("ACCEPT\n");
                 Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
-                //root =  create_node(create_symbol("Expr", NON_TERMINAL), "Expr", 2, node[0]);
-                //root = optimize_ast(root);
+                root = optimize_ast(root);
 
-                printf("ACCEPT\n");
                 print_ast_root(root);
                 clear_stack(st);
                 return root;
@@ -167,48 +160,6 @@ Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,i
                 return NULL;
         }
     }
-}
-
-
-void print_typed_stack(TypedStack* s) {
-    printf("=== Typed Stack (%d items) ===\n", s->top + 1);
-    for (int i = 0; i <= s->top; i++) {
-        printf("[%d] Type: %d - ", i, s->types[i]);
-        
-        Node* node = (Node*)s->items[i].any;
-        if (!node) {
-            printf("NULL\n");
-            continue;
-        }
-        
-        switch(s->types[i]) {
-            case NODE_NUMBER:
-                printf("Number: %s\n", node->lexeme);
-                break;
-            case NODE_VAR:
-                printf("Variable: %s\n", node->lexeme);
-                break;
-            case NODE_PLUS:
-                printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_MINUS:
-            printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_MULT:
-            printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_DIV:
-                printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_OR:
-            case NODE_AND:
-                printf("BooleanOp: %s\n", ((BooleanBinaryNode*)node)->base.operator);
-                break;
-            default:
-                printf("Unhandled type (name: %s)\n", node->symbol ? node->symbol->name : "no symbol");
-        }
-    }
-    printf("=====================\n");
 }
 
 
