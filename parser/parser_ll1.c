@@ -95,6 +95,8 @@ static Node* parse_pow(ParserLL1* p) {
         match(p, TOKEN_POWER, "Se esperaba '^'");
         PowNode* pow = malloc(sizeof(PowNode));
         pow->base.base.base.base.tipo = NODE_POW;
+        pow->base.base.base.base.lexeme = "^";
+        pow->base.base.operator = "^";
         pow->base.base.left = left;
         pow->base.base.right = parse_pow(p); // Derecha-asociativo
         return (Node*)pow;
@@ -149,6 +151,8 @@ static Node* parse_term_prime(ParserLL1* p, Node* left) {
         match(p, TOKEN_STAR, "Se esperaba '*'");
         MultNode* mult = malloc(sizeof(MultNode));
         mult->base.base.base.base.tipo = NODE_MULT;
+        mult->base.base.base.base.lexeme = "*";
+        mult->base.base.operator = "*";
         mult->base.base.left = left;
         mult->base.base.right = parse_factor(p);
         return parse_term_prime(p, (Node*)mult); // Izquierda-asociativo
@@ -157,6 +161,8 @@ static Node* parse_term_prime(ParserLL1* p, Node* left) {
         match(p, TOKEN_SLASH, "Se esperaba '/'");
         DivNode* div = malloc(sizeof(DivNode));
         div->base.base.base.base.tipo = NODE_DIV;
+        div->base.base.base.base.lexeme = "/";
+        div->base.base.operator = "/";
         div->base.base.left = left;
         div->base.base.right = parse_factor(p);
         return parse_term_prime(p, (Node*)div); // Izquierda-asociativo
@@ -166,12 +172,14 @@ static Node* parse_term_prime(ParserLL1* p, Node* left) {
 
 // Expr' → '+' Term Expr' | '-' Term Expr' | ε
 static Node* parse_expression_prime(ParserLL1* p, Node* left) {
-    printf("esta en expr prime ====\n\n");
+    printf("esta en expr prime ====\n");
     
     if (p->current_token.type == TOKEN_PLUS) {
         match(p, TOKEN_PLUS, "Se esperaba '+'");
         PlusNode* plus = malloc(sizeof(PlusNode));
         plus->base.base.base.base.tipo = NODE_PLUS;
+        plus->base.base.base.base.lexeme = "+";
+        plus->base.base.operator = "+";
         plus->base.base.left = left;
         plus->base.base.right = parse_term(p);
         return parse_expression_prime(p, (Node*)plus);
@@ -180,6 +188,8 @@ static Node* parse_expression_prime(ParserLL1* p, Node* left) {
         match(p, TOKEN_MINUS, "Se esperaba '-'");
         MinusNode* minus = malloc(sizeof(MinusNode));
         minus->base.base.base.base.tipo = NODE_MINUS;
+        minus->base.base.base.base.lexeme = "-";
+        minus->base.base.operator = "-";
         minus->base.base.left = left;
         minus->base.base.right = parse_term(p);
         return parse_expression_prime(p, (Node*)minus);
@@ -210,10 +220,12 @@ static Node* parse_comparison(ParserLL1* p) {
             }
             
             ComparisonBinaryNode* comp = malloc(sizeof(ComparisonBinaryNode));
+            comp->base.base.base.lexeme = op_str;
+            comp->base.operator = op_str;
             comp->base.base.base.tipo = type;
             comp->base.left = left;
             comp->base.right = parse_expression_prime(p, left);
-            comp->base.operator = strdup(op_str);
+            //comp->base.operator = strdup(op_str);
             left = (Node*)comp;
         } 
         else {
@@ -239,6 +251,8 @@ static Node* parse_equality(ParserLL1* p) {
             EqualityBinaryNode* eq = malloc(sizeof(EqualityBinaryNode));
             eq->base.base.base.tipo = type;
             eq->base.left = left;
+            eq->base.base.base.lexeme = op_str;
+            eq->base.operator = op_str;
             eq->base.right = parse_comparison(p);
             eq->base.operator = strdup(op_str);
             left = (Node*)eq;
@@ -260,6 +274,8 @@ static Node* parse_and_expr(ParserLL1* p) {
         and->base.base.base.base.tipo = NODE_AND;
         and->base.base.left = left;
         and->base.base.right = parse_equality(p);
+        and->base.base.base.base.lexeme = "&&";
+        and->base.base.operator = "&&";
         left = (Node*)and;
     }
     return left;
@@ -276,6 +292,8 @@ static Node* parse_or_expr(ParserLL1* p) {
         or->base.base.base.base.tipo = NODE_OR;
         or->base.base.left = left;
         or->base.base.right = parse_and_expr(p);
+        or->base.base.base.base.lexeme = "||";
+        or->base.base.operator = "||";
         left = (Node*)or;
     }
     return left;
@@ -288,13 +306,13 @@ Node* parse_expression(ParserLL1* p) {
 }
 
 // Program → Expr
-Node* parse_program(ParserLL1* p) {
+ProgramNode* parse_program(ParserLL1* p) {
     printf("esta en progra ====\n");
     Node* expr = parse_expression(p);
     ProgramNode* prog = malloc(sizeof(ProgramNode));
     prog->base.tipo = NODE_PROGRAM;
     prog->expression = expr;
-    return (Node*)prog;
+    return prog;
 }
 
 ParserLL1* parser_ll1_new(const char** input, Grammar* grammar) {
