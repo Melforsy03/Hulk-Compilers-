@@ -18,15 +18,15 @@ void generar_programa(ProgramNode* program) {
         fprintf(stderr, "[ERROR] ProgramNode nulo\n");
         return;
     }
-
+    
     fprintf(salida_llvm, "; Generado automáticamente por el compilador\n\n");
 
     // Declarar funciones externas (como print, strdup, etc.)
     declare_extern_functions();
-
+ 
     // Registrar strings globales que aparecerán en el .ll
     generar_constantes_globales(program);
-
+  
     // 1. Generar todas las funciones declaradas (antes del main)
     if (program->declarations) {
         DeclarationNode** decls = (DeclarationNode**)program->declarations;
@@ -36,7 +36,7 @@ void generar_programa(ProgramNode* program) {
             }
         }
     }
-
+    
     // 2. Generar función principal (main)
     fprintf(salida_llvm, "define i32 @user_main() {\n");
 
@@ -46,6 +46,7 @@ void generar_programa(ProgramNode* program) {
     generar_declaraciones_variables();
 
     int last_temp = generar_codigo(program->expression);
+     fprintf(stderr, "Error al construir tabla de parsing\n");
     if (last_temp != -1) {
         fprintf(salida_llvm, "  ret i32 %%%d\n", last_temp);
     } else {
@@ -80,8 +81,11 @@ int generar_comparacion(BinaryNode* bin, const char* cmp) {
 int generar_codigo(ExpressionNode* expr) {
     if (!expr) return -1;
     expr = optimizar_constantes(expr);  // Aplicar optimización
-
+    //fprintf(stderr, "No se pudo abrir archivo LLVM para escritura\n");
     NodeType tipo = ((Node*)expr)->tipo;
+   // printf("Token: %s\n", expr->base.lexeme);
+    //fprintf(stderr, "No se pudo abrir archivo LLVM para escritura\n");
+    
 
     switch (tipo) {
 
@@ -123,6 +127,7 @@ int generar_codigo(ExpressionNode* expr) {
 
         case NODE_PROGRAM: {
             ProgramNode* prog = (ProgramNode*)expr;
+             fprintf(stderr, "Error al construir tabla de parsing\n");
             if (prog->expression) {
                 return generar_codigo(prog->expression);
             }
@@ -215,12 +220,15 @@ int generar_codigo(ExpressionNode* expr) {
         // ----- Operaciones aritméticas -----
         case NODE_PLUS: return generar_binario((BinaryNode*)expr, "add");
         case NODE_MINUS: return generar_binario((BinaryNode*)expr, "sub");
+       
         case NODE_MULT: return generar_binario((BinaryNode*)expr, "mul");
+         
         case NODE_DIV: return generar_binario((BinaryNode*)expr, "sdiv");
         case NODE_MOD: return generar_binario((BinaryNode*)expr, "srem");
 
         case NODE_POW: {
             BinaryNode* bin = (BinaryNode*)expr;
+        
             int izq = generar_codigo(bin->left);
             int der = generar_codigo(bin->right);
             int temp = nuevo_temp();

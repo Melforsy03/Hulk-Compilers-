@@ -2,7 +2,7 @@
 #define PARSE_TABLE_H
 
 #include "../grammar/grammar.h"
-#include "parser/first_follow.h"
+#include "../parser/first_follow.h"
 #include "containerset.h"
 
 typedef struct {

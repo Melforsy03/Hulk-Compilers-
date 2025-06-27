@@ -1,9 +1,9 @@
 #ifndef PARSER_LL1_H
 #define PARSER_LL1_H
 #include <string.h>
-#include "lexer/lexer.h" 
-#include "grammar/grammar.h" 
-#include "ast_nodes/ast_nodes.h" 
+#include "../lexer/lexer.h" 
+#include "../grammar/grammar.h" 
+#include "../ast_nodes/ast_nodes.h" 
 
 typedef struct {
     Token current_token;  

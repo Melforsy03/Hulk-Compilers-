@@ -4,6 +4,7 @@
 
 #include "../grammar/symbol.h" 
 
+typedef struct Scope Scope;
 
 typedef enum {
     // Nodo raíz
@@ -93,7 +94,7 @@ typedef struct Node {
     struct Node** children;
     int child_count;
     char* lexeme;
-    //Scope* scope;
+    Scope* scope;
     NodeType tipo ;
 } Node;
 

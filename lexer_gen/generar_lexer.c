@@ -240,8 +240,6 @@ void generar_lexer_c(FILE *out) {
         estado_id_global = 0;
         estado_dfa_id_global = 0;
 
-        printf("Procesando token %d/%d: %s\n", t + 1, num_tokens, tokens[t].nombre);
-
         FragmentoNFA nfa;
 
         if (strcmp(tokens[t].nombre, "IDENTIFIER") == 0) {
@@ -314,20 +312,16 @@ void generar_lexer_c(FILE *out) {
 
 
 int main() {
-    printf("Iniciando generador de lexer...\n");
 
     leer_tokens("lexer_gen/tokens.def");
-
     // Generar lexer.c
-    FILE *f = fopen("lexer.c", "w");
+    FILE *f = fopen("lexer/lexer.c", "w");
     if (!f) {
         perror("No se pudo abrir lexer.c");
         return 1;
     }
     generar_lexer_c(f);
     fclose(f);
-
-    printf("Lexer generado exitosamente\n");
 
     return 0;
 }

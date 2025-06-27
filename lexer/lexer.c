@@ -1412,7 +1412,7 @@ void print_token(Token t) {
     if (t.type == TOKEN_EOF) {
         printf("<EOF>\n");
     } else if (t.type == TOKEN_ERROR) {
-        printf("<ERROR: '¨' at line 0, column 1>\n",
+        printf("<ERROR: 'œ' at line 0, column 1>\n",
                t.length, t.lexema, t.line, t.column);
     } else {
         printf("<%s: '%.*s' at line %d, column %d>\n",
