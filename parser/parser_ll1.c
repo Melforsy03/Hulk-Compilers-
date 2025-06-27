@@ -37,6 +37,7 @@ static void match(ParserLL1* p, TokenType expected, const char* error_msg) {
 
 // Crea nodo número usando tu estructura existente
 static NumberNode* parse_number(ParserLL1* p) {
+    printf("esta en number===\n");
     NumberNode* num = malloc(sizeof(NumberNode));
     num->base.base.base.base.tipo = NODE_NUMBER;
     num->base.base.base.base.row = p->current_token.line;
@@ -45,19 +46,6 @@ static NumberNode* parse_number(ParserLL1* p) {
     match(p, TOKEN_NUMBER, "Se esperaba número");
     return num;
 }
-#include "parser_ll1.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-// Prototipos de funciones adicionales
-static Node* parse_comparison(ParserLL1* p);
-static Node* parse_equality(ParserLL1* p);
-static Node* parse_and_expr(ParserLL1* p);
-static Node* parse_or_expr(ParserLL1* p);
-static Node* parse_not_expr(ParserLL1* p);
-static Node* parse_pow(ParserLL1* p);
-static BooleanNode* parse_boolean(ParserLL1* p);
 
 // Función para crear nodos booleanos
 static BooleanNode* parse_boolean(ParserLL1* p) {
@@ -79,6 +67,7 @@ static BooleanNode* parse_boolean(ParserLL1* p) {
 
 // Atom → NUMBER | '(' Expr ')' | 'true' | 'false'
 static Node* parse_atom(ParserLL1* p) {
+    printf("esta en atom====\n");
     if (p->current_token.type == TOKEN_NUMBER) {
         return (Node*)parse_number(p);
     } 
@@ -99,6 +88,7 @@ static Node* parse_atom(ParserLL1* p) {
 
 // Pow → Atom '^' Pow | Atom
 static Node* parse_pow(ParserLL1* p) {
+    printf("esta en pow===\n");
     Node* left = parse_atom(p);
     
     if (p->current_token.type == TOKEN_POWER) {
@@ -114,6 +104,7 @@ static Node* parse_pow(ParserLL1* p) {
 
 // NotExpr → '!' NotExpr | Pow
 static Node* parse_not_expr(ParserLL1* p) {
+    printf("esta en not====\n");
     if (p->current_token.type == TOKEN_NOT) {
         match(p, TOKEN_NOT, "Se esperaba '!'");
         NotNode* not = malloc(sizeof(NotNode));
@@ -126,6 +117,7 @@ static Node* parse_not_expr(ParserLL1* p) {
 
 // Factor → '-' Factor | '+' Factor | '!' NotExpr | NotExpr
 static Node* parse_factor(ParserLL1* p) {
+    printf("esta en factor====\n");
     if (p->current_token.type == TOKEN_MINUS) {
         match(p, TOKEN_MINUS, "Se esperaba '-'");
         NegativeNode* neg = malloc(sizeof(NegativeNode));
@@ -145,12 +137,14 @@ static Node* parse_factor(ParserLL1* p) {
 
 // Term → Factor Term'
 static Node* parse_term(ParserLL1* p) {
+    printf("esta en term ====\n");
     Node* left = parse_factor(p);
     return parse_term_prime(p, left);
 }
 
 // Term' → * Factor Term' | / Factor Term' | ε
 static Node* parse_term_prime(ParserLL1* p, Node* left) {
+    printf("esta en term prime ====\nr");
     if (p->current_token.type == TOKEN_STAR) {
         match(p, TOKEN_STAR, "Se esperaba '*'");
         MultNode* mult = malloc(sizeof(MultNode));
@@ -170,9 +164,33 @@ static Node* parse_term_prime(ParserLL1* p, Node* left) {
     return left;
 }
 
-// Comparison → Term (('<' | '>' | '<=' | '>=') Term)*
+// Expr' → '+' Term Expr' | '-' Term Expr' | ε
+static Node* parse_expression_prime(ParserLL1* p, Node* left) {
+    printf("esta en expr prime ====\n\n");
+    
+    if (p->current_token.type == TOKEN_PLUS) {
+        match(p, TOKEN_PLUS, "Se esperaba '+'");
+        PlusNode* plus = malloc(sizeof(PlusNode));
+        plus->base.base.base.base.tipo = NODE_PLUS;
+        plus->base.base.left = left;
+        plus->base.base.right = parse_term(p);
+        return parse_expression_prime(p, (Node*)plus);
+    } 
+    else if (p->current_token.type == TOKEN_MINUS) {
+        match(p, TOKEN_MINUS, "Se esperaba '-'");
+        MinusNode* minus = malloc(sizeof(MinusNode));
+        minus->base.base.base.base.tipo = NODE_MINUS;
+        minus->base.base.left = left;
+        minus->base.base.right = parse_term(p);
+        return parse_expression_prime(p, (Node*)minus);
+    }
+    return left;
+}
+// Comparison → Expr' (('<' | '>' | '<=' | '>=') Expr')*
 static Node* parse_comparison(ParserLL1* p) {
+    printf("esta en comp ====\n");
     Node* left = parse_term(p);
+    left = parse_expression_prime(p, left);
     
     while (1) {
         TokenType op = p->current_token.type;
@@ -194,10 +212,11 @@ static Node* parse_comparison(ParserLL1* p) {
             ComparisonBinaryNode* comp = malloc(sizeof(ComparisonBinaryNode));
             comp->base.base.base.tipo = type;
             comp->base.left = left;
-            comp->base.right = parse_term(p);
+            comp->base.right = parse_expression_prime(p, left);
             comp->base.operator = strdup(op_str);
             left = (Node*)comp;
-        } else {
+        } 
+        else {
             break;
         }
     }
@@ -206,6 +225,7 @@ static Node* parse_comparison(ParserLL1* p) {
 
 // Equality → Comparison (('==' | '!=') Comparison)*
 static Node* parse_equality(ParserLL1* p) {
+    printf("esta en equal ====\n");
     Node* left = parse_comparison(p);
     
     while (1) {
@@ -231,6 +251,7 @@ static Node* parse_equality(ParserLL1* p) {
 
 // AndExpr → Equality ('&&' Equality)*
 static Node* parse_and_expr(ParserLL1* p) {
+    printf("esta en an ====\nd");
     Node* left = parse_equality(p);
     
     while (p->current_token.type == TOKEN_AND) {
@@ -246,6 +267,7 @@ static Node* parse_and_expr(ParserLL1* p) {
 
 // OrExpr → AndExpr ('||' AndExpr)*
 static Node* parse_or_expr(ParserLL1* p) {
+    printf("esta en or ====\n");
     Node* left = parse_and_expr(p);
     
     while (p->current_token.type == TOKEN_OR) {
@@ -261,11 +283,13 @@ static Node* parse_or_expr(ParserLL1* p) {
 
 // Expr → OrExpr
 Node* parse_expression(ParserLL1* p) {
+    printf("esta en expr ====\n");
     return parse_or_expr(p);
 }
 
 // Program → Expr
 Node* parse_program(ParserLL1* p) {
+    printf("esta en progra ====\n");
     Node* expr = parse_expression(p);
     ProgramNode* prog = malloc(sizeof(ProgramNode));
     prog->base.tipo = NODE_PROGRAM;
