@@ -1,4 +1,5 @@
 #include "grammar.h"
+#include "lexer/lexer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,6 +92,35 @@ Symbol* get_terminal(Grammar* grammar, const char* name, int row, int colum)
 void add_production(Grammar* g, Symbol* left, Symbol** right, int right_len) 
 {
     g->productions[g->production_count++] = create_production(left, right, right_len);
+}
+
+
+int get_non_term_index(Grammar* g, Symbol* nt) {
+    if (!g || !nt || nt->type != NON_TERMINAL) return -1;
+    
+    for (int i = 0; i < g->nonterminals_count; i++) {
+        if (g->nonterminals[i] && symbol_equals(g->nonterminals[i], nt)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int get_term_index(Grammar* g, Symbol* term) {
+    if (!g || !term) return -1;
+    if (term->type != TERMINAL) return -1;
+    // Buscar entre los terminales normales
+    for (int i = 0; i < g->terminals_count; i++) {
+        if (strcmp(g->terminals[i]->name, term->name) == 0) {
+            return i;
+        }
+    }
+    
+    if (term->type == TOKEN_EOF || strcmp(term->name, "$") == 0) {
+        return g->terminals_count;
+    }
+    
+    return -1; // No encontrado
 }
 
 void print_grammar(Grammar* g) 

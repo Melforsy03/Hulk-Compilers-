@@ -3,8 +3,7 @@
 #define AST_NODES_H
 
 #include "../grammar/symbol.h" 
-#include "../semantic_check/semantic.h"
-// static void _free(Node* node);
+
 
 typedef enum {
     // Nodo raíz
@@ -94,7 +93,7 @@ typedef struct Node {
     struct Node** children;
     int child_count;
     char* lexeme;
-    Scope* scope;
+    //Scope* scope;
     NodeType tipo ;
 } Node;
 
@@ -466,5 +465,7 @@ void print_ast_root(Node* root);
 static void _print(Node* node,int depth);
 void free_ast(Node* node);
 void print_ast(Node* root);
+void print_ast_ll1(Node* root);
+void free_ast_ll1(Node* node);
 
 #endif

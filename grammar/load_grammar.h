@@ -7,6 +7,6 @@
 void trim(char* str);
 
 // Declaración de la función para cargar una gramática desde un archivo
-void load_grammar_from_file(Grammar* grammar, const char* filename);
+Grammar* load_grammar_from_file(const char* filename);
 
 #endif 

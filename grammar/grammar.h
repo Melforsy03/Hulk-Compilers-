@@ -42,4 +42,8 @@ Symbol* get_terminal(Grammar* grammar, const char* name, int row, int colum);
 
 void free_grammar(Grammar* g);
 
+// Funciones auxiliares para índices
+int get_non_term_index(Grammar* g, Symbol* nt);
+int get_term_index(Grammar* g, Symbol* t);
+
 #endif
