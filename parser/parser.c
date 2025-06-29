@@ -1,469 +1,965 @@
-#include "parser.h"
-#include "../grammar/grammar.h"
-#include "lr1_table.h"
-#include "../ast_nodes/ast_optimize.h"
-#include "../ast_nodes/ast_builder.h"
-#include "../ast_nodes/ast_build.h"
-#include "../ast_nodes/ast_nodes.h"
-#include <stdlib.h>
+// parser.c
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#include "parser.h"
+#include "../lexer/lexer.h"
+#include "../ast_nodes/ast_nodes.h"
 
-#define AST_STACK_SIZE 1000
-#define MAX_CHILDREN 10 
+// Token actual del lexer
+Token current_token;
+const char* input_source;
 
-static int should_build_node_for_symbol(Symbol* sym) {
-    // Símbolos terminales que no generan nodos directos
-    const char* non_node_symbols[] = {
-        "SEMICOLON", "LPAREN", "RPAREN", "LBRACE", "RBRACE", 
-        "COMMA", "COLON", "ASSIGN", "ARROW", "EOF"
-    };
+// -------------------------------------
+// Helpers
+// -------------------------------------
+Token lookahead_token;
+
+void init_parser(const char* source) {
+    input_source = source;
+    current_token = next_token(&input_source);
+    lookahead_token = next_token(&input_source);
+}
+
+void advance() {
+    current_token = lookahead_token;
+    lookahead_token = next_token(&input_source);
+}
+
+Token peek_token() {
+    return lookahead_token;
+}
+
+bool lookahead_token_is_call() {
+    Token peek = peek_token();
+    return peek.type == TOKEN_LPAREN;
+}
+
+void syntax_error(const char* expected) {
+    fprintf(stderr, "Syntax error at line %d, col %d: expected %s, got '%s'\n",
+            current_token.line, current_token.column, expected, current_token.lexema);
+    exit(EXIT_FAILURE);
+}
+
+void match(int token_type) {
+    if (current_token.type == token_type) {
+        advance();
+    } else {
+        syntax_error("token does not match");
+    }
+}
+// Program -> Type_function_list Expr_item_list EOF
+
+ProgramNode* parse_program() {
+    ProgramNode* program = malloc(sizeof(ProgramNode));
+    program->base.tipo = NODE_PROGRAM;
+    program->base.row = current_token.line;
+    program->base.column = current_token.column;
+
+    int decl_count = 0;
+    DeclarationNode** decls = parse_type_function_list(&decl_count);
+    program->declarations = decls;
+
+    // ✅ Ahora sí parsea la parte de expresión principal
+    program->expression = parse_expr_item_list();
+
+    if (current_token.type != TOKEN_EOF) {
+        syntax_error("EOF");
+    }
+
+    return program;
+}
+
+DeclarationNode** parse_type_function_list(int* count) {
+    DeclarationNode** list = NULL;
+    *count = 0;
+
+    while (current_token.type == TOKEN_FUNCTION || current_token.type == TOKEN_TYPE) {
+    if (current_token.type == TOKEN_FUNCTION) {
+        DeclarationNode* decl = parse_func();
+        if (!decl) syntax_error("NULL function decl!");
+        printf("[DEBUG] Func decl type: %d\n", decl->base.tipo); // ✅ VERIFICA
+        list[(*count)++] = decl;
+    } else {
+        DeclarationNode* decl = parse_type();
+        if (!decl) syntax_error("NULL type decl!");
+        printf("[DEBUG] Type decl type: %d\n", decl->base.tipo);
+        list[(*count)++] = decl;
+    }
+    }
+    return list;
+}
+
+DeclarationNode* parse_func() {
+    match(TOKEN_FUNCTION);
+
+    FunctionDeclarationNode* func = malloc(sizeof(FunctionDeclarationNode));
+    func->base.base.tipo = NODE_FUNCTION_DECLARATION;
+    func->base.base.row = current_token.line;
+    func->base.base.column = current_token.column;
+
+    // Method_signature -> IDENTIFIER LPAREN Params_list RPAREN
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+    func->name = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    match(TOKEN_LPAREN);
+
+    // Por simplicidad: solo parámetros simples separados por coma
+    func->params = NULL;
+    func->param_counter = 0;
+
+    if (current_token.type != TOKEN_RPAREN) {
+        // Implementa parse_params_list() si quieres luego
+        syntax_error("Params parsing not implemented yet");
+    }
     
-    for (size_t i = 0; i < sizeof(non_node_symbols)/sizeof(non_node_symbols[0]); i++) {
-        if (strcmp(sym->name, non_node_symbols[i]) == 0) {
-            return 0;
+    
+
+    match(TOKEN_RPAREN);
+
+    // Sig -> Expr_block | PUNTOS IDENTIFIER Next | Next
+    // Para ahora asumimos un bloque {}
+    // Implementa parse_expr_block() luego
+    func->body = NULL;
+
+    return (DeclarationNode*) func;
+}
+ExpressionNode* parse_expr_item_list() {
+    if (current_token.type == TOKEN_LBRACE) {
+        return parse_expr_block();
+    } else if (current_token.type == TOKEN_IF ||
+               current_token.type == TOKEN_WHILE ||
+               current_token.type == TOKEN_FOR ||
+               current_token.type == TOKEN_LET ||
+               current_token.type == TOKEN_IDENTIFIER ||
+               current_token.type == TOKEN_NUMBER ||
+               current_token.type == TOKEN_TRUE ||
+               current_token.type == TOKEN_FALSE ||
+               current_token.type == TOKEN_STRING ||
+               current_token.type == TOKEN_LPAREN) {
+        ExpressionNode* expr = parse_expr();
+        match(TOKEN_SEMICOLON);
+        return expr;
+    } else {
+        // epsilon
+        return NULL;
+    }
+}
+ExpressionNode* parse_expr_block() {
+    match(TOKEN_LBRACE);
+
+    ExpressionBlockNode* block = malloc(sizeof(ExpressionBlockNode));
+    block->base.base.base.tipo= NODE_EXPRESSION_BLOCK;
+    block->base.base.base.row = current_token.line;
+    block->base.base.base.column = current_token.column;
+
+    block->expressions = malloc(sizeof(ExpressionNode*) * 100);
+    block->expression_counter = 0;
+
+   block->expressions = malloc(sizeof(ExpressionNode*) * 100);
+    block->expression_counter = 0;
+
+    while (current_token.type != TOKEN_RBRACE) {
+        ExpressionNode* expr = parse_expr();
+        ((ExpressionNode**)block->expressions)[block->expression_counter++] = expr;
+
+        if (current_token.type == TOKEN_SEMICOLON) {
+            match(TOKEN_SEMICOLON);
+        } else {
+            break;
         }
     }
-    return 1;
+
+    match(TOKEN_RBRACE);
+    return (ExpressionNode*) block;
 }
+ExpressionNode* parse_or_expr() {
+    ExpressionNode* left = parse_and_expr();
 
+    while (current_token.type == TOKEN_OR) {
+        match(TOKEN_OR);
 
-static int symbol_index(Grammar* g,Symbol* s){
-    for(int i = 0; i < g->terminals_count; i++) 
-    {
-        if(strcmp(g->terminals[i]->name, s->name) == 0) return i;
+        OrNode* or_node = malloc(sizeof(OrNode));
+        or_node->base.base.base.base.tipo = NODE_OR;
+        or_node->base.base.left = left;
+        or_node->base.base.right = parse_and_expr();
+
+        left = (ExpressionNode*) or_node;
     }
-        
-    return -1;
+
+    return left;
 }
-static int nonterm_index(Grammar*g,Symbol*s){
-    for(int i=0;i<g->nonterminals_count;i++) if(g->nonterminals[i]==s)return i;
-    return -1;
+ExpressionNode* parse_and_expr() {
+    ExpressionNode* left = parse_check_type();
+
+    while (current_token.type == TOKEN_AND) {
+        match(TOKEN_AND);
+
+        AndNode* and_node = malloc(sizeof(AndNode));
+        and_node->base.base.base.base.tipo = NODE_AND;
+        and_node->base.base.left = left;
+        and_node->base.base.right = parse_check_type();
+
+        left = (ExpressionNode*) and_node;
+    }
+
+    return left;
+}
+ExpressionNode* parse_check_type() {
+    ExpressionNode* left = parse_aritm_comp();
+
+    if (current_token.type == TOKEN_IS) {
+        match(TOKEN_IS);
+        if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+
+        CheckTypeNode* node = malloc(sizeof(CheckTypeNode));
+        node->base.base.tipo = NODE_CHECK_TYPE;
+        node->left = left;
+
+        // Right es VarNode con el tipo
+        VarNode* type_var = malloc(sizeof(VarNode));
+        type_var->base.base.base.base.tipo = NODE_VAR;
+        type_var->base.base.base.base.lexeme = strdup(current_token.lexema);
+        type_var->base.base.base.base.row = current_token.line;
+        type_var->base.base.base.base.column = current_token.column;
+        match(TOKEN_IDENTIFIER);
+
+        node->right = (ExpressionNode*) type_var;
+
+        return (ExpressionNode*) node;
+    }
+
+    return left;
+}
+ExpressionNode* parse_aritm_comp() {
+    ExpressionNode* left = parse_concat();
+
+    while (current_token.type == TOKEN_EQUAL_EQUAL ||
+           current_token.type == TOKEN_NOT_EQUAL ||
+           current_token.type == TOKEN_GREATER ||
+           current_token.type == TOKEN_GREATER_EQUAL ||
+           current_token.type == TOKEN_LESS ||
+           current_token.type == TOKEN_LESS_EQUAL) {
+
+        char* op = current_token.lexema;
+        advance();
+
+        ExpressionNode* right = parse_concat();
+
+        BinaryNode* comp_node = malloc(sizeof(BinaryNode));
+        comp_node->base.base.tipo = NODE_BINARY;
+        comp_node->operator = op;
+        comp_node->left = left;
+        comp_node->right = right;
+
+        left = (ExpressionNode*) comp_node;
+    }
+
+    return left;
 }
 
-static Production* get_production_by_number(Grammar*g,int num){
-    return (num >= 0 && num < g->production_count)? g->productions[num] : NULL;
+ExpressionNode* parse_concat() {
+    ExpressionNode* left = parse_arithmetic();
+
+    while (current_token.type == TOKEN_AT || current_token.type == TOKEN_AT_AT) {
+        int op = current_token.type;
+        match(op);
+
+        ExpressionNode* right = parse_arithmetic();
+
+        if (op == TOKEN_AT) {
+            ConcatNode* node = malloc(sizeof(ConcatNode));
+            node->base.base.base.base.tipo = NODE_CONCAT;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        } else {
+            DoubleConcatNode* node = malloc(sizeof(DoubleConcatNode));
+            node->base.base.base.base.tipo = NODE_DOUBLE_CONCAT;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        }
+    }
+
+    return left;
+}
+ExpressionNode* parse_arithmetic() {
+    ExpressionNode* left = parse_term();
+
+    while (current_token.type == TOKEN_PLUS || current_token.type == TOKEN_MINUS) {
+        int op = current_token.type;
+        match(op);
+
+        ExpressionNode* right = parse_term();
+
+        if (op == TOKEN_PLUS) {
+            PlusNode* node = malloc(sizeof(PlusNode));
+            node->base.base.base.base.tipo = NODE_PLUS;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        } else {
+            MinusNode* node = malloc(sizeof(MinusNode));
+            node->base.base.base.base.tipo = NODE_MINUS;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        }
+    }
+
+    return left;
+}
+ExpressionNode* parse_term() {
+    ExpressionNode* left = parse_pow();
+
+    while (current_token.type == TOKEN_STAR || current_token.type == TOKEN_SLASH || current_token.type == TOKEN_MODULO) {
+        int op = current_token.type;
+        match(op);
+
+        ExpressionNode* right = parse_pow();
+
+        if (op == TOKEN_STAR) {
+            MultNode* node = malloc(sizeof(MultNode));
+            node->base.base.base.base.tipo = NODE_MULT;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        } else if (op == TOKEN_SLASH) {
+            DivNode* node = malloc(sizeof(DivNode));
+            node->base.base.base.base.tipo = NODE_DIV;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        } else {
+            ModNode* node = malloc(sizeof(ModNode));
+            node->base.base.base.base.tipo = NODE_MOD;
+            node->base.base.left = left;
+            node->base.base.right = right;
+            left = (ExpressionNode*) node;
+        }
+    }
+
+    return left;
 }
 
-Node* parser(LR1Table* table, Symbol** input, int toks, ActionEntryLR1**  acts,int* actc){
+ExpressionNode* parse_pow() {
+    ExpressionNode* left = parse_sign();
 
-    if(!table||!input||toks<1||!acts||!actc) 
-    {
-        fprintf(stderr, "Error: Parámetros inválidos para parse\n");
+    while (current_token.type == TOKEN_POWER || current_token.type == TOKEN_DSTAR) {
+        int op = current_token.type;
+        match(op);
+
+        ExpressionNode* right = parse_sign();
+
+        PowNode* node = malloc(sizeof(PowNode));
+        node->base.base.base.base.tipo = NODE_POW;
+        node->base.base.left = left;
+        node->base.base.right = right;
+        left = (ExpressionNode*) node;
+    }
+
+    return left;
+}
+ExpressionNode* parse_sign() {
+    if (current_token.type == TOKEN_MINUS) {
+        match(TOKEN_MINUS);
+        ExpressionNode* operand = parse_factor();
+
+        NegativeNode* node = malloc(sizeof(NegativeNode));
+        node->base.base.base.base.tipo = NODE_NEGATIVE;
+        node->base.base.operand = operand;
+        return (ExpressionNode*) node;
+
+    } else if (current_token.type == TOKEN_PLUS) {
+        match(TOKEN_PLUS);
+        ExpressionNode* operand = parse_factor();
+
+        PositiveNode* node = malloc(sizeof(PositiveNode));
+        node->base.base.base.base.tipo = NODE_POSITIVE;
+        node->base.base.operand = operand;
+        return (ExpressionNode*) node;
+
+    } else {
+        return parse_factor();
+    }
+}
+ExpressionNode* parse_factor() {
+    if (current_token.type == TOKEN_NOT) {
+        match(TOKEN_NOT);
+        ExpressionNode* operand = parse_atom();
+
+        NotNode* node = malloc(sizeof(NotNode));
+        node->base.base.base.base.tipo = NODE_NOT;
+        node->base.base.operand = operand;
+        return (ExpressionNode*) node;
+
+    } else {
+        return parse_atom();
+    }
+}
+ExpressionNode* parse_conditional() {
+    match(TOKEN_IF);
+    match(TOKEN_LPAREN);
+    ExpressionNode* condition = parse_expr();
+    match(TOKEN_RPAREN);
+
+    ExpressionNode* if_body = parse_expr();
+
+    ConditionalNode* cond_node = malloc(sizeof(ConditionalNode));
+    cond_node->base.base.tipo = NODE_CONDITIONAL;
+    cond_node->base.base.row = current_token.line;
+    cond_node->base.base.column = current_token.column;
+
+    // Inicializar listas
+    cond_node->conditions = malloc(sizeof(ExpressionNode*) * 10);
+    cond_node->expressions = malloc(sizeof(ExpressionNode*) * 10);
+    cond_node->condition_counter = 0;
+    cond_node->expression_counter = 0;
+
+    // Agregar IF
+    ((ExpressionNode**)cond_node->conditions)[cond_node->condition_counter++] = condition;
+    ((ExpressionNode**)cond_node->expressions)[cond_node->expression_counter++] = if_body;
+
+    // Manejar ELIF y ELSE
+    ExpressionNode* else_block = parse_cond_other_case(cond_node);
+
+    cond_node->default_expre = else_block;
+
+    return (ExpressionNode*) cond_node;
+}
+ExpressionNode* parse_cond_other_case(ConditionalNode* cond_node) {
+    if (current_token.type == TOKEN_ELIF) {
+        match(TOKEN_ELIF);
+        match(TOKEN_LPAREN);
+        ExpressionNode* elif_condition = parse_expr();
+        match(TOKEN_RPAREN);
+
+        ExpressionNode* elif_body = parse_expr();
+
+        // Agregar ELIF
+        ((ExpressionNode**)cond_node->conditions)[cond_node->condition_counter++] = elif_condition;
+        ((ExpressionNode**)cond_node->expressions)[cond_node->expression_counter++] = elif_body;
+
+        // Llamada recursiva para más ELIFs o ELSE
+        return parse_cond_other_case(cond_node);
+
+    } else if (current_token.type == TOKEN_ELSE) {
+        match(TOKEN_ELSE);
+        return parse_expr(); // Bloque ELSE
+    } else {
+        return NULL; // epsilon, no hay else
+    }
+}
+
+ExpressionNode* parse_while_loop() {
+    match(TOKEN_WHILE);
+    match(TOKEN_LPAREN);
+    ExpressionNode* condition = parse_expr();
+    match(TOKEN_RPAREN);
+    ExpressionNode* body = parse_expr();
+
+    WhileNode* node = malloc(sizeof(WhileNode));
+    node->base.base.tipo = NODE_WHILE;
+    node->base.base.row = current_token.line;
+    node->base.base.column = current_token.column;
+
+    node->condition = condition;
+    node->body = body;
+
+    return (ExpressionNode*) node;
+}
+ExpressionNode* parse_for_loop() {
+    match(TOKEN_FOR);
+    match(TOKEN_LPAREN);
+
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+    char* var_name = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    match(TOKEN_IN);
+
+    ExpressionNode* iterable = parse_expr();
+
+    match(TOKEN_RPAREN);
+
+    ExpressionNode* body = parse_expr();
+
+    ForNode* node = malloc(sizeof(ForNode));
+    node->base.base.tipo = NODE_FOR;
+    node->base.base.row = current_token.line;
+    node->base.base.column = current_token.column;
+
+    node->item = var_name;
+    node->iterable = iterable;
+    node->body = body;
+
+    return (ExpressionNode*) node;
+}
+ExpressionNode* parse_let_expr() {
+    match(TOKEN_LET);
+
+    LetInNode* let_node = malloc(sizeof(LetInNode));
+    let_node->base.base.tipo = NODE_LET_IN;
+    let_node->base.base.row = current_token.line;
+    let_node->base.base.column = current_token.column;
+
+    // Inicializa lista de VarDeclarationNode*
+    let_node->variables = malloc(sizeof(VarDeclarationNode*) * 10);
+    let_node->variable_counter = 0;
+
+    parse_var_declaration_list(let_node);
+    ((VarDeclarationNode**)let_node->variables)[let_node->variable_counter] = NULL;
+
+    match(TOKEN_IN);
+
+    let_node->body = parse_expr();
+
+    return (ExpressionNode*) let_node;
+}
+void parse_var_declaration_list(LetInNode* let_node) {
+    if (current_token.type == TOKEN_IDENTIFIER) {
+        VarDeclarationNode* var_decl = malloc(sizeof(VarDeclarationNode));
+        var_decl->base.base.tipo = NODE_VAR_DECLARATION;
+        var_decl->base.base.row = current_token.line;
+        var_decl->base.base.column = current_token.column;
+
+        var_decl->name = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+
+        if (current_token.type == TOKEN_PUNTOS) {
+            // Soporta tipo: IDENTIFIER : IDENTIFIER = Expr
+            match(TOKEN_PUNTOS);
+            if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+            var_decl->type = strdup(current_token.lexema);
+            match(TOKEN_IDENTIFIER);
+        } else {
+            var_decl->type = NULL;
+        }
+
+        if (current_token.type == TOKEN_ASSIGN || current_token.type == TOKEN_COLON_EQUAL) {
+            match(current_token.type);
+        } else {
+            syntax_error("ASSIGN or COLON_EQUAL expected");
+        }
+
+        var_decl->value = parse_expr();
+
+        ((VarDeclarationNode**)let_node->variables)[let_node->variable_counter++] = var_decl;
+
+        if (current_token.type == TOKEN_COMMA) {
+            match(TOKEN_COMMA);
+            parse_var_declaration_list(let_node);
+        }
+        // else: fin
+    }
+    // else: epsilon
+}
+ExpressionNode* parse_call_func() {
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+
+    char* func_name = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    match(TOKEN_LPAREN);
+
+    CallFuncNode* call_node = malloc(sizeof(CallFuncNode));
+    call_node->base.base.base.tipo = NODE_CALL_FUNC;
+    call_node->base.base.base.row = current_token.line;
+    call_node->base.base.base.column = current_token.column;
+
+    call_node->name = func_name;
+
+    // Inicializa lista de argumentos
+    call_node->arguments = malloc(sizeof(ExpressionNode*) * 10);
+    call_node->arguments_counter = 0;
+
+    if (current_token.type != TOKEN_RPAREN) {
+        parse_arguments(call_node);
+    }
+
+    match(TOKEN_RPAREN);
+
+    return (ExpressionNode*) call_node;
+}
+
+void parse_arguments(CallFuncNode* call_node) {
+    ExpressionNode* arg = parse_expr();
+    ((ExpressionNode**)call_node->arguments)[call_node->arguments_counter++] = arg;
+
+    while (current_token.type == TOKEN_COMMA) {
+        match(TOKEN_COMMA);
+        ExpressionNode* next_arg = parse_expr();
+        ((ExpressionNode**)call_node->arguments)[call_node->arguments_counter++] = next_arg;
+    }
+}
+ExpressionNode* parse_index_object(ExpressionNode* atom) {
+    match(TOKEN_LBRACKET);
+    ExpressionNode* index = parse_expr();
+    match(TOKEN_RBRACKET);
+
+    IndexObjectNode* node = malloc(sizeof(IndexObjectNode));
+    node->base.base.base.tipo = NODE_INDEX_OBJECT;
+    node->base.base.base.row = current_token.line;
+    node->base.base.base.column = current_token.column;
+
+    node->object = atom;
+    node->pos = index;
+
+    return (ExpressionNode*) node;
+}
+ExpressionNode* parse_vector() {
+    match(TOKEN_LBRACKET);
+
+    if (current_token.type == TOKEN_RBRACKET) {
+        match(TOKEN_RBRACKET);
+        ExplicitVectorNode* vec = malloc(sizeof(ExplicitVectorNode));
+        vec->base.base.base.tipo = NODE_EXPLICIT_VECTOR;
+        vec->items = NULL;
+        vec->item_counter = 0;
+        return (ExpressionNode*) vec;
+    }
+
+    // Lookahead para vector implícito: [ expr FOR IDENTIFIER IN expr ]
+    if (current_token.type == TOKEN_FOR) {
+        // [ expr FOR IDENTIFIER IN expr ]
+        ExpressionNode* expr = parse_expr();
+        match(TOKEN_FOR);
+
+        if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+        char* item_name = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+
+        match(TOKEN_IN);
+
+        ExpressionNode* iterable = parse_expr();
+
+        match(TOKEN_RBRACKET);
+
+        ImplicitVectorNode* vec = malloc(sizeof(ImplicitVectorNode));
+        vec->base.base.base.tipo = NODE_IMPLICIT_VECTOR;
+
+        vec->expr = expr;
+
+        VarNode* var_item = malloc(sizeof(VarNode));
+        var_item->base.base.base.base.tipo = NODE_VAR;
+        var_item->base.base.base.base.lexeme = item_name;
+
+        vec->item = var_item;
+        vec->iterable = iterable;
+
+        return (ExpressionNode*) vec;
+    }
+
+    // Explícito con lista: [ expr, expr, ... ]
+    ExplicitVectorNode* vec = malloc(sizeof(ExplicitVectorNode));
+    vec->base.base.base.tipo = NODE_EXPLICIT_VECTOR;
+
+    vec->items = malloc(sizeof(ExpressionNode*) * 10);
+    vec->item_counter = 0;
+
+    ExpressionNode* item = parse_expr();
+    ((ExpressionNode**)vec->items)[vec->item_counter++] = item;
+
+    while (current_token.type == TOKEN_COMMA) {
+        match(TOKEN_COMMA);
+        ExpressionNode* next_item = parse_expr();
+        ((ExpressionNode**)vec->items)[vec->item_counter++] = next_item;
+    }
+
+    match(TOKEN_RBRACKET);
+    return (ExpressionNode*) vec;
+}
+
+ExpressionNode* parse_member(ExpressionNode* atom) {
+    match(TOKEN_DOT);
+
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+
+    char* member_name = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    MemberNode* node = malloc(sizeof(MemberNode));
+    node->base.base.base.tipo = NODE_TYPE_ATTRIBUTE;
+    node->base.base.base.row = current_token.line;
+    node->base.base.base.column = current_token.column;
+
+    node->object = atom;
+    node->member = member_name;
+
+    return (ExpressionNode*) node;
+}
+
+ExpressionNode* parse_expr() {
+   if (current_token.type == TOKEN_IF) {
+      return parse_conditional();
+   } else if (current_token.type == TOKEN_WHILE) {
+      return parse_while_loop();
+   } else if (current_token.type == TOKEN_FOR) {
+      return parse_for_loop();
+   } else if (current_token.type == TOKEN_LET) {
+      return parse_let_expr();
+
+   } 
+   if (current_token.type == TOKEN_PRINT) {
+   return parse_print_expr();
+}
+else {
+      return parse_or_expr();
+   }
+}
+ExpressionNode* parse_print_expr() {
+    match(TOKEN_PRINT);
+    match(TOKEN_LPAREN);
+    ExpressionNode* inner = parse_expr();
+    match(TOKEN_RPAREN);
+
+    PrintNode* node = malloc(sizeof(PrintNode));
+    node->base.base.tipo = NODE_PRINT;
+    node->value = inner;
+
+    return (ExpressionNode*) node;
+}
+
+
+ExpressionNode* parse_atom() {
+    ExpressionNode* result = NULL;
+
+    if (current_token.type == TOKEN_LPAREN) {
+        match(TOKEN_LPAREN);
+        result = parse_expr();
+        match(TOKEN_RPAREN);
+
+    } else if (current_token.type == TOKEN_TRUE || current_token.type == TOKEN_FALSE) {
+        BooleanNode* node = malloc(sizeof(BooleanNode));
+        node->base.base.base.base.tipo = NODE_BOOLEAN;
+        node->base.base.base.base.row = current_token.line;
+        node->base.base.base.base.column = current_token.column;
+        node->base.lex = strdup(current_token.lexema);
+        match(current_token.type);
+        result = (ExpressionNode*) node;
+
+    } else if (current_token.type == TOKEN_NUMBER) {
+        NumberNode* node = malloc(sizeof(NumberNode));
+        node->base.base.base.base.tipo = NODE_NUMBER;
+        node->base.base.base.base.row = current_token.line;
+        node->base.base.base.base.column = current_token.column;
+        node->base.lex = strdup(current_token.lexema);
+        match(TOKEN_NUMBER);
+        result = (ExpressionNode*) node;
+
+    } else if (current_token.type == TOKEN_STRING) {
+        StringNode* node = malloc(sizeof(StringNode));
+        node->base.base.base.base.tipo = NODE_STRING;
+        node->base.base.base.base.row = current_token.line;
+        node->base.base.base.base.column = current_token.column;
+        node->base.lex = strdup(current_token.lexema);
+        match(TOKEN_STRING);
+        result = (ExpressionNode*) node;
+
+    } else if (current_token.type == TOKEN_IDENTIFIER) {
+   printf("[DEBUG] IDENTIFIER atom: '%s'\n", current_token.lexema);
+
+   if (lookahead_token_is_call()) {
+     printf("[DEBUG] Es llamada a función\n");
+     result = parse_call_func();
+   } else {
+     VarNode* node = malloc(sizeof(VarNode));
+     node->base.base.base.base.tipo = NODE_VAR;
+     node->base.base.base.base.lexeme = strdup(current_token.lexema);
+     printf("[DEBUG] VarNode creado con lexeme='%s'\n", node->base.base.base.base.lexeme);
+     match(TOKEN_IDENTIFIER);
+     result = (ExpressionNode*) node;
+   }
+
+
+
+    } else if (current_token.type == TOKEN_LBRACKET) {
+        result = parse_vector();  // Explicit o Implicit
+
+    } else {
+        syntax_error("Invalid atom");
         return NULL;
     }
 
-    StackNode* st = NULL;
-    stack_push(&st, 0);
-    
-    TypedStack* typed_stack = create_typed_stack(32);
-   // print_tokens(input, toks);
-
-    int pos = 0;
-    Symbol* lookahead = input[pos];
-    Node* result = NULL;
-
-    Node* ast[AST_STACK_SIZE];
-    int top = 0;
-
-    *actc = 0; 
-    *acts = malloc(table->state_count*sizeof(**acts));
-    if (!*acts) return NULL;
-
-    while(1){
-        int s = stack_top(st);
-        if (s < 0 || s >= table->state_count) {
-            printf("es aqui 1 %d, este es el s %d este era el table state count", s, table->state_count);
-            fprintf(stderr, "Error: Estado %d fuera de rango\n", s);
-            clear_stack(st);
-            free(*acts);
-            return NULL;
-        }
-        printf("\nToken actual: [%d] %s\n", pos, lookahead->name);
-        int tidx = symbol_index(table->grammar,lookahead);
-        if (tidx == -1) {
-            fprintf(stderr, "Error: Símbolo '%s' no encontrado en terminales\n", lookahead->name);
-            clear_stack(st);
-            free(*acts);
-            return NULL;
-        }
-
-        // Verificar límites de la tabla ACTION
-        if (tidx >= table->terminal_count) {
-            printf("es aqui 2");
-            fprintf(stderr, "Error: Índice de símbolo %d fuera de rango\n", tidx);
-            clear_stack(st);
-            free(*acts);
-            return NULL;
-        }
-
-        ActionEntryLR1 a = table->action[s][tidx]; 
-        (*acts)[(*actc)++]=a;
-
-        printf("Estado %d, %d, Símbolo '%s': ", s, tidx, lookahead->name);
-
-        switch(a.action){
-            case ACTION_SHIFT:{
-                printf("SHIFT a %d\n", a.value);
-                ast[top++] = create_node(lookahead,lookahead->name,0,NULL); \
-                stack_push(&st, a.value);
-                lookahead = (++pos < toks) ? input[pos] : table->grammar->eof;
-              
-                if(should_build_node_for_symbol(lookahead)) {
-                    // Crear nodo hoja genérico
-                    Node* leaf = create_node(lookahead, lookahead->name, 0, NULL);
-                    //semantic_push(sem_stack, leaf, NULL, 1);
-                    
-                    // Crear nodo tipado según el tipo de token
-                    TypedNode typed_leaf;
-                    NodeType leaf_type;
-                    
-                    if (strcmp(lookahead->name, "NUMBER") == 0) {
-                        leaf_type = NODE_NUMBER;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    } 
-                    else if (strcmp(lookahead->name, "IDENTIFIER") == 0) {
-                        leaf_type = NODE_VAR;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else if (strcmp(lookahead->name, "TRUE") == 0 || strcmp(lookahead->name, "FALSE") == 0) {
-                        leaf_type = NODE_BOOLEAN;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else if (strcmp(lookahead->name, "STRING") == 0) {
-                        leaf_type = NODE_STRING;
-                        typed_leaf.literal = ast_make_literal(leaf_type, lookahead->name, lookahead->row, lookahead->colum);
-                    }
-                    else {
-                        // Para operadores y otros, usamos el nodo genérico
-                        leaf_type = NODE_ATOMIC;
-                        typed_leaf.any = leaf;
-                    }
-                    
-                    typed_push(typed_stack, typed_leaf, leaf_type);
-                }
-
-                break;
-            }
-            case ACTION_REDUCE:{
-                printf("REDUCE por producción %d\n", a.value);
-                Production*p = get_production_by_number(table->grammar,a.value);
-                int N = p->right_len;
-                Node* children[N];
-                int actual_children = 0;
-
-                for(int i = N-1; i >= 0; i--) 
-                {
-                    children[i]=ast[--top];
-                }
-
-                Node* node = create_node(p->left,NULL,N,children);
-                ast[top++]=node;
-
-                for(int i=0; i < N;i++) 
-                    stack_pop(&st);
-                
-                if (a.value != 0) {  // No es producción augmentada, goto
-                    int nt = nonterm_index(table->grammar, p->left);
-                    int gto = table->goto_table[stack_top(st)][nt];
-                    stack_push(&st, gto);
-                }
-                
-                
-                // Procesar pila tipada
-                TypedNode typed_children[MAX_CHILDREN];
-                NodeType child_types[MAX_CHILDREN];
-                int typed_child_count = 0;
-                for(int i = p->right_len - 1; i >= 0; i--) {
-                    if(should_build_node_for_symbol(p->right[i])) {
-                        typed_children[typed_child_count] = typed_pop(typed_stack);
-                        child_types[typed_child_count] = typed_peek_type(typed_stack);
-                        typed_child_count++;
-                    }
-                }
-                
-                // Construir nodo según la producción
-                Node* new_node = NULL;
-                TypedNode typed_node;
-                
-                if (strcmp(p->left->name, "Func") == 0) {
-                    printf("\n====================Entro al Function===================\n");
-                    // new_node = ast_make_function_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (ExpressionNode*)children[6]);
-                    // if (new_node) {
-                    //     typed_node.arith_unary = (ArithmeticUnaryNode*)new_node;
-                    // }
-                } 
-                else if (strcmp(p->left->name, "Conditional") == 0) {
-                    printf("\n====================Entro al Conditional===================\n");
-
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_conditional(conditions, (ExpressionNode*)children[4], 0, (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.conditional = (ConditionalNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "While_loop") == 0) {
-                    printf("\n====================Entro al While_loop===================\n");
-                    new_node = (Node*)ast_make_while((ExpressionNode*)children[2], (ExpressionNode*)children[4], 0 , 0);
-                    if (new_node) {
-                        typed_node.while_ = (WhileNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "For_loop") == 0) {
-                    printf("\n====================Entro al For_loop===================\n");
-                    new_node = (Node*)ast_make_for(children[2]->lexeme, (ExpressionNode*)children[4], (ExpressionNode*)children[6], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.for_ = (ForNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Let_expr") == 0) {
-                    printf("\n====================Entro al Let_expr===================\n");
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_let_in(conditions, (ExpressionNode*)children[1]->child_count, (ExpressionNode*)children[3], lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.let = (LetInNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Or_expr") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Or===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.bool_binary = (BooleanBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "And_expr") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro And===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.bool_binary = (BooleanBinaryNode*)new_node;
-                    }
-                }  
-                else if (strcmp(p->left->name, "Aritm_comp") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Aritm_c======================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.comp_binary = (ComparisonBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Concat") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Concat===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[0]->name);
-                    if (new_node) {
-                        typed_node.string = (StringBinaryNode*)new_node;
-                    } 
-                }  
-                else if (strcmp(p->left->name, "Arithmetic") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Aritmet======================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Term") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Termino===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Pow") == 0 && p->right_len == 3) {
-                    printf("\n====================Entro Pow===================\n");
-                    new_node = (Node*)build_binary_operation(p, children, p->right[1]->name);
-                    if (new_node) {
-                        typed_node.arith_binary = (ArithmeticBinaryNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Sign") == 0 && p->right_len == 2) {
-                    printf("\n====================Entro Sign===================\n");
-                    new_node = (Node*)build_unary_operation(p, children, p->right[0]->name);
-                    if (new_node) {
-                        typed_node.arith_unary = (ArithmeticUnaryNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Expr_block") == 0) {
-                    printf("\n====================Entro al Expr_block===================\n");
-                    new_node = (Node*)ast_make_expression_block(children[1], lookahead->row, lookahead->colum, 0);
-                    if (new_node) {
-                        typed_node.exprB = (ExpressionBlockNode*)new_node;
-                    }
-                } 
-                else if (strcmp(p->left->name, "Assignment") == 0 ){
-                    printf("\n====================Entro al Assignment===================\n");
-                    new_node = (Node*)ast_make_var_decl(children[0]->lexeme, (ExpressionNode*)children[2], "asignacion", lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.varD = (VarDeclarationNode*)new_node;
-                    } 
-                }  
-                else if (strcmp(p->left->name, "Call_func") == 0){
-                    printf("\n====================Entro al Call_func===================\n");
-                    ExpressionNode* conditions[] = {(ExpressionNode*)children[2]};
-                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, conditions, children[2]->child_count, lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.call = (CallFuncNode*)new_node;
-                    }
-                }
-                else if (strcmp(p->left->name, "Print") == 0){
-                    printf("\n====================Entro al Print===================\n");
-                    new_node = (Node*)ast_make_call_func(children[0]->lexeme, (ExpressionNode*)children[2], children[2]->child_count, lookahead->row, lookahead->colum);
-                    if (new_node) {
-                        typed_node.call = (CallFuncNode*)new_node;
-                    }
-                }
-                // else{
-
-                //     printf("\n====================Entro al %s ===================\n", p->left->name);
-                // }
-
-                //else if (strcmp(p->left->name, "Method_decl") == 0) {
-                //     new_node = ast_make_method_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (ExpressionNode*)children[6]);
-                // } else if (strcmp(p->left->name, "Type_decl") == 0) {
-                //     new_node = ast_make_type_decl((IdentifierNode*)children[1], (ParamListNode*)children[3], (TypeAttributeList*)children[7], (MethodDeclList*)children[9]);
-                // } else if (strcmp(p->left->name, "Protocol_decl") == 0) {
-                //     new_node = ast_make_protocol_decl((IdentifierNode*)children[1], (MethodSigList*)children[3]);
-                // }
-
-
-                // llamadas
-                
-                // else if (strcmp(p->left->name, "Call_method") == 0) {
-                //     new_node = ast_make_call_method((ExpressionNode*)children[0], p->right[2]->name, (ExprList*)children[3]);
-                // } 
-                // else if (strcmp(p->left->name, "Call_attr") == 0) {
-                //     new_node = ast_make_call_attr((ExpressionNode*)children[0], p->right[2]->name);
-                // } 
-                // else if (strcmp(p->left->name, "Type_instantiation") == 0) {
-                //     new_node = ast_make_type_inst((IdentifierNode*)children[1], (ExprList*)children[3]);
-                // }
-
-                // Destructuring y return
-                // else if (strcmp(p->left->name, "Destructuring") == 0) {
-                //     new_node = ast_make_destruct((IdentifierNode*)children[0], (ExpressionNode*)children[2]);
-                // } else if (strcmp(p->left->name, "Return") == 0) {
-                //     new_node = ast_make_return((ExpressionNode*)children[1]);
-                // }
-
-                //  // Cast y check type
-                // else if (strcmp(p->left->name, "Cast_type")==0) {
-                //     new_node = ast_make_cast((ExpressionNode*)children[0], p->right[2]->name);
-                // } else if (strcmp(p->left->name, "Check_type")==0) {
-                //     new_node = ast_make_check_type(NODE_CAST_TYPE, (ExpressionNode*)children[0], (ExpressionNode*)children[2]);
-                // }
-            
-                // Genérico
-                // else {
-                //     new_node = ast_make_generic(p->left->name, (Node**)children, N);
-                // }
-
-                typed_push(typed_stack, typed_node, new_node ? new_node->tipo : NODE_ATOMIC);
-                //print_typed_stack(typed_stack);
-                break;
-            }
-            case ACTION_ACCEPT:{
-                //printf("ACCEPT\n");
-
-                ////TypedNode typed_root = typed_pop(typed_stack);
-                ////print_typed_stack(typed_stack);
-                //
-                //Node* children[2];
-                //children[1] = ast[1];
-                //children[0] = ast[0];
-                //Node* root = create_node(create_symbol("Program", NON_TERMINAL), "Program", 2, children);
-                ////root = optimize_ast(root);
-
-                ////print_ast_root(root);
-                //clear_stack(st);
-                //return root;
-
-                printf("ACCEPT\n");
-
-                // El AST intermedio coloca en ast[0] la lista de declaraciones y en ast[1] la expresión principal.
-                DeclarationNode** decls = typed_stack[0].items;
-                int decl_count = decls ? ((Node*)decls)->child_count : 0;   
-                ExpressionNode* expr = typed_stack[1].items;
-                
-                //Creamos el nodo Program como raíz del AST
-                ProgramNode* program = ast_make_program(
-                    decls,
-                    decl_count,
-                    expr,
-                    0,
-                    0
-                );
-
-                clear_stack(st);
-                return (Node*)program;
-            }
-            case ACTION_ERROR:
-            default:
-                fprintf(stderr,"Error sintáctico en estado %d\n",s);
-                fprintf(stderr, "Posibles acciones en este estado:\n");
-                for (int k = 0; k < table->terminal_count; k++) {
-                    if (table->action[s][k].action != ACTION_ERROR) {
-                        fprintf(stderr, "  %s: %s %d\n", 
-                            table->grammar->terminals[k]->name,
-                            table->action[s][k].action == ACTION_SHIFT ? "SHIFT" : "REDUCE",
-                            table->action[s][k].value);
-                    }
-                }
-                clear_stack(st);
-                free(*acts);
-                return NULL;
+    // 📌 Postfix: indexación o miembro
+    while (current_token.type == TOKEN_LBRACKET || current_token.type == TOKEN_DOT) {
+        if (current_token.type == TOKEN_LBRACKET) {
+            result = parse_index_object(result);
+        } else if (current_token.type == TOKEN_DOT) {
+            result = parse_member(result);
         }
     }
+
+    return result;
 }
 
+DeclarationNode* parse_type() {
+    match(TOKEN_TYPE);
 
-void print_typed_stack(TypedStack* s) {
-    printf("=== Typed Stack (%d items) ===\n", s->top + 1);
-    for (int i = 0; i <= s->top; i++) {
-        printf("[%d] Type: %d - ", i, s->types[i]);
-        
-        Node* node = (Node*)s->items[i].any;
-        if (!node) {
-            printf("NULL\n");
-            continue;
+    TypeDeclarationNode* type_node = malloc(sizeof(TypeDeclarationNode));
+    type_node->base.base.tipo = NODE_TYPE_DECLARATION;
+    type_node->base.base.row = current_token.line;
+    type_node->base.base.column = current_token.column;
+
+    // Nombre del tipo
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+    type_node->name = strdup(current_token.lexema);
+    type_node->base.base.lexeme = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    // Opcional: Signature (Params)
+    if (current_token.type == TOKEN_LPAREN) {
+        match(TOKEN_LPAREN);
+
+        type_node->params = malloc(sizeof(char*) * 10);
+        type_node->param_count = 0;
+
+        if (current_token.type != TOKEN_RPAREN) {
+            parse_params(type_node);
         }
-        
-        switch(s->types[i]) {
-            case NODE_NUMBER:
-                printf("Number: %s\n", node->lexeme);
-                break;
-            case NODE_VAR:
-                printf("Variable: %s\n", node->lexeme);
-                break;
-            case NODE_PLUS:
-                printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_MINUS:
-            printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_MULT:
-            printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_DIV:
-                printf("ArithmeticOp: %s\n", ((ArithmeticBinaryNode*)node)->base.operator);
-                break;
-            case NODE_OR:
-            case NODE_AND:
-                printf("BooleanOp: %s\n", ((BooleanBinaryNode*)node)->base.operator);
-                break;
-            default:
-                printf("Unhandled type (name: %s)\n", node->symbol ? node->symbol->name : "no symbol");
-        }
+
+        match(TOKEN_RPAREN);
+    } else {
+        type_node->params = NULL;
+        type_node->param_count = 0;
     }
-    printf("=====================\n");
-}
 
+    // Opcional: inherits IDENTIFIER (padre)
+    if (current_token.type == TOKEN_INHERITS) {
+        match(TOKEN_INHERITS);
 
-void print_tokens(Symbol** tokens, int count) {
-    printf("=== Tokens de entrada ===\n");
-    for (int i = 0; i < count; i++) {
-        if (tokens[i]) {
-            printf("[%d] %s (%s)\n", i, tokens[i]->name, 
-                   tokens[i]->type == TERMINAL ? "TERMINAL" : "NON_TERMINAL");
+        if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+        type_node->parent = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+
+        // Opcional: argumentos del padre (parent_args)
+        if (current_token.type == TOKEN_LPAREN) {
+            match(TOKEN_LPAREN);
+
+            type_node->parent_args = malloc(sizeof(ExpressionNode*) * 10);
+            type_node->parent_args_count = 0;
+
+            if (current_token.type != TOKEN_RPAREN) {
+                parse_parent_args(type_node);
+            }
+
+            match(TOKEN_RPAREN);
         } else {
-            printf("[%d] NULL\n", i);
+            type_node->parent_args = NULL;
+            type_node->parent_args_count = 0;
+        }
+    } else {
+        type_node->parent = strdup("Object");
+        type_node->parent_args = NULL;
+        type_node->parent_args_count = 0;
+    }
+
+    // Bloque { attributes methods }
+    match(TOKEN_LBRACE);
+
+    type_node->attributes = malloc(sizeof(TypeAttributeNode*) * 10);
+    type_node->attribute_counter = 0;
+
+    type_node->methods = malloc(sizeof(MethodDeclarationNode*) * 10);
+    type_node->method_counter = 0;
+
+    while (current_token.type != TOKEN_RBRACE) {
+        if (current_token.type == TOKEN_IDENTIFIER) {
+            // Atributo: IDENTIFIER ASSIGN Expr SEMICOLON
+            TypeAttributeNode* attr = malloc(sizeof(TypeAttributeNode));
+            attr->base.base.tipo = NODE_TYPE_ATTRIBUTE;
+            attr->base.base.row = current_token.line;
+            attr->base.base.column = current_token.column;
+
+            attr->name = strdup(current_token.lexema);
+            match(TOKEN_IDENTIFIER);
+
+            match(TOKEN_ASSIGN);
+
+            attr->value = parse_expr();
+
+            match(TOKEN_SEMICOLON);
+
+            ((TypeAttributeNode**)type_node->attributes)[type_node->attribute_counter++] = attr;
+
+        } else if (current_token.type == TOKEN_FUNCTION) {
+            // Método: FUNCTION ...
+            MethodDeclarationNode* method = parse_method();
+            ((MethodDeclarationNode**)type_node->methods)[type_node->method_counter++] = method;
+        } else {
+            syntax_error("Invalid type member");
         }
     }
-    printf("=======================\n");
+
+    match(TOKEN_RBRACE);
+
+    return (DeclarationNode*) type_node;
+}
+void parse_params(TypeDeclarationNode* type_node) {
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+
+    ((char**)type_node->params)[type_node->param_count++] = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    while (current_token.type == TOKEN_COMMA) {
+        match(TOKEN_COMMA);
+        if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+        ((char**)type_node->params)[type_node->param_count++] = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+    }
+}
+void parse_parent_args(TypeDeclarationNode* type_node) {
+    ExpressionNode* arg = parse_expr();
+    ((ExpressionNode**)type_node->parent_args)[type_node->parent_args_count++] = arg;
+
+    while (current_token.type == TOKEN_COMMA) {
+        match(TOKEN_COMMA);
+        ExpressionNode* next_arg = parse_expr();
+        ((ExpressionNode**)type_node->parent_args)[type_node->parent_args_count++] = next_arg;
+    }
+}
+MethodDeclarationNode* parse_method() {
+    match(TOKEN_FUNCTION);
+
+    MethodDeclarationNode* method = malloc(sizeof(MethodDeclarationNode));
+    method->base.base.tipo = NODE_METHOD_DECLARATION;
+    method->base.base.row = current_token.line;
+    method->base.base.column = current_token.column;
+
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+    method->name = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    match(TOKEN_LPAREN);
+
+    method->params = malloc(sizeof(char*) * 10);
+    method->param_counter = 0;
+
+    if (current_token.type != TOKEN_RPAREN) {
+        parse_method_params(method);
+    }
+
+    match(TOKEN_RPAREN);
+
+    method->body = parse_expr_block();  // o lo que uses como cuerpo
+
+    return method;
+}
+
+void parse_method_params(MethodDeclarationNode* method) {
+    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+
+    ((char**)method->params)[method->param_counter++] = strdup(current_token.lexema);
+    match(TOKEN_IDENTIFIER);
+
+    while (current_token.type == TOKEN_COMMA) {
+        match(TOKEN_COMMA);
+        if (current_token.type != TOKEN_IDENTIFIER) syntax_error("Expected IDENTIFIER");
+        ((char**)method->params)[method->param_counter++] = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+    }
 }

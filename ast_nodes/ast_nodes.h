@@ -12,6 +12,7 @@ typedef enum {
     NODE_SELF, 
     NODE_BASE,
     NODE_INHERITS,
+    NODE_PRINT,
 
     // Declaraciones
     NODE_METHOD_SIGNATURE,      // Firma de método (nombre/params/retorno)
@@ -85,6 +86,11 @@ typedef enum {
         
 
 } NodeType;
+
+typedef struct PrintNode {
+    ExpressionNode base;   // o UnaryNode base, si prefieres
+    ExpressionNode* value;
+} PrintNode;
 
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {

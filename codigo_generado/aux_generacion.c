@@ -108,6 +108,7 @@ LLVMType tipo_expr(ExpressionNode* expr) {
             CallTypeAttributeNode* nodo = (CallTypeAttributeNode*)expr;
             return obtener_tipo_campo(nodo->inst_name, nodo->attribute);
         }
+        case NODE_VAR: return TIPO_INT; // O lo que sea correcto para tu lenguaje.
 
 
         default:

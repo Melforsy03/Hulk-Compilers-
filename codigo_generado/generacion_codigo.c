@@ -18,7 +18,7 @@ void generar_programa(ProgramNode* program) {
         fprintf(stderr, "[ERROR] ProgramNode nulo\n");
         return;
     }
-
+    
     fprintf(salida_llvm, "; Generado automáticamente por el compilador\n\n");
 
     // Declarar funciones externas (como print, strdup, etc.)
@@ -26,7 +26,7 @@ void generar_programa(ProgramNode* program) {
 
     // Registrar strings globales que aparecerán en el .ll
     generar_constantes_globales(program);
-
+     
     // 1. Generar todas las funciones declaradas (antes del main)
     if (program->declarations) {
         DeclarationNode** decls = (DeclarationNode**)program->declarations;
@@ -36,16 +36,18 @@ void generar_programa(ProgramNode* program) {
             }
         }
     }
-
+  
     // 2. Generar función principal (main)
     fprintf(salida_llvm, "define i32 @user_main() {\n");
 
     fprintf(salida_llvm, "entry:\n");
 
     registrar_variables(program);
+     
     generar_declaraciones_variables();
-
+ 
     int last_temp = generar_codigo(program->expression);
+      
     if (last_temp != -1) {
         fprintf(salida_llvm, "  ret i32 %%%d\n", last_temp);
     } else {
@@ -53,6 +55,12 @@ void generar_programa(ProgramNode* program) {
     }
 
     fprintf(salida_llvm, "}\n");
+     fprintf(salida_llvm,
+        "define i32 @main() {\n"
+        "entry:\n"
+        "  %%ret = call i32 @user_main()\n"
+        "  ret i32 %%ret\n"
+        "}\n");
 }
 int generar_comparacion(BinaryNode* bin, const char* cmp) {
     Node* izq_n = (Node*)bin->left;
@@ -80,7 +88,7 @@ int generar_comparacion(BinaryNode* bin, const char* cmp) {
 int generar_codigo(ExpressionNode* expr) {
     if (!expr) return -1;
     expr = optimizar_constantes(expr);  // Aplicar optimización
-
+     
     NodeType tipo = ((Node*)expr)->tipo;
 
     switch (tipo) {
@@ -132,7 +140,9 @@ int generar_codigo(ExpressionNode* expr) {
         // ----- Variables y asignaciones -----
         case NODE_VAR: {
             VarNode* var = (VarNode*)expr;
+            
             const char* var_name = obtener_nombre_variable(var);
+            
             VarType tipo = obtener_tipo_variable(var_name);
 
             int temp = nuevo_temp();
@@ -161,56 +171,61 @@ int generar_codigo(ExpressionNode* expr) {
         // ----- Let y Let-In -----
         
         case NODE_LET_IN: {
-            LetInNode* let_in = (LetInNode*)expr;
-            VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
+    LetInNode* let_in = (LetInNode*)expr;
+    VarDeclarationNode** declarations = (VarDeclarationNode**)let_in->variables;
 
-            for (int i = 0; declarations && declarations[i]; i++) {
-                VarDeclarationNode* decl = declarations[i];
-                const char* nombre = decl->name;
-                ExpressionNode* valor = decl->value;
+    // 1️⃣ Primero REGISTRA todas las variables
+    for (int i = 0; declarations && declarations[i]; i++) {
+        VarDeclarationNode* decl = declarations[i];
+        const char* nombre = decl->name;
 
-                // Inferir tipo real
-                LLVMType tipo = tipo_expr(valor);
-                const char* tipo_llvm = (tipo == TIPO_STRING) ? "i8*" :
-                                        (tipo == TIPO_FLOAT)  ? "float" :
-                                        "i32";
+        LLVMType tipo = tipo_expr(decl->value);
+        variables_usadas[num_variables].nombre = strdup(nombre);
+        variables_usadas[num_variables].tipo =
+            (tipo == TIPO_STRING) ? VAR_TYPE_STRING :
+            (tipo == TIPO_FLOAT)  ? VAR_TYPE_FLOAT :
+                                     VAR_TYPE_INT;
+        variables_usadas[num_variables].inicializada = 1;
+        num_variables++;
+    }
 
-                // Registrar en entorno de variables
-                variables_usadas[num_variables].nombre = strdup(nombre);
-                variables_usadas[num_variables].tipo = (tipo == TIPO_STRING) ? VAR_TYPE_STRING :
-                                                    (tipo == TIPO_FLOAT)  ? VAR_TYPE_FLOAT :
-                                                    VAR_TYPE_INT;
-                variables_usadas[num_variables].inicializada = 1;
-                num_variables++;
+    // 2️⃣ Luego GENERA cada variable y emite código
+    for (int i = 0; declarations && declarations[i]; i++) {
+        VarDeclarationNode* decl = declarations[i];
+        const char* nombre = decl->name;
+        ExpressionNode* valor = decl->value;
 
-                // Emitir alloca
-                fprintf(salida_llvm, "  %%%s = alloca %s\n", nombre_llvm(nombre), tipo_llvm);
+        LLVMType tipo = tipo_expr(valor);
+        const char* tipo_llvm = (tipo == TIPO_STRING) ? "i8*" :
+                                (tipo == TIPO_FLOAT)  ? "float" :
+                                                         "i32";
 
-                if (valor) {
-                    int temp = generar_codigo(valor);
+        fprintf(salida_llvm, "  %%%s = alloca %s\n", nombre_llvm(nombre), tipo_llvm);
 
-                    // Si viene de comparación y es i1, convertir a i32
-                    if (tipo == TIPO_INT && es_comparacion(((Node*)valor)->tipo)) {
-                        int conv = nuevo_temp();
-                        fprintf(salida_llvm, "  %%%d = zext i1 %%%d to i32\n", conv, temp);
-                        temp = conv;
-                    }
+        if (valor) {
+            int temp = generar_codigo(valor);
 
-                    fprintf(salida_llvm, "  store %s %%%d, %s* %%%s\n",
-                            tipo_llvm, temp, tipo_llvm, nombre_llvm(nombre));
-
-                } else {
-                    fprintf(salida_llvm, "  store %s %s, %s* %%var_%s\n",
-                            tipo_llvm,
-                            (tipo == TIPO_STRING) ? "null" :
-                            (tipo == TIPO_FLOAT)  ? "0.0" :
-                            "0",
-                            tipo_llvm, nombre_llvm(nombre));
-                }
+            if (tipo == TIPO_INT && es_comparacion(((Node*)valor)->tipo)) {
+                int conv = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = zext i1 %%%d to i32\n", conv, temp);
+                temp = conv;
             }
 
-            return generar_codigo((ExpressionNode*)let_in->body);
+            fprintf(salida_llvm, "  store %s %%%d, %s* %%%s\n",
+                    tipo_llvm, temp, tipo_llvm, nombre_llvm(nombre));
+
+        } else {
+            fprintf(salida_llvm, "  store %s %s, %s* %%%s\n",
+                    tipo_llvm,
+                    (tipo == TIPO_STRING) ? "null" :
+                    (tipo == TIPO_FLOAT)  ? "0.0" :
+                                             "0",
+                    tipo_llvm, nombre_llvm(nombre));
         }
+    }
+
+    return generar_codigo((ExpressionNode*)let_in->body);
+}
 
         // ----- Operaciones aritméticas -----
         case NODE_PLUS: return generar_binario((BinaryNode*)expr, "add");
@@ -590,40 +605,39 @@ int generar_codigo(ExpressionNode* expr) {
                 }
 
 
-            case NODE_PRINT: {
-                UnaryNode* un = (UnaryNode*)expr;
-                ExpressionNode* arg = (ExpressionNode*)un->operand;
+         case NODE_PRINT: {
+            PrintNode* p = (PrintNode*) expr;
+            ExpressionNode* arg = p->value;
 
-                NodeType tipo_arg = ((Node*)arg)->tipo;
-                int valor = generar_codigo(arg);
+            NodeType tipo_arg = ((Node*)arg)->tipo;
+            int valor = generar_codigo(arg);
 
-                VarType tipo = VAR_TYPE_INT;
+            VarType tipo = VAR_TYPE_INT;
 
-                if (tipo_arg == NODE_STRING || tipo_arg == NODE_CONCAT) {
-                    tipo = VAR_TYPE_STRING;
-                } else if (tipo_arg == NODE_VAR) {
-                    const char* nombre = obtener_nombre_variable((VarNode*)arg);
-                    tipo = obtener_tipo_variable(nombre);
-                }
-
-                if (tipo == VAR_TYPE_STRING) {
-                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
-                } else if (tipo == VAR_TYPE_FLOAT) {
-                    int tmpstr = nuevo_temp();
-                    fprintf(salida_llvm, "  %%%d = call i8* @float_to_string(float %%%d)\n", tmpstr, valor);
-                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
-                } else if (tipo == VAR_TYPE_BOOL) {
-                    int tmpstr = nuevo_temp();
-                    fprintf(salida_llvm, "  %%%d = call i8* @bool_to_string(i1 %%%d)\n", tmpstr, valor);
-                    fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
-                } else {
-                    fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
-                }
-
-
-                return -1;
+            if (tipo_arg == NODE_STRING || tipo_arg == NODE_CONCAT) {
+                tipo = VAR_TYPE_STRING;
+            } else if (tipo_arg == NODE_VAR) {
+                const char* nombre = obtener_nombre_variable((VarNode*)arg);
+                tipo = obtener_tipo_variable(nombre);
             }
-        
+
+            if (tipo == VAR_TYPE_STRING) {
+                fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", valor);
+            } else if (tipo == VAR_TYPE_FLOAT) {
+                int tmpstr = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = call i8* @float_to_string(float %%%d)\n", tmpstr, valor);
+                fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
+            } else if (tipo == VAR_TYPE_BOOL) {
+                int tmpstr = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = call i8* @bool_to_string(i1 %%%d)\n", tmpstr, valor);
+                fprintf(salida_llvm, "  call void @print_str(i8* %%%d)\n", tmpstr);
+            } else {
+                fprintf(salida_llvm, "  call void @print_int(i32 %%%d)\n", valor);
+            }
+
+            return -1;
+        }
+
         // ----- Concatenación -----
             case NODE_CONCAT: {
                 BinaryNode* bin = (BinaryNode*)expr;

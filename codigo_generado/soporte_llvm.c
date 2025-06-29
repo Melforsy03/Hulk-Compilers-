@@ -1,7 +1,7 @@
 #include "generacion_codigo.h"
 #include <string.h>   // ← para strdup, strcmp, strlen
 
-FILE* salida_llvm = NULL;
+extern FILE* salida_llvm ;
 StringConst constantes_string[MAX_STRING_CONSTS];
 int num_strings = 0;
 
@@ -97,17 +97,25 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
         }
      
         case NODE_LET_IN: {
+           
             LetInNode* let = (LetInNode*)expr;
             VarDeclarationNode** decls = (VarDeclarationNode**)let->variables;
             for (int i = 0; decls && decls[i]; i++) {
                 recorrer_ast_para_strings(decls[i]->value);
+               
             }
+           
             recorrer_ast_para_strings(let->body);
+            
             break;
         }
 
-        case NODE_PRINT:
-       
+        
+        case NODE_PRINT: {
+            PrintNode* p = (PrintNode*)expr;
+            recorrer_ast_para_strings(p->value);
+            break;
+        }
         case NODE_NOT: {
             UnaryNode* un = (UnaryNode*)expr;
             recorrer_ast_para_strings(un->operand);
@@ -120,11 +128,13 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
             break;
         }
 
-        case NODE_PLUS: case NODE_MINUS: case NODE_MULT:
+        case NODE_PLUS:
+        case NODE_MINUS: case NODE_MULT:
         case NODE_DIV: case NODE_EQUAL: case NODE_LESS:
         case NODE_GREATER: case NODE_AND: case NODE_OR:
         case NODE_POW: case NODE_MOD:
         case NODE_NOT_EQUAL: case NODE_LESS_EQUAL: case NODE_GREATER_EQUAL: {
+  
             BinaryNode* bin = (BinaryNode*)expr;
             recorrer_ast_para_strings((ExpressionNode*)bin->left);
             recorrer_ast_para_strings((ExpressionNode*)bin->right);
@@ -177,8 +187,9 @@ void recorrer_ast_para_strings(ExpressionNode* expr) {
 void generar_constantes_globales(ProgramNode* program) {
     // Recolectar strings en el cuerpo del programa
         if (program->expression)
+           
             recorrer_ast_para_strings((ExpressionNode*)program->expression);
-
+   
         // Recolectar strings en las funciones también
         if (program->declarations) {
             DeclarationNode** decls = (DeclarationNode**)program->declarations;

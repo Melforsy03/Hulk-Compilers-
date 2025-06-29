@@ -160,8 +160,12 @@ ExpressionNode* optimizar_constantes(ExpressionNode* expr) {
             return expr;
         }
 
-        // OPT: Unarias (como NOT)
-        case NODE_PRINT:
+        
+        case NODE_PRINT: {
+            PrintNode* p = (PrintNode*)expr;
+            p->value = optimizar_constantes(p->value);
+            return expr;
+        }
         case NODE_NOT: {
             UnaryNode* un = (UnaryNode*)expr;
             un->operand = optimizar_constantes(un->operand);

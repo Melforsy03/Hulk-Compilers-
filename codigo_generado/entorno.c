@@ -29,17 +29,22 @@ const char* tmp_actual() {
 }
 
 const char* obtener_nombre_variable(VarNode* var) {
-    return ((LiteralNode*)var)->lex;
+    
+    return var -> base.base.base.base.lexeme ;
 }
 
 VarType obtener_tipo_variable(const char* nombre) {
     for (int i = 0; i < num_variables; i++) {
-        if (strcmp(variables_usadas[i].nombre, nombre) == 0) {
-            return variables_usadas[i].tipo;
+        if (!variables_usadas[i].nombre) {
+            fprintf(stderr, "[ERROR] Slot %d sin nombre!\n", i);
         }
+        if (strcmp(variables_usadas[i].nombre, nombre) == 0)
+            return variables_usadas[i].tipo;
     }
-    return VAR_TYPE_INT;
+    fprintf(stderr, "[ERROR] Variable '%s' no declarada\n", nombre);
+    return VAR_TYPE_INT;  // fallback seguro para evitar segfault
 }
+
 
 void registrar_variables(ProgramNode* program) {
     if (!program || !program->declarations) return;
