@@ -1,4 +1,4 @@
-# ========= Configuración general =========
+# ========= Configuración general ========= 
 CC = gcc
 CFLAGS = -Wall -O2 -Ilexer_gen -Iparser -Iast_nodes -Igrammar -Ilexer -Icodigo_generado -Isemantic_check
 
@@ -11,7 +11,7 @@ LEXER_DIR = lexer
 GEN_DIR = codigo_generado
 SRC_DIR = src
 LEXER_OUTPUT_DIR = lexer
-LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c # Archivo que será generado por generar_lexer
+LEXER_FILE = $(LEXER_OUTPUT_DIR)/lexer.c
 HULK_DIR = hulk
 LLVM_FILE = $(HULK_DIR)/programa.ll
 SEMANTIC_DIR = semantic_check
@@ -21,7 +21,7 @@ OS := $(shell uname 2>/dev/null || echo Windows)
 # ========= Archivos fuente =========
 LEXER_GEN_SRCS = $(wildcard $(LEXER_GEN_DIR)/*.c)
 LEXER_GEN_OBJS = $(patsubst $(LEXER_GEN_DIR)/%.c, $(BUILD_DIR)/%.o, $(LEXER_GEN_SRCS))
-LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer # El ejecutable que genera el lexer.c
+LEXER_GEN_EXEC = $(BUILD_DIR)/generar_lexer
 
 PARSER_SRCS = $(wildcard $(PARSER_DIR)/*.c)
 PARSER_OBJS = $(patsubst $(PARSER_DIR)/%.c, $(BUILD_DIR)/parser_%.o, $(PARSER_SRCS))
@@ -32,8 +32,7 @@ AST_OBJS = $(patsubst $(AST_DIR)/%.c, $(BUILD_DIR)/ast_%.o, $(AST_SRCS))
 GRAMMAR_SRCS = $(wildcard $(GRAMMAR_DIR)/*.c)
 GRAMMAR_OBJS = $(patsubst $(GRAMMAR_DIR)/%.c, $(BUILD_DIR)/grammar_%.o, $(GRAMMAR_SRCS))
 
-# Incluir lexer.c generado aquí
-LEXER_SRCS = $(LEXER_FILE) $(filter-out $(LEXER_FILE), $(wildcard $(LEXER_DIR)/*.c)) # Asegúrate de que lexer.c esté aquí
+LEXER_SRCS = $(wildcard $(LEXER_DIR)/*.c)  # Ya debe existir lexer/lexer.c
 LEXER_OBJS = $(patsubst $(LEXER_DIR)/%.c, $(BUILD_DIR)/lexer_%.o, $(LEXER_SRCS))
 
 GEN_SRCS = $(wildcard $(GEN_DIR)/*.c)
@@ -54,17 +53,13 @@ MAIN_EXEC = $(HULK_DIR)/main
 all: $(MAIN_EXEC)
 
 .PHONY: compile
-compile: $(MAIN_EXEC)
+compile: all
 
-# Tarea para generar explícitamente el lexer.c
 .PHONY: generate_lexer
-generate_lexer: $(LEXER_FILE)
-
-Regla para crear lexer.c si no existe o si generar_lexer ha cambiado
-$(LEXER_FILE): $(LEXER_GEN_EXEC) | $(LEXER_OUTPUT_DIR)
+generate_lexer:
 	@echo "Generando lexer..."
-	./$(LEXER_GEN_EXEC) > $@
-	@echo "Lexer generado en $@"
+	./$(LEXER_GEN_EXEC) > $(LEXER_FILE)
+	@echo "Lexer generado en $(LEXER_FILE)"
 
 .PHONY: execute
 execute: $(MAIN_EXEC)
@@ -73,11 +68,11 @@ execute: $(MAIN_EXEC)
 	@cat $(LLVM_FILE)
 
 .PHONY: run
-run: $(MAIN_EXEC)
-	./$(MAIN_EXEC)
+run: execute
 
 # ========= Reglas de compilación =========
 
+# Archivos de lexer_gen
 $(BUILD_DIR)/%.o: $(LEXER_GEN_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -93,13 +88,8 @@ $(BUILD_DIR)/ast_%.o: $(AST_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/grammar_%.o: $(GRAMMAR_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Regla explícita para compilar el lexer.c generado
-$(BUILD_DIR)/lexer_lexer.o: $(LEXER_FILE) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Regla genérica para otros archivos en LEXER_DIR (si los hay)
 $(BUILD_DIR)/lexer_%.o: $(LEXER_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@	
 
 $(BUILD_DIR)/gen_%.o: $(GEN_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -107,7 +97,11 @@ $(BUILD_DIR)/gen_%.o: $(GEN_DIR)/%.c | $(BUILD_DIR)
 $(BUILD_DIR)/semantic_%.o: $(SEMANTIC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR) $(LEXER_FILE) # main.o debe depender del lexer generado
+$(BUILD_DIR)/main.o: $(MAIN_SRC) | $(BUILD_DIR)
+	@if [ ! -f $(LEXER_FILE) ]; then \
+		echo "ERROR: Falta lexer.c. Ejecute 'make generate_lexer' primero."; \
+		exit 1; \
+	fi
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(MAIN_EXEC): $(ALL_OBJS) | $(HULK_DIR)
