@@ -189,7 +189,17 @@ void print_expression(ExpressionNode* expr, int indent) {
             printf("Member name: %s\n", mem->member);
             break;
         }
+        case NODE_EXPRESSION_BLOCK: {
+            ExpressionBlockNode* block = (ExpressionBlockNode*)expr;
+            print_indent(indent + 1);
+            printf("Expression Block:\n");
 
+            ExpressionNode** exprs = (ExpressionNode**)block->expressions;
+            for (int i = 0; exprs && exprs[i]; i++) {
+                print_expression(exprs[i], indent + 2);
+            }
+            break;
+        }
         case NODE_INDEX_OBJECT: {
             IndexObjectNode* idx = (IndexObjectNode*) expr;
             print_indent(indent + 1);
