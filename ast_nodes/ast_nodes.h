@@ -33,7 +33,7 @@ typedef enum {
     NODE_ATOMIC,         // Expresión simple
     NODE_BINARY,         // Operación binaria
     NODE_UNARY,          // Operación unaria
-    NODE_PRINT,
+
 
 
     // Operadores binarios
@@ -87,10 +87,6 @@ typedef enum {
 
 } NodeType;
 
-typedef struct PrintNode {
-    ExpressionNode base;   // o UnaryNode base, si prefieres
-    ExpressionNode* value;
-} PrintNode;
 
 //--------------------------------------------Base Node---------------------------------------------
 typedef struct Node {
@@ -119,6 +115,12 @@ typedef struct DeclarationNode {
 typedef struct ExpressionNode {
     Node base;
 } ExpressionNode;
+
+typedef struct PrintNode {
+    ExpressionNode base;   // o UnaryNode base, si prefieres
+    ExpressionNode* value;
+} PrintNode;
+
 
 //--------------------------------------------Depth 2---------------------------------------------
 
@@ -465,6 +467,11 @@ typedef struct NumberNode {
 typedef struct StringNode {
     LiteralNode base;
 } StringNode;
+typedef struct MemberNode {
+    AtomicNode base;    // Hereda de ExpressionNode
+    void* object;       // ExpressionNode*: el objeto base (izquierda)
+    char* member;       // Nombre del atributo (derecha)
+} MemberNode;
 
 // Constructor y liberación genéricos
 Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);

@@ -46,6 +46,7 @@ typedef enum {
     TOKEN_GREATER_EQUAL,
     TOKEN_AND,
     TOKEN_OR,
+    TOKEN_IS,
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_STAR,
