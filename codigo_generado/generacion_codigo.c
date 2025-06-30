@@ -7,10 +7,8 @@ int total_funciones = 0;
 int retorno_emitido = 0;
 char contexto_funcion[64] = "main";
 
-char* nombre_llvm(const char* base) {
-    static char buffer[128];
-    snprintf(buffer, sizeof(buffer), "var_%s_%s", contexto_funcion, base);
-    return buffer;
+ char* nombre_llvm(const char* nombre) {
+    return nombre;  // sin prefijo
 }
 
 void generar_programa(ProgramNode* program) {
@@ -138,21 +136,23 @@ int generar_codigo(ExpressionNode* expr) {
         }
 
         // ----- Variables y asignaciones -----
-        case NODE_VAR: {
-            VarNode* var = (VarNode*)expr;
-            
+      case NODE_VAR: {
+            VarNode* var = (VarNode*) expr;
             const char* var_name = obtener_nombre_variable(var);
-            
+
+            printf("[DEBUG] buscando var '%s'\n", var_name);
+
             VarType tipo = obtener_tipo_variable(var_name);
 
-            int temp = nuevo_temp();
-            if (tipo == TIPO_STRING)
-                fprintf(salida_llvm, "  %%%d = load i8*, i8** %%%s\n", temp, nombre_llvm(var_name));
-            else
+            if (tipo == VAR_TYPE_INT) {
+                int temp = nuevo_temp();
                 fprintf(salida_llvm, "  %%%d = load i32, i32* %%%s\n", temp, nombre_llvm(var_name));
-
-                        return temp;
-                    }
+                return temp;
+            } else {
+                fprintf(stderr, "Tipo de variable no soportado: %s\n", var_name);
+                exit(1);
+            }
+        }
 
 
         case NODE_ASSING: {
@@ -378,60 +378,104 @@ int generar_codigo(ExpressionNode* expr) {
 
 
                         // ----- For -----
-                case NODE_FOR: {
-                    ForNode* fr = (ForNode*)expr;
+             case NODE_FOR: {
+                ForNode* fr = (ForNode*)expr;
+
+                const char* nombre_item = fr->item;
+
+                // 1️⃣ Registrar la variable loop item
+                variables_usadas[num_variables].nombre = strdup(nombre_item);
+                variables_usadas[num_variables].tipo = VAR_TYPE_INT;
+                variables_usadas[num_variables].inicializada = 1;
+                num_variables++;
+
+                // 2️⃣ Crear slots de LLVM
+                fprintf(salida_llvm, "  %%var_%s = alloca i32\n", nombre_llvm(nombre_item));
+
+                // 3️⃣ Detectar tipo de iterable
+                NodeType iter_tipo = ((Node*)fr->iterable)->tipo;
+
+                int label_start = nuevo_label();
+                int label_body  = nuevo_label();
+                int label_end   = nuevo_label();
+
+                int start, end;
+
+                if (iter_tipo == NODE_CALL_FUNC) {
+                    // Rango clásico: range(start, end)
                     CallFuncNode* rango = (CallFuncNode*)fr->iterable;
                     ExpressionNode** args = (ExpressionNode**)rango->arguments;
 
-                    int start = generar_codigo(args[0]);
-                    int end   = generar_codigo(args[1]);
+                    start = generar_codigo(args[0]);
+                    end   = generar_codigo(args[1]);
 
-                    VarNode* var_item = (VarNode*)fr->item;
-                    const char* nombre = obtener_nombre_variable(var_item);
+                } else if (iter_tipo == NODE_VAR) {
+                    // Vector variable: v
+                    VarNode* var = (VarNode*)fr->iterable;
+                    const char* nombre_vec = obtener_nombre_variable(var);
 
-                    // Registrar variable en entorno
-                    variables_usadas[num_variables].nombre = strdup(nombre);
-                    variables_usadas[num_variables].tipo = VAR_TYPE_INT;
-                    variables_usadas[num_variables].inicializada = 1;
-                    num_variables++;
+                    int vec_ptr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = load [%d x i32]*, [%d x i32]** %%var_%s\n",
+                            vec_ptr, /* tamaño */ 10, 10, nombre_llvm(nombre_vec));
 
-                    int label_start = nuevo_label();
-                    int label_body  = nuevo_label();
-                    int label_end   = nuevo_label();
+                    start = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = add i32 0, 0\n", start);
 
-                    // alloca + asignación inicial
-                    fprintf(salida_llvm, "  %%var_%s = alloca i32\n", nombre);
-                    fprintf(salida_llvm, "  store i32 %%%d, i32* %%var_%s\n", start,nombre_llvm( nombre));
-                    fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                    end = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = add i32 0, %d\n", end, /* tamaño */ 10);
 
-                    // Comienzo del bucle
-                    fprintf(salida_llvm, "L%d:\n", label_start);
-                    int current = nuevo_temp();
-                    fprintf(salida_llvm, "  %%%d = load i32, i32* %%var_%s\n", current, nombre_llvm(nombre));
-
-                    int cond = nuevo_temp();
-                    fprintf(salida_llvm, "  %%%d = icmp slt i32 %%%d, %%%d\n", cond, current, end);
-                    fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
-
-                    // Cuerpo del bucle
-                    fprintf(salida_llvm, "L%d:\n", label_body);
-                    generar_codigo(fr->body);
-
-                    if (!contiene_return((ExpressionNode*)fr->body)) {
-                        int tmp = nuevo_temp();
-                        fprintf(salida_llvm, "  %%%d = load i32, i32* %%var_%s\n", tmp, nombre_llvm(nombre));
-
-                        int inc = nuevo_temp();
-                        fprintf(salida_llvm, "  %%%d = add i32 %%%d, 1\n", inc, tmp);
-                        fprintf(salida_llvm, "  store i32 %%%d, i32* %%var_%s\n", inc, nombre);
-                        fprintf(salida_llvm, "  br label %%L%d\n", label_start);
-                    }
-
-                    // Fin del bucle
-                    fprintf(salida_llvm, "L%d:\n", label_end);
-                    return -1;
+                    // ⚠️ Fija el tamaño real — puedes guardarlo en el AST o en metadata
                 }
 
+                // 4️⃣ Asignar valor inicial
+                fprintf(salida_llvm, "  store i32 %%%d, i32* %%var_%s\n", start, nombre_llvm(nombre_item));
+                fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+
+                // START
+                fprintf(salida_llvm, "L%d:\n", label_start);
+                int current = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = load i32, i32* %%var_%s\n", current, nombre_llvm(nombre_item));
+
+                int cond = nuevo_temp();
+                fprintf(salida_llvm, "  %%%d = icmp slt i32 %%%d, %%%d\n", cond, current, end);
+                fprintf(salida_llvm, "  br i1 %%%d, label %%L%d, label %%L%d\n", cond, label_body, label_end);
+
+                // BODY
+                fprintf(salida_llvm, "L%d:\n", label_body);
+
+                if (iter_tipo == NODE_VAR) {
+                    VarNode* var = (VarNode*)fr->iterable;
+                    const char* nombre_vec = obtener_nombre_variable(var);
+
+                    int vec_ptr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = load [%d x i32]*, [%d x i32]** %%var_%s\n",
+                            vec_ptr, 10, 10, nombre_llvm(nombre_vec));
+
+                    int elem_ptr = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = getelementptr inbounds [%d x i32], [%d x i32]* %%%d, i32 0, i32 %%%d\n",
+                            elem_ptr, 10, 10, vec_ptr, current);
+
+                    int val = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = load i32, i32* %%%d\n", val, elem_ptr);
+
+                    // Asigna val a item variable
+                    fprintf(salida_llvm, "  store i32 %%%d, i32* %%var_%s\n", val, nombre_llvm(nombre_item));
+                }
+
+                generar_codigo(fr->body);
+
+                if (!contiene_return((ExpressionNode*)fr->body)) {
+                    int next = nuevo_temp();
+                    fprintf(salida_llvm, "  %%%d = add i32 %%%d, 1\n", next, current);
+                    fprintf(salida_llvm, "  store i32 %%%d, i32* %%var_%s\n", next, nombre_llvm(nombre_item));
+                    fprintf(salida_llvm, "  br label %%L%d\n", label_start);
+                }
+
+                // END
+                fprintf(salida_llvm, "L%d:\n", label_end);
+
+                return -1;
+            }
 
         // ----- Definición de función -----
             case NODE_FUNCTION_DECLARATION: {

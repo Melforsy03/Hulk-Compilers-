@@ -120,9 +120,7 @@ DeclarationNode* parse_func() {
 
     match(TOKEN_RPAREN);
 
-    // Sig -> Expr_block | PUNTOS IDENTIFIER Next | Next
-    // Para ahora asumimos un bloque {}
-    // Implementa parse_expr_block() luego
+
     func->body = NULL;
 
     return (DeclarationNode*) func;
@@ -140,42 +138,73 @@ ExpressionNode* parse_expr_item_list() {
                current_token.type == TOKEN_FALSE ||
                current_token.type == TOKEN_STRING ||
                current_token.type == TOKEN_LPAREN) {
+
         ExpressionNode* expr = parse_expr();
-        match(TOKEN_SEMICOLON);
+
+        // 🟢 Verifica qué tipo de nodo parseaste
+        NodeType tipo = expr->base.tipo;
+
+        // Solo requiere ';' si NO es control de flujo ni bloque
+        if (tipo != NODE_EXPRESSION_BLOCK &&
+            tipo != NODE_FOR &&
+            tipo != NODE_WHILE &&
+            tipo != NODE_CONDITIONAL) {
+            match(TOKEN_SEMICOLON);
+        }
+
         return expr;
+
     } else {
         // epsilon
         return NULL;
     }
 }
+
 ExpressionNode* parse_expr_block() {
+    // 🚩 Crea el nodo del bloque
+    ExpressionBlockNode* block = malloc(sizeof(ExpressionBlockNode));
+    block->base.base.base.tipo = NODE_EXPRESSION_BLOCK;
+
+    // Reserva espacio para expresiones
+    ExpressionNode** expressions = malloc(sizeof(ExpressionNode*) * 64); // ajusta el tamaño si quieres
+    int count = 0;
+
+    // Abre bloque
     match(TOKEN_LBRACE);
 
-    ExpressionBlockNode* block = malloc(sizeof(ExpressionBlockNode));
-    block->base.base.base.tipo= NODE_EXPRESSION_BLOCK;
-    block->base.base.base.row = current_token.line;
-    block->base.base.base.column = current_token.column;
-
-    block->expressions = malloc(sizeof(ExpressionNode*) * 100);
-    block->expression_counter = 0;
-
-   block->expressions = malloc(sizeof(ExpressionNode*) * 100);
-    block->expression_counter = 0;
-
-    while (current_token.type != TOKEN_RBRACE) {
+    // 🚩 Recorre mientras NO veas RBRACE o EOF
+    while (current_token.type != TOKEN_RBRACE && current_token.type != TOKEN_EOF) {
+        
+        // 🚩 Parsear expresión
         ExpressionNode* expr = parse_expr();
-        ((ExpressionNode**)block->expressions)[block->expression_counter++] = expr;
 
+        // Si parse_expr falló, rompe para no meter NULLs
+        if (!expr) {
+            printf("[DEBUG] parse_expr devolvió NULL dentro de bloque\n");
+            break;
+        }
+
+        // Guarda la expresión en el array
+        expressions[count++] = expr;
+
+        // 🚩 Si hay punto y coma, consumirlo
         if (current_token.type == TOKEN_SEMICOLON) {
             match(TOKEN_SEMICOLON);
-        } else {
-            break;
         }
     }
 
+    // 🚩 Termina con NULL para no recorrer basura después
+    expressions[count] = NULL;
+
+    // Cierra bloque
     match(TOKEN_RBRACE);
+
+    // Asigna expresiones
+    block->expressions = expressions;
+
     return (ExpressionNode*) block;
 }
+
 ExpressionNode* parse_or_expr() {
     ExpressionNode* left = parse_and_expr();
 
@@ -677,20 +706,51 @@ ExpressionNode* parse_vector() {
 ExpressionNode* parse_member(ExpressionNode* atom) {
     match(TOKEN_DOT);
 
-    if (current_token.type != TOKEN_IDENTIFIER) syntax_error("IDENTIFIER");
+    if (current_token.type != TOKEN_IDENTIFIER)
+        syntax_error("Expected IDENTIFIER after '.'");
 
     char* member_name = strdup(current_token.lexema);
     match(TOKEN_IDENTIFIER);
 
-    MemberNode* node = malloc(sizeof(MemberNode));
-    node->base.base.base.tipo = NODE_TYPE_ATTRIBUTE;
-    node->base.base.base.row = current_token.line;
-    node->base.base.base.column = current_token.column;
+    if (lookahead_token_is_call()) {
+        // obj.method()
+        match(TOKEN_LPAREN);
 
-    node->object = atom;
-    node->member = member_name;
+        ExpressionNode** args = malloc(sizeof(ExpressionNode*) * 10);
+        int arg_count = 0;
 
-    return (ExpressionNode*) node;
+        if (current_token.type != TOKEN_RPAREN) {
+            do {
+                ExpressionNode* arg = parse_expr();
+                args[arg_count++] = arg;
+
+                if (current_token.type == TOKEN_COMMA)
+                    match(TOKEN_COMMA);
+                else
+                    break;
+            } while (1);
+        }
+        args[arg_count] = NULL;
+
+        match(TOKEN_RPAREN);
+
+        CallMethodNode* node = malloc(sizeof(CallMethodNode));
+        node->base.base.base.tipo = NODE_CALL_METHOD;
+        node->inst = atom;
+        node->method_name = member_name;
+        node->method_args = args;
+        node->method_args_counter = arg_count;
+
+        return (ExpressionNode*) node;
+
+    } else {
+        // obj.attr
+        MemberNode* node = malloc(sizeof(MemberNode));
+        node->base.base.base.tipo = NODE_TYPE_ATTRIBUTE;
+        node->object = atom;
+        node->member = member_name;
+        return (ExpressionNode*) node;
+    }
 }
 
 ExpressionNode* parse_expr() {
@@ -703,8 +763,10 @@ ExpressionNode* parse_expr() {
    } else if (current_token.type == TOKEN_LET) {
       return parse_let_expr();
 
-   } 
-   if (current_token.type == TOKEN_PRINT) {
+   } else if (current_token.type == TOKEN_LBRACE) {
+      return parse_expr_block();  
+   }
+   else if (current_token.type == TOKEN_PRINT) {
    return parse_print_expr();
 }
 else {
@@ -733,7 +795,48 @@ ExpressionNode* parse_atom() {
         result = parse_expr();
         match(TOKEN_RPAREN);
 
-    } else if (current_token.type == TOKEN_TRUE || current_token.type == TOKEN_FALSE) {
+    } if (current_token.type == TOKEN_NEW) {
+        match(TOKEN_NEW);
+
+        if (current_token.type != TOKEN_IDENTIFIER)
+            syntax_error("Expected IDENTIFIER after 'new'");
+
+        char* type_name = strdup(current_token.lexema);
+        match(TOKEN_IDENTIFIER);
+
+        match(TOKEN_LPAREN);
+
+        // Soporta argumentos opcionales
+        ExpressionNode** args = malloc(sizeof(ExpressionNode*) * 10);
+        int arg_count = 0;
+
+        if (current_token.type != TOKEN_RPAREN) {
+            // parse arguments
+            do {
+                ExpressionNode* arg = parse_expr();
+                args[arg_count++] = arg;
+
+                if (current_token.type == TOKEN_COMMA)
+                    match(TOKEN_COMMA);
+                else
+                    break;
+
+            } while (1);
+        }
+        args[arg_count] = NULL;
+
+        match(TOKEN_RPAREN);
+
+        CallTypeConstructorNode* node = malloc(sizeof(CallTypeConstructorNode));
+        node->base.tipo = NODE_CALL_TYPE_CONSTRUCTOR;
+        node->type_name = type_name;
+        node->arguments = args;
+        node->arguments_counter = arg_count;
+
+        result = (ExpressionNode*)node;
+    }
+
+    else if (current_token.type == TOKEN_TRUE || current_token.type == TOKEN_FALSE) {
         BooleanNode* node = malloc(sizeof(BooleanNode));
         node->base.base.base.base.tipo = NODE_BOOLEAN;
         node->base.base.base.base.row = current_token.line;

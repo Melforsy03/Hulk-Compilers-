@@ -225,9 +225,10 @@ void print_expression(ExpressionNode* expr, int indent) {
         case NODE_VAR: {
             VarNode* v = (VarNode*) expr;
             print_indent(indent + 1);
-            printf("Var: %s\n", v->base.base.base.base.lexeme);
+            printf("Var: %s\n", v->base.base.base.base.lexeme ? v->base.base.base.base.lexeme : "<NULL>");
             break;
-        }
+            }
+
         case NODE_PRINT: {
             PrintNode* p = (PrintNode*) expr;
             print_indent(indent + 1);

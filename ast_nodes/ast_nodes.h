@@ -60,7 +60,7 @@ typedef enum {
     NODE_CALL_METHOD,        // obj.metodo()
     NODE_CALL_TYPE_ATTRIBUTE,// obj.atributo
     NODE_CAST_TYPE,          // obj as Tipo
-
+    NODE_CALL_TYPE_CONSTRUCTOR, // Tipo()
     // Operadores
     NODE_OR, // |
     NODE_AND, // &
@@ -472,6 +472,13 @@ typedef struct MemberNode {
     void* object;       // ExpressionNode*: el objeto base (izquierda)
     char* member;       // Nombre del atributo (derecha)
 } MemberNode;
+
+typedef struct {
+    Node base;           // Hereda base Node
+    char* type_name;     // Nombre del tipo: Point, PolarPoint...
+    ExpressionNode** arguments; // Lista de argumentos si hay
+    int arguments_counter;
+} CallTypeConstructorNode;
 
 // Constructor y liberación genéricos
 Node* create_node(Symbol* symbol, const char* lexeme, int child_count, Node** children);

@@ -17,15 +17,13 @@ declare float @my_cot(float)
 declare void @print_float(float)
 define i32 @user_main() {
 entry:
-  %var_main_x = alloca i32
-  %0 = add i32 0, 6
-  store i32 %0, i32* %var_main_x
-  %1 = add i32 0, 9
-  %2 = load i32, i32* %var_main_x
-  %3 = add i32 0, 10
-  %4 = mul i32 %2, %3
-  %5 = add i32 %1, %4
-  call void @print_int(i32 %5)
+  %x = alloca i32
+  %0 = add i32 0, 5
+  store i32 %0, i32* %x
+  %1 = load i32, i32* %x
+  %2 = add i32 0, 1
+  %3 = sub i32 %1, %2
+  call void @print_int(i32 %3)
   ret i32 0
 }
 define i32 @main() {
