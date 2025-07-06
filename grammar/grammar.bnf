@@ -1,0 +1,109 @@
+Program ::= TypeFuncList StatementList 'EOF'
+
+TypeFuncList ::= Declaration TypeFuncList | 'ε'
+Declaration ::= Function | Type
+
+Function ::= 'function' 'IDENTIFIER' '(' ParamsList ')' ReturnType FunctionBody ';'
+ReturnType ::= ':' 'IDENTIFIER' | 'ε'
+FunctionBody ::= '=>' Expr | ExprBlock
+
+Type ::= 'type' 'IDENTIFIER' ParamsListOpt Inherits '{' TypeMembers '}' ';'
+ParamsListOpt ::= '(' ParamsList ')' | 'ε'
+
+Inherits ::= 'inherits' 'IDENTIFIER' ArgumentListOpt | 'ε'
+
+TypeMembers ::= TypeMember TypeMembers | 'ε'
+TypeMember ::= 'IDENTIFIER' '=' Expr ';' | Function
+
+ParamsList ::= 'IDENTIFIER' ParamsTail | 'ε'
+ParamsTail ::= ',' 'IDENTIFIER' ParamsTail | 'ε'
+
+ArgumentListOpt ::= ArgumentList  | ε
+ArgumentList ::= Expr ArgumentTail
+ArgumentTail ::= ',' Expr ArgumentTail | 'ε'
+
+
+StatementList ::= Statement ';' StatementList | 'ε'
+Statement ::= Expr | ForLoop | ExprBlock | ReturnStatement
+
+ExprBlock ::= '{' StatementList '}'
+
+Expr ::= LetExpr | Conditional | WhileLoop | PrintExpr | AssignmentExpr
+
+Conditional ::= 'if' '(' Expr ')' Statement ElifOrElse
+ElifOrElse ::= 'elif' '(' Expr ')' Statement ElifOrElse | 'else' Statement | ε
+IsAsTail ::= 'is' 'IDENTIFIER' | 'as' 'IDENTIFIER' | 'ε'
+ElifBranches ::= ElifBranch ElifBranches | ε
+ElifBranch ::= 'elif' '(' Expr ')' Statement
+ElseOpt ::= 'else' Statement | 'ε'
+
+WhileLoop ::= 'while' '(' Expr ')' Statement
+NewExpr ::= 'new' 'IDENTIFIER' '(' ArgumentListOpt ')'
+
+LetExpr ::= 'let' VarDeclList 'in' Statement
+VarDeclList ::= VarDecl VarDeclListTail
+VarDecl ::= 'IDENTIFIER' TypeAnnotation AssignOp Expr
+VarDeclListTail ::= ',' VarDeclList | 'ε'
+
+TypeAnnotation ::= ':' 'IDENTIFIER' | 'ε'
+AssignOp ::= '=' | ':='
+
+PrintExpr ::= 'print' '(' Expr ')'
+
+AssignmentExpr ::= OrExpr AssignmentTail
+AssignmentTail ::= '=' AssignmentExpr | 'ε'
+
+OrExpr ::= AndExpr OrExprTail
+OrExprTail ::= 'or' AndExpr OrExprTail | 'ε'
+
+AndExpr ::= EqualityExpr AndExprTail
+AndExprTail ::= '&&' EqualityExpr AndExprTail | 'ε'
+
+EqualityExpr ::= RelationalExpr EqualityTail
+EqualityTail ::= EqualityOp RelationalExpr EqualityTail | 'ε'
+EqualityOp ::= '==' | '!='
+
+RelationalExpr ::= ConcatExpr RelationalTail
+RelationalTail ::= RelationalOp ConcatExpr RelationalTail | 'ε'
+RelationalOp ::= '<' | '<=' | '>' | '>='
+
+ConcatExpr ::= AdditiveExpr ConcatTail
+ConcatTail ::= ConcatOp AdditiveExpr ConcatTail | 'ε'
+ConcatOp ::= '@' | '@@'
+
+AdditiveExpr ::= MultiplicativeExpr AdditiveTail
+AdditiveTail ::= AdditiveOp MultiplicativeExpr AdditiveTail | 'ε'
+AdditiveOp ::= '+' | '-'
+
+MultiplicativeExpr ::= PowerExpr MultiplicativeTail
+MultiplicativeTail ::= MultiplicativeOp PowerExpr MultiplicativeTail | 'ε'
+MultiplicativeOp ::= '*' | '/' | '%'
+
+PowerExpr ::= UnaryExpr PowerTail
+PowerTail ::= '**' UnaryExpr PowerTail | 'ε'
+
+UnaryExpr ::= '+' UnaryExpr | '-' UnaryExpr | '!' UnaryExpr | Factor IsAsTail
+
+Factor ::= Atom | '(' Expr ')'
+
+Atom ::= BaseAtom AtomSuffixes
+BaseAtom ::= 'NUMBER' | 'STRING' | 'true' | 'false' | 'IDENTIFIER' | Vector | NewExpr
+ReturnStatement ::= 'return' Expr
+AtomSuffixes ::= AtomSuffix AtomSuffixes | 'ε'
+AtomSuffix ::= CallFuncSuffix | IndexSuffix | MemberSuffix
+
+CallFuncSuffix ::= '(' ArgumentListOpt ')'
+
+IndexSuffix ::= '[' Expr ']'
+MemberSuffix ::= '.' 'IDENTIFIER'
+
+
+Vector ::= '[' VectorTail ']'
+VectorTail ::= ForExpr | Expr VectorTailRest | 'ε'
+VectorTailRest ::= ',' ArgumentList | 'ε'
+
+
+ForExpr ::= 'for' '(' 'IDENTIFIER' 'in' Expr ')'
+
+
+ForLoop ::= 'for' '(' 'IDENTIFIER' 'in' Expr ')' Statement
