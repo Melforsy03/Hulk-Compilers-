@@ -119,8 +119,6 @@ Production* find_ll1_entry(const LL1Table* table, const char* non_terminal, cons
     }
     return NULL;
 }
-
-
 void insert_cst_child_at(CSTNode* parent, CSTNode* child, int index) {
     if (!parent || !child) {
         fprintf(stderr, "Error: parent o child es NULL\n");
@@ -163,8 +161,8 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
     symbol_stack[++stack_top] = start_symbol;
     node_stack[stack_top] = root;
 
-    printf("\n🔍 TOKEN inicial: type=%d lexema=%s\n",
-           parser->current_token.type, parser->current_token.lexema);
+    // printf("\n🔍 TOKEN inicial: type=%d lexema=%s\n",
+    //        parser->current_token.type, parser->current_token.lexema);
 
     while (stack_top >= 0) {
         const char* top = symbol_stack[stack_top];
@@ -182,13 +180,13 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
                 free_cst(root);
                 return NULL;
             }
-            printf("✅ Fin de entrada OK.\n");
+            // printf("✅ Fin de entrada OK.\n");
             break;
         }
 
         const char* token_symbol = token_to_symbol(parser->current_token);
-        printf("TOP: %-20s | TOKEN: %-10s | Lookahead type=%d\n",
-               top, token_symbol, parser->current_token.type);
+        // printf("TOP: %-20s | TOKEN: %-10s | Lookahead type=%d\n",
+        //        top, token_symbol, parser->current_token.type);
 
         if (is_symbol_terminal(parser->grammar, top) || strcmp(top, "ε") == 0) {
             if (strcmp(top, "ε") == 0) {
@@ -199,13 +197,13 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
             }
 
             if (strcmp(top, token_symbol) == 0) {
-                printf("  ✅ Matched terminal: %s\n", top);
+                // printf("  ✅ Matched terminal: %s\n", top);
                 parent->token = malloc(sizeof(Token));
                 *parent->token = parser->current_token;
 
                 parser->current_token = next_token(&parser->input);
-                printf("  ➡️  SIGUIENTE TOKEN: %s\n",
-                       parser->current_token.lexema ? parser->current_token.lexema : "(null)");
+                // printf("  ➡️  SIGUIENTE TOKEN: %s\n",
+                //        parser->current_token.lexema ? parser->current_token.lexema : "(null)");
             } else {
                 fprintf(stderr, "❌ Error: esperado '%s', encontrado '%s'\n",
                         top, token_symbol);
@@ -213,7 +211,7 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
                 return NULL;
             }
         } else {
-            printf("LOOKUP: M[%s, %s]\n", top, token_symbol);
+            // printf("LOOKUP: M[%s, %s]\n", top, token_symbol);
             Production* prod = find_ll1_entry(parser->ll1_table, top, token_symbol);
             if (!prod) {
                 fprintf(stderr, "❌ Error: no hay producción para [%s, %s]\n",
@@ -222,11 +220,11 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
                 return NULL;
             }
 
-            printf("  ➡️  Expansión: %s ::= ", prod->lhs);
-            for (int k = 0; k < prod->rhs_len; ++k) {
-                printf("%s ", prod->rhs[k]);
-            }
-            printf("\n");
+            // printf("  ➡️  Expansión: %s ::= ", prod->lhs);
+            // for (int k = 0; k < prod->rhs_len; ++k) {
+            //     printf("%s ", prod->rhs[k]);
+            // }
+            // printf("\n");
 
             // ✅ Expansión inversa robusta para la pila
             for (int i = prod->rhs_len - 1; i >= 0; --i) {
@@ -239,7 +237,7 @@ CSTNode* parse(LL1Parser* parser, const char* start_symbol) {
                     return NULL;
                 }
 
-                printf("    ↳ PUSH: %s\n", rhs_symbol);
+                // printf("    ↳ PUSH: %s\n", rhs_symbol);
 
                 if (stack_top + 1 >= MAX_STACK) {
                     fprintf(stderr, "❌ Error: desbordamiento de pila.\n");

@@ -3,25 +3,34 @@ Program ::= TypeFuncList StatementList 'EOF'
 TypeFuncList ::= Declaration TypeFuncList | 'ε'
 Declaration ::= Function | Type
 
-Function ::= 'function' 'IDENTIFIER' '(' ParamsList ')' ReturnType FunctionBody ';'
-ReturnType ::= ':' 'IDENTIFIER' | 'ε'
+Function ::= 'function' 'IDENTIFIER' '(' ParamsList ')'  ReturnType FunctionBody ';'
+ReturnType ::= ':' TypeSpec | 'ε'
 FunctionBody ::= '=>' Expr | ExprBlock
 
 Type ::= 'type' 'IDENTIFIER' ParamsListOpt Inherits '{' TypeMembers '}' ';'
-ParamsListOpt ::= '(' ParamsList ')' | 'ε'
+ParamsListOpt ::= '(' TypeParamsList ')' | 'ε'
+TypeParamsList ::= 'IDENTIFIER' TypeParamsTail | 'ε'
+TypeParamsTail ::= ',' 'IDENTIFIER' TypeParamsTail | 'ε'
 
 Inherits ::= 'inherits' 'IDENTIFIER' ArgumentListOpt | 'ε'
 
 TypeMembers ::= TypeMember TypeMembers | 'ε'
-TypeMember ::= 'IDENTIFIER' '=' Expr ';' | Function
+TypeMember ::= 'IDENTIFIER' ':=' Expr ';' | Function
 
-ParamsList ::= 'IDENTIFIER' ParamsTail | 'ε'
-ParamsTail ::= ',' 'IDENTIFIER' ParamsTail | 'ε'
+ParamsList ::= ParamDecl ParamsTail | 'ε'
+ParamDecl ::= 'IDENTIFIER' ParamTypeOpt
 
-ArgumentListOpt ::= ArgumentList  | ε
+ParamTypeOpt ::= ':' TypeSpec | 'ε'
+
+TypeSpec ::= 'IDENTIFIER' TypeArgsOpt
+TypeArgsOpt ::= '(' TypeList ')' | 'ε'
+TypeList ::= TypeSpec TypeListTail
+TypeListTail ::= ',' TypeSpec TypeListTail | 'ε'
+ParamsTail ::= ',' ParamDecl ParamsTail | 'ε'
+
+ArgumentListOpt ::= ArgumentList | 'ε'
 ArgumentList ::= Expr ArgumentTail
 ArgumentTail ::= ',' Expr ArgumentTail | 'ε'
-
 
 StatementList ::= Statement ';' StatementList | 'ε'
 Statement ::= Expr | ForLoop | ExprBlock | ReturnStatement
@@ -31,11 +40,8 @@ ExprBlock ::= '{' StatementList '}'
 Expr ::= LetExpr | Conditional | WhileLoop | PrintExpr | AssignmentExpr
 
 Conditional ::= 'if' '(' Expr ')' Statement ElifOrElse
-ElifOrElse ::= 'elif' '(' Expr ')' Statement ElifOrElse | 'else' Statement | ε
+ElifOrElse ::= 'elif' '(' Expr ')' Statement ElifOrElse | 'else' Statement | 'ε'
 IsAsTail ::= 'is' 'IDENTIFIER' | 'as' 'IDENTIFIER' | 'ε'
-ElifBranches ::= ElifBranch ElifBranches | ε
-ElifBranch ::= 'elif' '(' Expr ')' Statement
-ElseOpt ::= 'else' Statement | 'ε'
 
 WhileLoop ::= 'while' '(' Expr ')' Statement
 NewExpr ::= 'new' 'IDENTIFIER' '(' ArgumentListOpt ')'
@@ -43,9 +49,9 @@ NewExpr ::= 'new' 'IDENTIFIER' '(' ArgumentListOpt ')'
 LetExpr ::= 'let' VarDeclList 'in' Statement
 VarDeclList ::= VarDecl VarDeclListTail
 VarDecl ::= 'IDENTIFIER' TypeAnnotation AssignOp Expr
+TypeAnnotation ::= ':' TypeSpec | 'ε'
 VarDeclListTail ::= ',' VarDeclList | 'ε'
 
-TypeAnnotation ::= ':' 'IDENTIFIER' | 'ε'
 AssignOp ::= '=' | ':='
 
 PrintExpr ::= 'print' '(' Expr ')'
@@ -97,13 +103,10 @@ CallFuncSuffix ::= '(' ArgumentListOpt ')'
 IndexSuffix ::= '[' Expr ']'
 MemberSuffix ::= '.' 'IDENTIFIER'
 
-
 Vector ::= '[' VectorTail ']'
 VectorTail ::= ForExpr | Expr VectorTailRest | 'ε'
 VectorTailRest ::= ',' ArgumentList | 'ε'
 
-
 ForExpr ::= 'for' '(' 'IDENTIFIER' 'in' Expr ')'
-
 
 ForLoop ::= 'for' '(' 'IDENTIFIER' 'in' Expr ')' Statement

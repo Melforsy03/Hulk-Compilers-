@@ -1,0 +1,17 @@
+let x = 3 , y = 3 + 5 in {while(x<=y)
+{
+    x = x + 1 ;
+    print(x);
+}
+}
+
+let x = 3 , y = 3 + 5 in {while(x<y)
+{
+    x = x + 1 ;
+    if (x < 0) {
+  print(1);
+} else {
+  print(0);
+};
+};
+};

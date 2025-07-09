@@ -1,1 +1,31 @@
-let x = 1 + 2 , y = -5 in { print(x); print(y); };
+type Shape {
+    function area(): Number => 0;
+};
+
+type Circle inherits Shape {
+    radius := 1;
+    
+    function area(): Number =>  3 * this.radius * this.radius;
+};
+
+type Rectangle inherits Shape {
+    width := 1;
+    height := 1;
+    function area(): Number =>  this.width * this.height;
+};
+
+
+let 
+    circle : Circle = New Shape (),
+    rectangle = 0  , x= 0 , area1 = 0
+in {
+     if(x > 3)
+    {
+       circle =  New Circle ();
+    }else 
+    {
+        circle = New Rectangle () ;
+    };
+    area1 = circle.area();
+    print(area1);      
+};

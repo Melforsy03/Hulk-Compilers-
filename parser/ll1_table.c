@@ -15,7 +15,6 @@ int is_symbol_terminal(const Grammar* g, const char* symbol) { // <--- ELIMINADO
 }
 */
 
-
 static void add_entry(LL1Table* table, const char* A, const char* t, Production* p) {
     // Evita duplicados
     for (int i = 0; i < table->num_entries; ++i) {

@@ -36,8 +36,11 @@ typedef enum {
      AST_TYPE_DECL,
      AST_INDEX,
     AST_MEMBER,
-  
-
+    AST_BASES,
+     AST_INHERITS,
+    AST_NEW_EXPR,
+    AST_MEMBER_ACCESS,
+    AST_TYPE_SPEC,
     // Otros
     AST_RETURN,           // Return statement
     AST_PRINT,            // Print statement
@@ -63,6 +66,7 @@ const char* node_type_to_str(ASTNodeType type);
 ASTNode* parse_binop_chain(CSTNode* cst, const char* symbol);
 ASTNode* parse_atom_suffixes(ASTNode* base, CSTNode* suffixes);
 ASTNode* parse_atom_suffix(ASTNode* base, CSTNode* suffix);
+void add_argument_list(ASTNode* parent, CSTNode* node) ;
 // Transformación CST -> AST
 
 ASTNode* cst_to_ast(CSTNode* cst);

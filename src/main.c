@@ -78,27 +78,43 @@ int main() {
     init_parser(&parser, input, ll1, g);
 
     CSTNode* cst = parse(&parser, g->start_symbol);
-    //  print_cst(cst , 1);
+    // print_cst(cst , 1);
     ASTNode* ast_root = cst_to_ast(cst);
 
     
     printf("\n=== AST generado ===\n");
-    print_ast(ast_root, 1);
+    print_ast(ast_root, 3);
     SymbolTable sym_table;
     TypeTable type_table;
     init_symbol_table(&sym_table);
     init_type_table(&type_table);
 
     printf("=== Chequeo Semántico ===\n");
-    check_semantics(ast_root, &sym_table, &type_table, NULL);
+    ErrorList errors = {.count = 0};
+    check_semantics(ast_root, &sym_table, &type_table, NULL ,&errors);
     FILE* ir_file = fopen("hulk/programa.ll", "w");
     if (!ir_file) {
         perror("No se pudo abrir programa.ll");
         return 1;
     }
+    if (errors.count > 0) {
+    fprintf(stderr, "\n❌ Se encontraron errores semánticos:\n");
+    for (int i = 0; i < errors.count; ++i) {
+        fprintf(stderr, "- %s\n", errors.messages[i]);
+        free(errors.messages[i]);  // Libera memoria de cada mensaje
+    }
 
+    // Limpieza antes de salir
+    free(input);
+    free(ll1);
+    free(table);
+    free(g);
+    return EXIT_FAILURE;
+}
+
+    ReturnTypeTable typereturn ;
     // ✅ 2) Pasa el FILE* a tu contexto de codegen
-    CodeGenContext ctx = { .out = ir_file, .temp_count = 0, .indent = 0 };
+    CodeGenContext ctx = { .out = ir_file, .temp_count = 0, .indent = 0 , .sym_table = &sym_table ,.type_table = &type_table ,.return_table=typereturn , .last_call_args = { NULL } };
 
     // ✅ 3) Genera LLVM IR SOLO al archivo
     generate_code(&ctx, ast_root);
