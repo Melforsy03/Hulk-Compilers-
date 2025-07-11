@@ -35,4 +35,11 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node);
 int get_member_index(TypeTable* table, const char* type_name, const char* member_name);
 void emit_structs(CodeGenContext* ctx, TypeTable* type_table) ;
 TypeInstance* instantiate_generic(TypeTable* table, const char* template_name, const char** args, int num_args);
+
+// Emite las vtables globales para cada tipo registrado.
+void emit_vtables(CodeGenContext* ctx, TypeTable* table);
+int get_method_count(TypeTable* table, const char* type_name);
+//Despacho dinámico: carga y llama método desde la vtable.
+char* emit_virtual_call(CodeGenContext* ctx, Symbol* s_obj, const char* method_name);
+
 #endif

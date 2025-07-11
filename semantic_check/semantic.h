@@ -2,6 +2,7 @@
 #define SEMANTIC_H
 
 #include "ast.h"
+#include <stdbool.h>
 #define MAX_BASES 4
 #define MAX_ERRORS 256
 
@@ -41,6 +42,10 @@ typedef struct TypeEntry {
   Member* members;
   char type_params[8][32];  // E.g. T, U, ...
   int num_params;           // Número de parámetros genéricos
+
+  char method_names[32][32];
+  int method_count;
+
   struct TypeEntry* next;
 } TypeEntry;
 
@@ -57,6 +62,7 @@ typedef struct {
   TypeEntry* head;         // Todos los tipos base
   TypeInstance* instances; // Todas las instancias concretas
 } TypeTable;
+
 typedef struct SymbolTable {
     Symbol* head;
 } SymbolTable;
@@ -84,5 +90,11 @@ void check_semantics(ASTNode* node, SymbolTable* sym_table, TypeTable* type_tabl
 
 // Inferencia de tipos
 const char* infer_type(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, ErrorList* error_list);
+
+void build_vtable_info(TypeTable* table);
+void print_vtable_info(TypeTable* table);
+int get_method_index(TypeTable* table, const char* type_name, const char* method_name);
+TypeEntry* lookup_class(TypeTable* table, const char* name);
+
 
 #endif
