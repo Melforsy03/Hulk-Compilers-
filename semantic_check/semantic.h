@@ -35,11 +35,19 @@ typedef struct Member {
    ASTNode* body; 
 } Member;
 
+typedef struct MethodEntry {
+    char name[32];
+    char signature[64];  // Tipo de retorno y parámetros
+    int vtable_index;    // Índice en la vtable
+    struct MethodEntry* next;
+} MethodEntry;
+
 typedef struct TypeEntry {
   char name[32];         // "Box"
   char bases[8][32];     // Base types para herencia
   int num_bases;
   Member* members;
+  MethodEntry* methods;
   char type_params[8][32];  // E.g. T, U, ...
   int num_params;           // Número de parámetros genéricos
 

@@ -104,39 +104,61 @@ static void register_function_return(CodeGenContext* ctx, const char* name, ASTN
 }
 
 char* emit_virtual_call(CodeGenContext* ctx, Symbol* s_obj, const char* method_name) {
-    // 1) Obtener puntero vptr
+    // 1) Obtener vptr del objeto
     int tmp0 = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out, "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 0\n",
           tmp0, s_obj->type, s_obj->type, s_obj->last_temp_id);
 
+    // 2) Cargar vptr
     int tmp1 = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out, "%%%d = load i8**, i8*** %%%d\n", tmp1, tmp0);
 
-    // 2) Índice del método
-    int idx = get_method_index(ctx->type_table, s_obj->dynamic_type[0]? s_obj->dynamic_type : s_obj->type, method_name);
+    // 3) Obtener índice del método
+    TypeEntry* t = lookup_type(ctx->type_table, 
+                      s_obj->dynamic_type[0] ? s_obj->dynamic_type : s_obj->type);
+    MethodEntry* method = NULL;
+    while (t) {
+        method = lookup_method(t, method_name);
+        if (method) break;
+        // Buscar en la cadena de herencia
+        if (t->num_bases > 0) {
+            t = lookup_type(ctx->type_table, t->bases[0]);
+        } else {
+            t = NULL;
+        }
+    }
+    
+    if (!method) {
+        fprintf(stderr, "Error: método '%s' no encontrado\n", method_name);
+        exit(1);
+    }
+
+    // 4) Obtener puntero a función desde vtable
     int tmp2 = ctx->temp_count++;
     indent(ctx);
-    fprintf(ctx->out,
-        "%%%d = getelementptr [%d x i32 (%%%s*)*], [%d x i32 (%%%s*)*]* @%s_vtable, i32 0, i32 %d\n",
-        tmp2, get_method_count(ctx->type_table, s_obj->type), s_obj->type,
-        get_method_count(ctx->type_table, s_obj->type), s_obj->type,
-        s_obj->type, idx);
+    fprintf(ctx->out, "%%%d = getelementptr i8*, i8** %%%d, i32 %d\n",
+          tmp2, tmp1, method->vtable_index);
 
     int tmp3 = ctx->temp_count++;
     indent(ctx);
-    fprintf(ctx->out, "%%%d = load i32 (%%%s*)*, i32 (%%%s*)** %%%d\n",
-          tmp3, s_obj->type, s_obj->type, tmp2);
+    fprintf(ctx->out, "%%%d = load i8*, i8** %%%d\n", tmp3, tmp2);
 
-    // 3) Llamada al método dinámico
+    // 5) Convertir a tipo de función correcto
     int tmp4 = ctx->temp_count++;
     indent(ctx);
+    fprintf(ctx->out, "%%%d = bitcast i8* %%%d to i32 (%%%s*)*\n",
+          tmp4, tmp3, s_obj->type);
+
+    // 6) Llamar al método
+    int tmp5 = ctx->temp_count++;
+    indent(ctx);
     fprintf(ctx->out, "%%%d = call i32 %%%d(%%%s* %%%d)\n",
-          tmp4, tmp3, s_obj->type, s_obj->last_temp_id);
+          tmp5, tmp4, s_obj->type, s_obj->last_temp_id);
 
     char* buffer = malloc(32);
-    snprintf(buffer, 32, "%%%d", tmp4);
+    snprintf(buffer, 32, "%%%d", tmp5);
     return buffer;
 }
 
@@ -1243,73 +1265,121 @@ TypeInstance* instantiate_generic(TypeTable* table, const char* template_name, c
   return new_inst;
 }
 
+// void emit_structs(CodeGenContext* ctx, TypeTable* table) {
+//   TypeEntry* t = table->head;
+//   while (t) {
+//     //fprintf(ctx->out, "%%%s = type { ", t->name);
+//     fprintf(ctx->out, "%%%s = type { i8**", t->name);
+// 
+//     int need_comma = 1;
+// 
+//     // Miembros propios
+//     Member* m = t->members;
+//     while (m) {
+//         fprintf(ctx->out, ", i32");
+//         m = m->next;
+//     }
+// 
+//     // Miembros heredados recursivos
+//     for (int i = 0; i < t->num_bases; ++i) {
+//       TypeEntry* base = lookup_type(table, t->bases[i]);
+//       if (base) {
+//         // ⚡ Recurre bases anidadas
+//         Member* bm = base->members;
+//         while (bm) {
+//           if (need_comma) fprintf(ctx->out, ", ");
+//           fprintf(ctx->out, "i32");
+//           bm = bm->next;
+//           need_comma = 1;
+//         }
+//         // ⚡ Recurre bases de bases
+//         for (int j = 0; j < base->num_bases; ++j) {
+//           TypeEntry* nested = lookup_type(table, base->bases[j]);
+//           if (nested) {
+//             Member* nm = nested->members;
+//             while (nm) {
+//               if (need_comma) fprintf(ctx->out, ", ");
+//               fprintf(ctx->out, "i32");
+//               nm = nm->next;
+//               need_comma = 1;
+//             }
+//           }
+//         }
+//       }
+//     }
+// 
+//     fprintf(ctx->out, " }\n");
+//     t = t->next;
+//   }
+// }
+
+// void emit_vtables(CodeGenContext* ctx, TypeTable* table) {
+//   TypeEntry* t = table->head;
+//   while (t) {
+//     int n = t->method_count;
+//     // Definir la tabla global
+//     fprintf(ctx->out, "@%s_vtable = global [%d x i32 (%%%s*)*] [\n", t->name, n, t->name);
+//     // Inicializar punteros a métodos
+//     for (int i = 0; i < n; ++i) {
+//       fprintf(ctx->out, "  i32 (%%%s*)* @%s_%s%s\n", t->name, t->name, t->method_names[i], (i < n-1) ? "," : "");
+//     }
+//     fprintf(ctx->out, "]\n\n");
+//     t = t->next;
+//   }
+// }
+
 void emit_structs(CodeGenContext* ctx, TypeTable* table) {
-  TypeEntry* t = table->head;
-  while (t) {
-    //fprintf(ctx->out, "%%%s = type { ", t->name);
-    fprintf(ctx->out, "%%%s = type { i8**", t->name);
-
-    int need_comma = 1;
-
-    // Miembros propios
-    Member* m = t->members;
-    while (m) {
-        fprintf(ctx->out, ", i32");
-        m = m->next;
-    }
-    // while (m) {
-    //   if (need_comma) fprintf(ctx->out, ", ");
-    //   fprintf(ctx->out, "i32");
-    //   m = m->next;
-    //   need_comma = 1;
-    // }
-
-    // Miembros heredados recursivos
-    for (int i = 0; i < t->num_bases; ++i) {
-      TypeEntry* base = lookup_type(table, t->bases[i]);
-      if (base) {
-        // ⚡ Recurre bases anidadas
-        Member* bm = base->members;
-        while (bm) {
-          if (need_comma) fprintf(ctx->out, ", ");
-          fprintf(ctx->out, "i32");
-          bm = bm->next;
-          need_comma = 1;
-        }
-        // ⚡ Recurre bases de bases
-        for (int j = 0; j < base->num_bases; ++j) {
-          TypeEntry* nested = lookup_type(table, base->bases[j]);
-          if (nested) {
-            Member* nm = nested->members;
-            while (nm) {
-              if (need_comma) fprintf(ctx->out, ", ");
-              fprintf(ctx->out, "i32");
-              nm = nm->next;
-              need_comma = 1;
+    TypeEntry* t = table->head;
+    while (t) {
+        fprintf(ctx->out, "%%%s = type { i8**", t->name); // vptr primero
+        
+        // Miembros de datos
+        Member* m = t->members;
+        while (m) {
+            if (!m->body) { // Solo campos de datos
+                fprintf(ctx->out, ", i32");
             }
-          }
+            m = m->next;
         }
-      }
+        
+        fprintf(ctx->out, " }\n");
+        t = t->next;
     }
-
-    fprintf(ctx->out, " }\n");
-    t = t->next;
-  }
 }
 
 void emit_vtables(CodeGenContext* ctx, TypeTable* table) {
-  TypeEntry* t = table->head;
-  while (t) {
-    int n = t->method_count;
-    // Definir la tabla global
-    fprintf(ctx->out, "@%s_vtable = global [%d x i32 (%%%s*)*] [\n", t->name, n, t->name);
-    // Inicializar punteros a métodos
-    for (int i = 0; i < n; ++i) {
-      fprintf(ctx->out, "  i32 (%%%s*)* @%s_%s%s\n", t->name, t->name, t->method_names[i], (i < n-1) ? "," : "");
+    TypeEntry* t = table->head;
+    while (t) {
+        fprintf(ctx->out, "@%s_vtable = global [%d x i8*] [\n", t->name, t->method_count);
+        
+        MethodEntry* m = t->methods;
+        while (m) {
+            // Obtener implementación correcta (puede ser de una clase base)
+            TypeEntry* impl_class = t;
+            MethodEntry* impl_method = m;
+            
+            while (impl_class) {
+                MethodEntry* current = lookup_method(impl_class, m->name);
+                if (current && strcmp(current->signature, m->signature) == 0) {
+                    impl_method = current;
+                    break;
+                }
+                if (impl_class->num_bases > 0) {
+                    impl_class = lookup_type(table, impl_class->bases[0]);
+                } else {
+                    impl_class = NULL;
+                }
+            }
+            
+            fprintf(ctx->out, "  i8* bitcast (i32 (%%%s*)* @%s_%s to i8*)%s\n",
+                  t->name, impl_class->name, m->name,
+                  m->next ? "," : "");
+            m = m->next;
+        }
+        
+        fprintf(ctx->out, "]\n\n");
+        t = t->next;
     }
-    fprintf(ctx->out, "]\n\n");
-    t = t->next;
-  }
 }
 
 int get_member_index(TypeTable* table, const char* type_name, const char* member_name) {
