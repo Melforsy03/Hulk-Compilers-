@@ -14,56 +14,19 @@ TypeEntry* lookup_class(TypeTable* table, const char* name) {
 void build_vtable_info(TypeTable* table) {
     TypeEntry* t = table->head;
     while (t) {
-        // Primero procesar las clases base para heredar métodos
-        for (int i = 0; i < t->num_bases; i++) {
-            TypeEntry* base = lookup_type(table, t->bases[i]);
-            if (base) {
-                MethodEntry* m = base->methods;
-                while (m) {
-                    // Heredar métodos de la base
-                    if (!lookup_method(t, m->name)) {
-                        add_method_to_type(t, m->name, m->signature);
-                    }
-                    m = m->next;
-                }
-            }
-        }
-
-        // Luego procesar los métodos propios
+        int count = 0;
         Member* m = t->members;
         while (m) {
-            if (m->body) { // Es un método
-                MethodEntry* existing = lookup_method(t, m->name);
-                if (existing) {
-                    // Sobrescribir método
-                    strcpy(existing->signature, m->type);
-                } else {
-                    // Agregar nuevo método
-                    add_method_to_type(t, m->name, m->type);
-                }
+            if (m->body) {
+                // Guardar el nombre del método en la posición 'count'
+                strcpy(t->method_names[count], m->name);
+                count++;
             }
             m = m->next;
         }
+        t->method_count = count;
         t = t->next;
     }
-}
-
-MethodEntry* lookup_method(TypeEntry* type, const char* name) {
-    MethodEntry* m = type->methods;
-    while (m) {
-        if (strcmp(m->name, name) == 0) return m;
-        m = m->next;
-    }
-    return NULL;
-}
-
-void add_method_to_type(TypeEntry* type, const char* name, const char* signature) {
-    MethodEntry* m = malloc(sizeof(MethodEntry));
-    strcpy(m->name, name);
-    strcpy(m->signature, signature);
-    m->vtable_index = type->method_count++;
-    m->next = type->methods;
-    type->methods = m;
 }
 
 int get_method_index(TypeTable* table, const char* type_name, const char* method_name) {
