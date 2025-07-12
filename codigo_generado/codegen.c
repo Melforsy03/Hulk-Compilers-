@@ -16,6 +16,22 @@ int already_exists(TypeEntry* t, const char* name) {
   }
   return 0;
 }
+int lookup_method_slot(TypeTable* table, const char* type_name, const char* method_name) {
+  TypeEntry* t = lookup_type(table, type_name);
+  if (!t) {
+    fprintf(stderr, "Error: tipo '%s' no encontrado\n", type_name);
+    exit(1);
+  }
+
+  for (int i = 0; i < t->method_count; ++i) {
+    if (strcmp(t->method_names[i], method_name) == 0) {
+      return i; // slot correcto en la vtable
+    }
+  }
+
+  fprintf(stderr, "Error: método '%s' no encontrado en '%s'\n", method_name, type_name);
+  exit(1);
+}
 
 Symbol* create_symbol(const char* name, const char* type, SymbolKind kind) {
     Symbol* s = malloc(sizeof(Symbol));
@@ -36,22 +52,54 @@ Symbol* create_symbol(const char* name, const char* type, SymbolKind kind) {
 
     return s;
 }
+
 const char* find_common_base(TypeTable* type_table, const char* t1, const char* t2) {
   if (strcmp(t1, t2) == 0) return t1;
 
-  // Si uno es base del otro
   if (conforms(type_table, t1, t2)) return t2;
   if (conforms(type_table, t2, t1)) return t1;
 
-  // Busca todas las bases de t1
-  TypeEntry* tentry1 = lookup_type(type_table, t1);
-  if (!tentry1) return "Object";
-  for (int i = 0; i < tentry1->num_bases; i++) {
-    if (conforms(type_table, tentry1->bases[i], t2)) return tentry1->bases[i];
+  TypeEntry* entry1 = lookup_type(type_table, t1);
+  if (entry1) {
+    for (int i = 0; i < entry1->num_bases; ++i) {
+      const char* common = find_common_base(type_table, entry1->bases[i], t2);
+      if (strcmp(common, "Object") != 0) return common;
+    }
   }
 
-  // No hay base común conocida => fallback
-  return "Object";
+  TypeEntry* entry2 = lookup_type(type_table, t2);
+  if (entry2) {
+    for (int i = 0; i < entry2->num_bases; ++i) {
+      const char* common = find_common_base(type_table, t1, entry2->bases[i]);
+      if (strcmp(common, "Object") != 0) return common;
+    }
+  }
+
+  // Fallback dinámico: si la raíz es Object, mantén t1
+  const char* root = find_type_table_root(type_table);
+
+  if (strcmp(root, "Object") == 0) {
+    // Mantiene el tipo original para evitar bitcast inválido
+    return t1;
+  } else {
+    return root;
+  }
+}
+
+const char* find_type_table_root(TypeTable* table) {
+  TypeEntry* entry = table->head;
+  while (entry) {
+    // Si solo tiene Object como base, se considera raíz real
+    if (entry->num_bases == 0) {
+      return entry->name;
+    }
+    if (entry->num_bases == 1 && strcmp(entry->bases[0], "Object") == 0) {
+      return entry->name;  // Es raíz, no tiene base real
+    }
+    entry = entry->next;
+  }
+  fprintf(stderr, "Error: no se encontró tipo raíz\n");
+  exit(1);
 }
 
 void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_table) {
@@ -67,12 +115,14 @@ void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_ta
   }
 
   else if (node->type == AST_STATEMENT_LIST) {
+    // ⚡ Visita en orden
     for (int i = 0; i < node->num_children; ++i) {
       parse_type_members(node->children[i], type_name, type_table);
     }
   }
 
   else if (node->type == AST_ASSIGN) {
+    // Atributo de dato => no afecta VTABLE
     const char* attr_name = node->children[0]->value;
     int default_value = 0;
     if (node->num_children > 1 && node->children[1]->type == AST_NUMBER) {
@@ -82,8 +132,11 @@ void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_ta
   }
 
   else if (node->type == AST_FUNCTION_DECL) {
+    // ⚡ Método => influye en VTABLE
     const char* func_name = node->children[0]->value;
     ASTNode* body = (node->num_children >= 3) ? node->children[2] : NULL;
+
+    // ⚡ Siempre append al final para mantener orden de slots
     add_member_to_type(type_table, type_name, func_name, "i32", body, 0);
   }
 
@@ -142,7 +195,8 @@ char* emit_virtual_call(CodeGenContext* ctx, Symbol* s_obj, const char* method_n
     // ✅ Usa dynamic_type si está
     const char* dyn_type = strlen(s_obj->dynamic_type) > 0 ? s_obj->dynamic_type : s_obj->type;
 
-    int idx = get_method_index(ctx->type_table, dyn_type, method_name);
+    int idx = lookup_method_slot(ctx->type_table, dyn_type, method_name);
+
 
     int tmp2 = ctx->temp_count++;
     indent(ctx);
@@ -799,10 +853,10 @@ case AST_VAR_DECL: {
   free(expr);
   break;
 }
-
 case AST_ASSIGN: {
   ASTNode* lhs = node->children[0];
-  char* rhs_val = codegen_expr(ctx, node->children[1]);
+  ASTNode* rhs = node->children[1];
+  char* rhs_val = codegen_expr(ctx, rhs);
 
   if (lhs->type == AST_IDENTIFIER) {
     Symbol* s = lookup(ctx->sym_table, lhs->value);
@@ -812,24 +866,38 @@ case AST_ASSIGN: {
       exit(1);
     }
 
+    // ✅ Si RHS es NEW, guarda dynamic_type real para llamadas virtuales
+    if (rhs->type == AST_NEW_EXPR) {
+      const char* dyn_type = rhs->children[0]->value;
+      strcpy(s->dynamic_type, dyn_type);
+      strcpy(s->last_branch_dynamic_type, dyn_type);
+      printf("🔗 %s.dynamic_type = %s\n", s->name, s->dynamic_type);
 
-TypeEntry* tentry = lookup_type(ctx->type_table, s->type);
+      if (rhs_val[0] == '%') {
+        s->last_temp_id = atoi(rhs_val + 1);
+      }
+    }
 
-
+    TypeEntry* tentry = lookup_type(ctx->type_table, s->type);
     if (tentry) {
-      const char* tname = s->type;  // Por ejemplo "Shape", "Circle", ...
+      const char* tname = s->type;
       indent(ctx);
       fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
               tname, rhs_val, tname, s->name);
+
+      if (rhs->type != AST_NEW_EXPR) {
+        s->last_temp_id = ctx->temp_count++;
+        indent(ctx);
+        fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+                s->last_temp_id, tname, tname, s->name);
+      }
     } else {
-     
       indent(ctx);
       fprintf(ctx->out, "store i32 %s, i32* %%%s\n", rhs_val, s->name);
     }
   }
 
   else if (lhs->type == AST_MEMBER) {
-
     const char* var_name = lhs->children[0]->value;
     const char* member_name = lhs->children[1]->value;
 
@@ -840,22 +908,21 @@ TypeEntry* tentry = lookup_type(ctx->type_table, s->type);
       exit(1);
     }
 
-    // ⚡ Usa dynamic_type si existe
     const char* struct_type = strlen(s->dynamic_type) > 0 ? s->dynamic_type : s->type;
 
     int index = get_member_index(ctx->type_table, struct_type, member_name);
     if (index == -1) {
-      fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n", member_name, struct_type);
+      fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n",
+              member_name, struct_type);
       exit(1);
     }
 
     int gep = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out,
-      "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
-      gep, struct_type, struct_type, s->last_temp_id, index);
+            "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
+            gep, struct_type, struct_type, s->last_temp_id, index);
 
-    // ⚡ Para miembros asumimos escalar (i32). Si tienes miembros punteros, extiéndelo.
     indent(ctx);
     fprintf(ctx->out, "store i32 %s, i32* %%%d\n", rhs_val, gep);
   }
@@ -885,14 +952,14 @@ case AST_IF: {
   ctx->indent++;
   codegen_stmt(ctx, node->children[1]);
 
-  // Guarda tipo de rama THEN
   Symbol* sym = ctx->sym_table->head;
   while (sym) {
     if (lookup_type(ctx->type_table, sym->type)) {
-      strcpy(sym->last_branch_dynamic_type, sym->dynamic_type);
+      strcpy(sym->last_branch_dynamic_type, strlen(sym->dynamic_type) > 0 ? sym->dynamic_type : sym->type);
     }
     sym = sym->next;
   }
+
   indent(ctx);
   fprintf(ctx->out, "br label %%endif%d\n", label_id);
   ctx->indent--;
@@ -903,14 +970,14 @@ case AST_IF: {
   ctx->indent++;
   codegen_stmt(ctx, node->children[2]);
 
-  // Guarda tipo de rama ELSE
   sym = ctx->sym_table->head;
   while (sym) {
     if (lookup_type(ctx->type_table, sym->type)) {
-      strcpy(sym->last_branch_dynamic_type_else, sym->dynamic_type);
+      strcpy(sym->last_branch_dynamic_type_else, strlen(sym->dynamic_type) > 0 ? sym->dynamic_type : sym->type);
     }
     sym = sym->next;
   }
+
   indent(ctx);
   fprintf(ctx->out, "br label %%endif%d\n", label_id);
   ctx->indent--;
@@ -919,7 +986,6 @@ case AST_IF: {
   indent(ctx);
   fprintf(ctx->out, "endif%d:\n", label_id);
 
-  // 🔄 Fusión coherente
   sym = ctx->sym_table->head;
   while (sym) {
     if (lookup_type(ctx->type_table, sym->type)) {
@@ -928,17 +994,10 @@ case AST_IF: {
       fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
               sym->last_temp_id, sym->type, sym->type, sym->name);
 
-      if (strlen(sym->last_branch_dynamic_type) > 0 &&
-          strlen(sym->last_branch_dynamic_type_else) > 0) {
-        const char* merged = find_common_base(ctx->type_table,
-                                              sym->last_branch_dynamic_type,
-                                              sym->last_branch_dynamic_type_else);
-        strcpy(sym->dynamic_type, merged);
-      } else if (strlen(sym->last_branch_dynamic_type) > 0) {
-        strcpy(sym->dynamic_type, sym->last_branch_dynamic_type);
-      } else if (strlen(sym->last_branch_dynamic_type_else) > 0) {
-        strcpy(sym->dynamic_type, sym->last_branch_dynamic_type_else);
-      }
+      const char* merged = find_common_base(ctx->type_table,
+                                            sym->last_branch_dynamic_type,
+                                            sym->last_branch_dynamic_type_else);
+      strcpy(sym->dynamic_type, merged);
 
       printf("🔄 Recarga después de IF: %s => last_temp_id=%d, dynamic_type=%s\n",
              sym->name, sym->last_temp_id, sym->dynamic_type);
@@ -1508,25 +1567,38 @@ void resolve_virtual_methods(TypeTable* table) {
 
       for (int j = 0; j < base->method_count; ++j) {
         const char* base_method = base->method_names[j];
-        const char* base_impl = base->method_impls[j];
 
+        // Busca si la clase actual tiene un método con ese nombre
         int found = -1;
         for (int k = 0; k < t->method_count; ++k) {
-          if (strcmp(t->method_names[k], base_method) == 0 &&
-              strcmp(t->method_impls[k], base_impl) == 0) {
+          if (strcmp(t->method_names[k], base_method) == 0) {
             found = k;
             break;
           }
         }
 
-        if (found == -1) {
-          // Solo hereda si no hay slot idéntico ya
-          int slot = t->method_count++;
-          strcpy(t->method_names[slot], base_method);
-          strcpy(t->method_signatures[slot], base->method_signatures[j]);
-          strcpy(t->method_impls[slot], base_impl);
+        if (found != -1) {
+          // ⚡️ OVERRIDE: usa mismo slot del padre
+          if (found != j) {
+            printf("⚡ Corrigiendo override: %s::%s => slot %d\n", t->name, base_method, j);
+            strcpy(t->method_names[j], base_method);
+            strcpy(t->method_signatures[j], base->method_signatures[j]);
+          }
+          // Siempre apunta a la implementación de la clase derivada
+          strcpy(t->method_impls[j], t->name);
 
-          printf("✔️ Inherit %s::%s => slot %d\n", t->name, base_method, slot);
+          // Ajusta tamaño si es necesario
+          if (j >= t->method_count) t->method_count = j + 1;
+
+          printf("✔️ %s overridea %s::%s en slot %d\n", t->name, base->name, base_method, j);
+        } else {
+          // ⚡️ HEREDA sin override
+          strcpy(t->method_names[j], base_method);
+          strcpy(t->method_signatures[j], base->method_signatures[j]);
+          strcpy(t->method_impls[j], base->method_impls[j]);
+          if (j >= t->method_count) t->method_count = j + 1;
+
+          printf("✔️ %s hereda %s::%s en slot %d\n", t->name, base->name, base_method, j);
         }
       }
     }

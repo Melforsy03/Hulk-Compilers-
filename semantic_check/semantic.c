@@ -62,14 +62,14 @@ void build_vtable_info(TypeTable* table) {
 }
 
 int get_method_index(TypeTable* table, const char* type_name, const char* method_name) {
-    TypeEntry* t = lookup_type(table, type_name);
-    if (!t) return -1;
-    for (int i = 0; i < t->method_count; i++) {
-        if (strcmp(t->method_names[i], method_name) == 0) {
-            return i;
-        }
+  TypeEntry* t = lookup_type(table, type_name);
+  if (!t) return -1;
+  for (int i = 0; i < t->method_count; i++) {
+    if (strcmp(t->method_names[i], method_name) == 0) {
+      return i;  // Slot correcto
     }
-    return -1;
+  }
+  return -1;
 }
 
 // -------------------- Tabla de Símbolos --------------------

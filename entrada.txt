@@ -1,9 +1,10 @@
 type Shape {
     function area(): Number => 0;
+    function prueba() :Number => 6;
 };
 
 type Circle inherits Shape {
-    radius := 1;
+    radius := 5;
     
     function area(): Number =>  4 * this.radius * this.radius;
 };
@@ -16,7 +17,7 @@ type Rectangle inherits Shape {
 
 let 
     circle : Shape = New Shape (),
-    rectangle = 0  , x = 0 , area1 = 0
+    rectangle = 0  , x = 10 , area1 = 0
 in {
      if(x > 3)
     {
@@ -26,5 +27,6 @@ in {
         circle = New Rectangle () ;
     };
     area1 = circle.area();
+    
     print(area1);      
 };

@@ -1,18 +1,21 @@
 declare i32 @printf(i8*, ...)
 @print.str = constant [4 x i8] c"%d\0A\00"
 
-%Rectangle = type { i8**, i32, i32, i32, i32 }
-%Circle = type { i8**, i32, i32, i32 }
-%Shape = type { i8**, i32 }
-@Rectangle_vtable = global [1 x i8* (%Rectangle*)*] [
-  i8* (%Rectangle*)* @Rectangle_area
+%Rectangle = type { i8**, i32, i32, i32, i32, i32 }
+%Circle = type { i8**, i32, i32, i32, i32 }
+%Shape = type { i8**, i32, i32 }
+@Rectangle_vtable = global [2 x i8* (%Rectangle*)*] [
+  i8* (%Rectangle*)* @Rectangle_area,
+  i8* (%Shape*)* @Shape_prueba
 ]
 
-@Circle_vtable = global [1 x i8* (%Circle*)*] [
-  i8* (%Circle*)* @Circle_area
+@Circle_vtable = global [2 x i8* (%Circle*)*] [
+  i8* (%Circle*)* @Circle_area,
+  i8* (%Shape*)* @Shape_prueba
 ]
 
-@Shape_vtable = global [1 x i8* (%Shape*)*] [
+@Shape_vtable = global [2 x i8* (%Shape*)*] [
+  i8* (%Shape*)* @Shape_prueba,
   i8* (%Shape*)* @Shape_area
 ]
 
@@ -39,6 +42,10 @@ define i32 @Circle_area(%Circle* %this) {
   ret i32 %15
 }
 
+define i32 @Shape_prueba(%Shape* %this) {
+  ret i32 6
+}
+
 define i32 @Shape_area(%Shape* %this) {
   ret i32 0
 }
@@ -54,7 +61,7 @@ define i32 @main() {
   store i32 0, i32* %rectangle
   %19 = load i32, i32* %rectangle
   %x = alloca i32
-  store i32 0, i32* %x
+  store i32 10, i32* %x
   %20 = load i32, i32* %x
   %area1 = alloca i32
   store i32 0, i32* %area1
@@ -69,7 +76,7 @@ define i32 @main() {
     %27 = getelementptr %Circle, %Circle* %26, i32 0, i32 0
     store i8** @Circle_vtable, i8*** %27
     %28 = getelementptr %Circle, %Circle* %26, i32 0, i32 1
-    store i32 1, i32* %28
+    store i32 5, i32* %28
     %29 = bitcast %Circle* %26 to %Shape*
     store %Shape* %29, %Shape** %circle
     br label %endif25
@@ -92,9 +99,9 @@ define i32 @main() {
   %39 = load i8**, i8*** %38
   %40 = getelementptr i8*, i8** %39, i32 0
   %41 = load i8*, i8** %40
-  %42 = bitcast i8* %41 to i32 (%Shape*)*
-  %43 = bitcast %Shape* %35 to %Shape*
-  %44 = call i32 %42(%Shape* %43)
+  %42 = bitcast i8* %41 to i32 (%Rectangle*)*
+  %43 = bitcast %Shape* %35 to %Rectangle*
+  %44 = call i32 %42(%Rectangle* %43)
   store i32 %44, i32* %area1
   %45 = load i32, i32* %area1
   %46 = call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %45)

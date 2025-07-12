@@ -42,4 +42,5 @@ int get_method_count(TypeTable* table, const char* type_name);
 //Despacho dinámico: carga y llama método desde la vtable.
 char* emit_virtual_call(CodeGenContext* ctx, Symbol* s_obj, const char* method_name);
 
+const char* find_type_table_root(TypeTable* type_table);
 #endif
