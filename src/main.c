@@ -8,6 +8,39 @@
 #include "codegen.h"
 #include <stdio.h>
 #include <stdlib.h>
+void print_type_table(TypeTable* table) {
+  printf("=== Type Table ===\n");
+  TypeEntry* t = table->head;
+  while (t) {
+    printf("Type: %s\n", t->name);
+    printf("  Bases: ");
+    for (int i = 0; i < t->num_bases; i++) {
+      printf("%s ", t->bases[i]);
+    }
+    printf("\n  Members:\n");
+    Member* m = t->members;
+    while (m) {
+      printf("    %s : %s\n", m->name, m->type);
+      m = m->next;
+    }
+    t = t->next;
+  }
+  printf("==================\n");
+}
+void print_symbol_table(SymbolTable* table) {
+  printf("=== Symbol Table ===\n");
+  Symbol* s = table->head;
+  while (s) {
+    printf("Symbol: %s\n", s->name);
+    printf("  Type: %s\n", s->type);
+    printf("  Kind: %s\n", s->kind == SYMBOL_VARIABLE ? "Variable"
+                 : s->kind == SYMBOL_FUNCTION ? "Function"
+                 : "Type");
+    s = s->next;
+  }
+  printf("=====================\n");
+}
+
 int main() {
     Grammar* g = (Grammar*)malloc(sizeof(Grammar));
     if (!g) {
@@ -92,6 +125,8 @@ int main() {
     printf("=== Chequeo Semántico ===\n");
     ErrorList errors = {.count = 0};
     check_semantics(ast_root, &sym_table, &type_table, NULL ,&errors);
+    print_type_table(&type_table);
+    print_symbol_table(&sym_table);
     FILE* ir_file = fopen("hulk/programa.ll", "w");
     if (!ir_file) {
         perror("No se pudo abrir programa.ll");

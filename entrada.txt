@@ -5,19 +5,18 @@ type Shape {
 type Circle inherits Shape {
     radius := 1;
     
-    function area(): Number =>  3 * this.radius * this.radius;
+    function area(): Number =>  4 * this.radius * this.radius;
 };
 
 type Rectangle inherits Shape {
-    width := 1;
-    height := 1;
+    width := 2;
+    height := 4;
     function area(): Number =>  this.width * this.height;
 };
 
-
 let 
-    circle : Circle = New Shape (),
-    rectangle = 0  , x= 0 , area1 = 0
+    circle : Shape = New Shape (),
+    rectangle = 0  , x = 0 , area1 = 0
 in {
      if(x > 3)
     {

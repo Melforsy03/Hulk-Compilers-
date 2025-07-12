@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #define MAX_BASES 4
 #define MAX_ERRORS 256
-
+#define MAX_METHODS 32
 typedef struct {
     char* messages[MAX_ERRORS];
     int count;
@@ -23,6 +23,8 @@ typedef struct Symbol {
     char name[64];
     char type[64];   // int, string, vector, Object, nombre de tipo
     char dynamic_type[64]; 
+    char last_branch_dynamic_type[64];
+    char last_branch_dynamic_type_else[64]; 
     SymbolKind kind;
     struct Symbol* next;
     int last_temp_id;
@@ -33,6 +35,7 @@ typedef struct Member {
   char type[32];
   struct Member* next;
    ASTNode* body; 
+   int default_value;
 } Member;
 
 typedef struct TypeEntry {
@@ -43,8 +46,10 @@ typedef struct TypeEntry {
   char type_params[8][32];  // E.g. T, U, ...
   int num_params;           // Número de parámetros genéricos
 
-  char method_names[32][32];
-  int method_count;
+   int method_count;
+  char method_names[MAX_METHODS][32];
+  char method_signatures[MAX_METHODS][64];
+  char method_impls[MAX_METHODS][32];  
 
   struct TypeEntry* next;
 } TypeEntry;
@@ -79,7 +84,7 @@ TypeEntry* lookup_type(TypeTable* table, const char* name);
 // semantic.h
 void insert_type(TypeTable* table, const char* name, const char** bases, int num_bases, ASTNode* members_node);
 
-void add_member_to_type(TypeTable* table, const char* type_name, const char* name, const char* type ,ASTNode* body);
+void add_member_to_type(TypeTable* table, const char* type_name, const char* name, const char* type, ASTNode* body, int default_value);
 const char* lookup_member_type(TypeTable* table, const char* type_name, const char* member_name);
 static void process_members(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, const char* type_name);
 // Subtipo / conformidad
@@ -87,14 +92,16 @@ int conforms(TypeTable* table, const char* child, const char* parent);
 void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_table);
 // Semántica
 void check_semantics(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, const char* expected_return, ErrorList* error_list);
-
+const char* infer_type(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, ErrorList* error_list);
 // Inferencia de tipos
 const char* infer_type(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, ErrorList* error_list);
-
+void emit_method_signature(char* buffer, size_t buf_size,
+                           const char* return_type,
+                           const char* class_name);
 void build_vtable_info(TypeTable* table);
 void print_vtable_info(TypeTable* table);
 int get_method_index(TypeTable* table, const char* type_name, const char* method_name);
 TypeEntry* lookup_class(TypeTable* table, const char* name);
-
+const char* map_type_to_llvm(const char* type);
 
 #endif

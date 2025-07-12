@@ -26,7 +26,7 @@ typedef struct {
   int count;
   int capacity;
 } FuncBuffer;
-
+Symbol* create_symbol(const char* name, const char* type, SymbolKind kind);
 void init_codegen(CodeGenContext* ctx, FILE* out);
 void generate_code(CodeGenContext* ctx, ASTNode* node);
 void free_codegen(CodeGenContext* ctx);
@@ -35,7 +35,7 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node);
 int get_member_index(TypeTable* table, const char* type_name, const char* member_name);
 void emit_structs(CodeGenContext* ctx, TypeTable* type_table) ;
 TypeInstance* instantiate_generic(TypeTable* table, const char* template_name, const char** args, int num_args);
-
+void resolve_virtual_methods(TypeTable* table);
 // Emite las vtables globales para cada tipo registrado.
 void emit_vtables(CodeGenContext* ctx, TypeTable* table);
 int get_method_count(TypeTable* table, const char* type_name);

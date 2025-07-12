@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-
+#include "codegen.h"
 // ----------------- Tabla Virtual -------------------
 
 TypeEntry* lookup_class(TypeTable* table, const char* name) {
@@ -12,21 +12,53 @@ TypeEntry* lookup_class(TypeTable* table, const char* name) {
 }
 
 void build_vtable_info(TypeTable* table) {
-    TypeEntry* t = table->head;
-    while (t) {
-        int count = 0;
-        Member* m = t->members;
-        while (m) {
-            if (m->body) {
-                // Guardar el nombre del método en la posición 'count'
-                strcpy(t->method_names[count], m->name);
-                count++;
-            }
-            m = m->next;
-        }
-        t->method_count = count;
-        t = t->next;
+  TypeEntry* t = table->head;
+  while (t) {
+    int count = 0;
+
+    // ⚡ Métodos propios: definen slots nuevos o sobrescriben
+    Member* m = t->members;
+    while (m) {
+      if (m->body) {
+        strcpy(t->method_names[count], m->name);
+
+        // Por convención: siempre "i8* (%%Type*)*" para puntero en vtable
+        emit_method_signature(t->method_signatures[count], 64, m->type, t->name);
+
+        // Implementación local: apunta a Type actual
+        strcpy(t->method_impls[count], t->name);
+        count++;
+      }
+      m = m->next;
     }
+
+    // ⚡ Métodos heredados: rellena slots faltantes
+    for (int i = 0; i < t->num_bases; ++i) {
+      TypeEntry* base = lookup_type(table, t->bases[i]);
+      if (base) {
+        for (int j = 0; j < base->method_count; ++j) {
+          int exists = 0;
+          for (int k = 0; k < count; ++k) {
+            if (strcmp(t->method_names[k], base->method_names[j]) == 0) {
+              exists = 1; // Ya sobrescrito
+              break;
+            }
+          }
+          if (!exists) {
+            strcpy(t->method_names[count], base->method_names[j]);
+            strcpy(t->method_signatures[count], base->method_signatures[j]);
+
+            // ⚡ Usa impl de la base porque no se sobrescribe
+            strcpy(t->method_impls[count], base->method_impls[j]);
+            count++;
+          }
+        }
+      }
+    }
+
+    t->method_count = count;
+    t = t->next;
+  }
 }
 
 int get_method_index(TypeTable* table, const char* type_name, const char* method_name) {
@@ -53,12 +85,7 @@ Symbol* lookup(SymbolTable* table, const char* name) {
 }
 
 void insert_symbol(SymbolTable* table, const char* name, const char* type, SymbolKind kind) {
-    Symbol* s = malloc(sizeof(Symbol));
-    strcpy(s->name, name);
-   
-    strcpy(s->type, type);
-    s->dynamic_type[0] = '\0'; 
-    s->kind = kind;
+    Symbol* s = create_symbol(name, type, kind);
     s->next = table->head;
     table->head = s;
 }
@@ -130,29 +157,44 @@ void insert_type(TypeTable* table, const char* name, const char** bases, int num
     parse_type_members(members_node, name, table);
   }
 }
-
-void add_member_to_type(TypeTable* table, const char* type_name, const char* name, const char* type, ASTNode* body) {
+void add_member_to_type(TypeTable* table, const char* type_name, 
+                        const char* member_name, const char* member_type, 
+                        ASTNode* body, int default_value) {
   TypeEntry* t = lookup_type(table, type_name);
-  if (!t) {
-    fprintf(stderr, "Error: tipo '%s' no encontrado\n", type_name);
-    exit(1);
-  }
+  if (!t) return;
 
- 
+  // 🚫 Evita duplicados de miembros
   Member* m = t->members;
   while (m) {
-    if (strcmp(m->name, name) == 0) {
-      return; // Ya existe
-    }
+    if (strcmp(m->name, member_name) == 0) return;
     m = m->next;
   }
 
+  // ✔️ Agrega nuevo miembro
   Member* new_member = malloc(sizeof(Member));
-  strcpy(new_member->name, name);
-  strcpy(new_member->type, type);
-  new_member->body = body; // ✅ CORRECTO
+  strcpy(new_member->name, member_name);
+  strcpy(new_member->type, member_type);
+  new_member->body = body;
+  new_member->default_value = default_value;
   new_member->next = t->members;
   t->members = new_member;
+
+  // Si es método, registra slot en vtable
+  if (body != NULL) {
+    int found = -1;
+    for (int i = 0; i < t->method_count; ++i) {
+      if (strcmp(t->method_names[i], member_name) == 0) {
+        found = i;
+        break;
+      }
+    }
+    if (found == -1) {
+      int slot = t->method_count++;
+      strcpy(t->method_names[slot], member_name);
+      sprintf(t->method_signatures[slot], "i8* (%%%s*)*", t->name);
+      strcpy(t->method_impls[slot], t->name);
+    }
+  }
 }
 
 const char* lookup_member_type(TypeTable* table, const char* type_name, const char* member_name) {
@@ -482,52 +524,71 @@ void check_semantics(ASTNode* node, SymbolTable* sym_table, TypeTable* type_tabl
             break;
         }
 
-        case AST_VAR_DECL: {
-            const char* name = NULL;
-            const char* declared_type = NULL;
-            ASTNode* init_expr = NULL;
+      case AST_VAR_DECL: {
+    const char* name = NULL;
+    const char* declared_type = NULL;
+    ASTNode* init_expr = NULL;
 
-            for (int i = 0; i < node->num_children; ++i) {
-                ASTNode* child = node->children[i];
+    for (int i = 0; i < node->num_children; ++i) {
+        ASTNode* child = node->children[i];
 
-                if (child->type == AST_IDENTIFIER && name == NULL) {
-                    name = child->value;
-                }
-                else if (child->type == AST_TYPE_SPEC) {
-                    if (child->num_children > 0 && child->children[0]->type == AST_IDENTIFIER) {
-                        declared_type = child->children[0]->value;
-                    }
-                }
-                else if (child->type == AST_FUNCTION_CALL || child->type == AST_BINOP ||
-                         child->type == AST_NUMBER || child->type == AST_STRING ||
-                         child->type == AST_VECTOR || child->type == AST_NEW_EXPR ||
-                         child->type == AST_BOOL || child->type == AST_IDENTIFIER) {
-                    init_expr = child;
-                }
+        if (child->type == AST_IDENTIFIER && name == NULL) {
+            name = child->value;
+        }
+        else if (child->type == AST_TYPE_SPEC) {
+            if (child->num_children > 0 && child->children[0]->type == AST_IDENTIFIER) {
+                declared_type = child->children[0]->value;
             }
-
-            if (!name || !init_expr) {
-                add_error(error_list, "Error: declaración de variable incompleta");
-                break;
+        }
+        else if (child->type == AST_ASSIGN || child->type == AST_ASSIGN_OP) {
+            // El RHS de := o = es la expresión inicial
+            if (child->num_children > 1) {
+                init_expr = child->children[1];
             }
+        }
+        else if (
+            child->type == AST_FUNCTION_CALL || child->type == AST_BINOP ||
+            child->type == AST_NUMBER || child->type == AST_STRING ||
+            child->type == AST_VECTOR || child->type == AST_NEW_EXPR ||
+            child->type == AST_BOOL || child->type == AST_IDENTIFIER
+        ) {
+            // Fallback si no viene en un nodo de asignación
+            init_expr = child;
+        }
+    }
 
-            const char* expr_type = infer_type(init_expr, sym_table, type_table, error_list);
+    if (!name) {
+        add_error(error_list, "Error: variable sin nombre en declaración");
+        break;
+    }
 
-            if (strcmp(expr_type, "unknown") == 0 || strcmp(expr_type, "undefined") == 0) {
-                add_error(error_list, "Error: no se pudo inferir tipo para '%s'. Debe anotarse.", name);
-                expr_type = "Number";
-            }
-
-            if (declared_type) {
-                if (!conforms(type_table, expr_type, declared_type)) {
-                    add_error(error_list, "Error: tipo '%s' no se ajusta a '%s' en la variable '%s'",
-                              expr_type, declared_type, name);
-                }
-            }
-
-            insert_symbol(sym_table, name, declared_type ? declared_type : expr_type, SYMBOL_VARIABLE);
+    if (!init_expr) {
+        // Asignación nula: no es error si el tipo fue anotado
+        if (!declared_type) {
+            add_error(error_list, "Error: declaración incompleta de '%s' sin tipo ni valor", name);
             break;
         }
+        insert_symbol(sym_table, name, declared_type, SYMBOL_VARIABLE);
+        break;
+    }
+
+    const char* expr_type = infer_type(init_expr, sym_table, type_table, error_list);
+
+    if (strcmp(expr_type, "unknown") == 0 || strcmp(expr_type, "undefined") == 0) {
+        add_error(error_list, "Error: no se pudo inferir tipo para '%s'. Debe anotarse.", name);
+        expr_type = "Number";  // fallback por seguridad
+    }
+
+    if (declared_type) {
+        if (!conforms(type_table, expr_type, declared_type)) {
+            add_error(error_list, "Error: tipo '%s' no se ajusta a '%s' en la variable '%s'",
+                      expr_type, declared_type, name);
+        }
+    }
+
+    insert_symbol(sym_table, name, declared_type ? declared_type : expr_type, SYMBOL_VARIABLE);
+    break;
+}
 
         case AST_ASSIGN: {
             if (node->num_children < 2) {
@@ -564,69 +625,95 @@ void check_semantics(ASTNode* node, SymbolTable* sym_table, TypeTable* type_tabl
             }
             break;
         }
+case AST_FUNCTION_DECL: {
+    const char* func_name = node->children[0]->value;
+    const char* declared_return = "Object";
+    ASTNode* body = NULL;
+    ASTNode* param_list = NULL;
+    ASTNode* return_type_node = NULL;
 
-        case AST_FUNCTION_DECL: {
-            const char* func_name = node->children[0]->value;
-            const char* declared_return = "Object";
-            ASTNode* body = NULL;
-            ASTNode* param_list = NULL;
-            ASTNode* return_type_node = NULL;
-
-            // 1️⃣ Identifica nodos clave
-            for (int i = 1; i < node->num_children; ++i) {
-                if (node->children[i]->type == AST_PARAM_LIST) {
-                    param_list = node->children[i];
-                } else if (node->children[i]->type == AST_TYPE_SPEC) {
-                    return_type_node = node->children[i];
-                } else if (node->children[i]->type == AST_STATEMENT_LIST) {
-                    body = node->children[i];
-                }
-            }
-
-            // 2️⃣ Extrae tipo de retorno directamente (AST_TYPE_SPEC → AST_IDENTIFIER)
-            if (return_type_node && return_type_node->num_children > 0 &&
-                return_type_node->children[0]->type == AST_IDENTIFIER) {
-                declared_return = return_type_node->children[0]->value;
-            }
-
-            // 3️⃣ Crea scope local
-            SymbolTable local_scope = *sym_table;
-            if (expected_return && strcmp(expected_return, "Object") != 0) {
-                insert_symbol(&local_scope, "this", expected_return, SYMBOL_VARIABLE);
-            }
-
-            // 4️⃣ Inserta parámetros
-            if (param_list) {
-                for (int i = 0; i < param_list->num_children; ++i) {
-                    ASTNode* param = param_list->children[i];
-                    if (param->type == AST_IDENTIFIER) {
-                        const char* param_name = param->value;
-                        const char* param_type = "Object";
-                        if (param->num_children >= 1 && param->children[0]->type == AST_TYPE_SPEC &&
-                            param->children[0]->num_children > 0 &&
-                            param->children[0]->children[0]->type == AST_IDENTIFIER) {
-                            param_type = param->children[0]->children[0]->value;
-                        }
-                        insert_symbol(&local_scope, param_name, param_type, SYMBOL_VARIABLE);
-                    }
-                }
-            }
-
-            // 5️⃣ Verifica cuerpo y tipo de retorno
-            if (body) {
-                check_semantics(body, &local_scope, type_table, declared_return, error_list);
-                const char* inferred_return = infer_type(body, &local_scope, type_table, error_list);
-                if (!conforms(type_table, inferred_return, declared_return)) {
-                    add_error(error_list,
-                        "Error en función '%s': tipo de retorno inferido '%s' no coincide con declarado '%s'",
-                        func_name, inferred_return, declared_return);
-                }
-            }
-
-            // 6️⃣ Inserta símbolo global
-            insert_symbol(sym_table, func_name, declared_return, SYMBOL_FUNCTION);
-            break;
+    // 1️⃣ Busca nodos clave
+    for (int i = 1; i < node->num_children; ++i) {
+        if (node->children[i]->type == AST_PARAM_LIST) {
+            param_list = node->children[i];
+        } else if (node->children[i]->type == AST_TYPE_SPEC) {
+            return_type_node = node->children[i];
+        } else if (node->children[i]->type == AST_STATEMENT_LIST) {
+            body = node->children[i];
         }
+    }
+
+    if (return_type_node && return_type_node->num_children > 0 &&
+        return_type_node->children[0]->type == AST_IDENTIFIER) {
+        declared_return = return_type_node->children[0]->value;
+    }
+
+    // 2️⃣ Scope local: inserta this si aplica
+    SymbolTable local_scope = *sym_table;
+    if (expected_return && strcmp(expected_return, "Object") != 0) {
+        insert_symbol(&local_scope, "this", expected_return, SYMBOL_VARIABLE);
+    }
+
+    // 3️⃣ Inserta parámetros
+    if (param_list) {
+        for (int i = 0; i < param_list->num_children; ++i) {
+            ASTNode* param = param_list->children[i];
+            if (param->type == AST_IDENTIFIER) {
+                const char* param_name = param->value;
+                const char* param_type = "Object";
+                if (param->num_children >= 1 && param->children[0]->type == AST_TYPE_SPEC &&
+                    param->children[0]->num_children > 0 &&
+                    param->children[0]->children[0]->type == AST_IDENTIFIER) {
+                    param_type = param->children[0]->children[0]->value;
+                }
+                insert_symbol(&local_scope, param_name, param_type, SYMBOL_VARIABLE);
+            }
+        }
+    }
+
+    // 4️⃣ Verifica cuerpo y retorno
+    if (body) {
+        check_semantics(body, &local_scope, type_table, declared_return, error_list);
+        const char* inferred_return = infer_type(body, &local_scope, type_table, error_list);
+        if (!conforms(type_table, inferred_return, declared_return)) {
+            add_error(error_list,
+                "Error en función '%s': tipo de retorno inferido '%s' no coincide con declarado '%s'",
+                func_name, inferred_return, declared_return);
+        }
+    }
+
+    // ⚡ 5️⃣ VTABLE: si expected_return es una clase => estamos dentro de un TYPE
+    if (expected_return && strcmp(expected_return, "Object") != 0) {
+        TypeEntry* t = lookup_type(type_table, expected_return);
+        if (t) {
+            int slot = -1;
+            // Busca si ya existe para override
+            for (int i = 0; i < t->method_count; ++i) {
+                if (strcmp(t->method_names[i], func_name) == 0) {
+                    slot = i;
+                    break;
+                }
+            }
+            if (slot == -1) {
+                slot = t->method_count++;
+                strcpy(t->method_names[slot], func_name);
+            }
+
+            // ⚡ Genera firma LLVM
+            emit_method_signature(t->method_signatures[slot], 64, declared_return, t->name);
+
+            // ⚡ Apunta la implementación a esta clase (override)
+            strcpy(t->method_impls[slot], t->name);
+        }
+    }
+
+    // 6️⃣ Inserta símbolo global si no es método de tipo
+    if (expected_return == NULL || strcmp(expected_return, "Object") == 0) {
+        insert_symbol(sym_table, func_name, declared_return, SYMBOL_FUNCTION);
+    }
+
+    break;
+}
 
         case AST_TYPE_DECL: {
             if (node->num_children < 2) {
@@ -733,7 +820,6 @@ void process_members(ASTNode* node, SymbolTable* sym_table, TypeTable* type_tabl
     if (!node) return;
 
     if (node->type == AST_STATEMENT_LIST) {
-        // Recorre todos los hijos recursivamente
         for (int i = 0; i < node->num_children; ++i) {
             process_members(node->children[i], sym_table, type_table, type_name);
         }
@@ -742,46 +828,69 @@ void process_members(ASTNode* node, SymbolTable* sym_table, TypeTable* type_tabl
         // Ejemplo: radius := 1;
         if (node->num_children >= 1) {
             const char* attr_name = node->children[0]->value;
-            const char* attr_type = "Number"; // O inferirlo si quieres
+            const char* attr_type = "i32"; // Siempre usa tipo LLVM coherente
+            int default_value = 0;
 
-            add_member_to_type(type_table, type_name, attr_name, attr_type, NULL);
-            printf("Guardado atributo %s::%s : %s\n", type_name, attr_name, attr_type);
+            if (node->num_children > 1 && node->children[1]->type == AST_NUMBER) {
+                default_value = atoi(node->children[1]->value);
+            }
+
+            add_member_to_type(type_table, type_name, attr_name, attr_type, NULL, default_value);
+            printf("✅ Guardado atributo %s::%s : %s (default=%d)\n", type_name, attr_name, attr_type, default_value);
         }
     }
     else if (node->type == AST_VAR_DECL) {
         // Ejemplo: var foo: Number = 1;
         const char* attr_name = node->children[0]->value;
-        const char* attr_type = "Object";
+        const char* attr_type = "i32";
+        int default_value = 0;
 
         if (node->num_children >= 2) {
-            // Puede tener TypeSpec
-            if (node->children[1]->type == AST_TYPE_SPEC) {
-                attr_type = node->children[1]->value;
-            } else if (node->children[1]->type == AST_NUMBER) {
-                attr_type = "Number";
+            ASTNode* maybe_type = node->children[1];
+
+            if (maybe_type->type == AST_TYPE_SPEC && maybe_type->num_children > 0) {
+                attr_type = "i32";  // Asegura tipo LLVM
+            } else if (maybe_type->type == AST_NUMBER) {
+                default_value = atoi(maybe_type->value);
             }
         }
 
-        add_member_to_type(type_table, type_name, attr_name, attr_type, NULL);
-        printf("Guardado atributo %s::%s : %s\n", type_name, attr_name, attr_type);
+        add_member_to_type(type_table, type_name, attr_name, attr_type, NULL, default_value);
+        printf("✅ Guardado atributo %s::%s : %s (default=%d)\n", type_name, attr_name, attr_type, default_value);
     }
     else if (node->type == AST_FUNCTION_DECL) {
         const char* func_name = node->children[0]->value;
-        const char* return_type = (node->num_children >= 3) ? node->children[2]->value : "Object";
-        ASTNode* body = (node->num_children >= 4) ? node->children[3] : NULL;
+        const char* return_type = "i32";
+        ASTNode* body = NULL;
 
-        add_member_to_type(type_table, type_name, func_name, return_type, body);
-        printf("Guardado método %s::%s : %s\n", type_name, func_name, return_type);
+        if (node->num_children >= 3) {
+            body = node->children[2];
+        }
 
-        // Opcional: registrar en tabla de símbolos global
+        add_member_to_type(type_table, type_name, func_name, return_type, body, 0);
+        printf("✅ Guardado método %s::%s : %s\n", type_name, func_name, return_type);
+
+        // ⚡ Si quieres: añade a tabla de símbolos global para lookup
         insert_symbol(sym_table, func_name, return_type, SYMBOL_FUNCTION);
     }
     else {
-        // Si hay nodos que anidan declaraciones
         for (int i = 0; i < node->num_children; ++i) {
             process_members(node->children[i], sym_table, type_table, type_name);
         }
     }
+}
+
+void emit_method_signature(char* buffer, size_t buf_size,
+                           const char* return_type,
+                           const char* class_name) {
+  const char* llvm_ret = map_type_to_llvm(return_type);
+  snprintf(buffer, buf_size, "%s (%%%s*)*", llvm_ret, class_name);
+}
+const char* map_type_to_llvm(const char* type) {
+  if (strcmp(type, "Number") == 0) return "i32";
+  if (strcmp(type, "Boolean") == 0) return "i1";
+  if (strcmp(type, "String") == 0) return "i8*";
+  return "i8*"; // fallback
 }
 
 // --- VTABLE DEBUG: imprimir todas las vtables ---

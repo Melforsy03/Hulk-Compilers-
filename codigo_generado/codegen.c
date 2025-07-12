@@ -3,35 +3,68 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-
+#include "semantic.h"
 static void indent(CodeGenContext* ctx) {
   for (int i = 0; i < ctx->indent; ++i)
     fprintf(ctx->out, "  ");
 }
+int already_exists(TypeEntry* t, const char* name) {
+  Member* m = t->members;
+  while (m) {
+    if (strcmp(m->name, name) == 0) return 1;
+    m = m->next;
+  }
+  return 0;
+}
+
+Symbol* create_symbol(const char* name, const char* type, SymbolKind kind) {
+    Symbol* s = malloc(sizeof(Symbol));
+    if (!s) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+    memset(s, 0, sizeof(Symbol));
+
+    strncpy(s->name, name, sizeof(s->name)-1);
+    strncpy(s->type, type, sizeof(s->type)-1);
+    strncpy(s->dynamic_type, "", sizeof(s->dynamic_type)-1);
+    strncpy(s->last_branch_dynamic_type, "", sizeof(s->last_branch_dynamic_type)-1);
+
+    s->kind = kind;
+    s->next = NULL;
+    s->last_temp_id = -1;
+
+    return s;
+}
+const char* find_common_base(TypeTable* type_table, const char* t1, const char* t2) {
+  if (strcmp(t1, t2) == 0) return t1;
+
+  // Si uno es base del otro
+  if (conforms(type_table, t1, t2)) return t2;
+  if (conforms(type_table, t2, t1)) return t1;
+
+  // Busca todas las bases de t1
+  TypeEntry* tentry1 = lookup_type(type_table, t1);
+  if (!tentry1) return "Object";
+  for (int i = 0; i < tentry1->num_bases; i++) {
+    if (conforms(type_table, tentry1->bases[i], t2)) return tentry1->bases[i];
+  }
+
+  // No hay base común conocida => fallback
+  return "Object";
+}
+
 void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_table) {
   if (!node) return;
 
   if (node->type == AST_BASES) {
-    // Agrega bases a la entrada del tipo
     TypeEntry* t = lookup_type(type_table, type_name);
-    if (!t) {
-      fprintf(stderr, "Error: tipo '%s' no encontrado al agregar bases\n", type_name);
-      return;
-    }
-
+    if (!t) return;
     for (int i = 0; i < node->num_children; ++i) {
       const char* base_name = node->children[i]->value;
-
-      if (t->num_bases >= 8) {
-        fprintf(stderr, "Error: demasiadas bases para tipo '%s'\n", type_name);
-        break;
-      }
-
       strcpy(t->bases[t->num_bases++], base_name);
-      printf("✅ %s hereda de %s\n", type_name, base_name);
     }
-  } 
-
+  }
 
   else if (node->type == AST_STATEMENT_LIST) {
     for (int i = 0; i < node->num_children; ++i) {
@@ -39,28 +72,22 @@ void parse_type_members(ASTNode* node, const char* type_name, TypeTable* type_ta
     }
   }
 
-  else if (node->type == AST_ASSIGN || node->type == AST_VAR_DECL) {
+  else if (node->type == AST_ASSIGN) {
     const char* attr_name = node->children[0]->value;
-    const char* attr_type = "i32"; // o infiere del RHS
-    add_member_to_type(type_table, type_name, attr_name, attr_type, NULL);
-    printf("✅ Guardado atributo %s::%s\n", type_name, attr_name);
+    int default_value = 0;
+    if (node->num_children > 1 && node->children[1]->type == AST_NUMBER) {
+      default_value = atoi(node->children[1]->value);
+    }
+    add_member_to_type(type_table, type_name, attr_name, "i32", NULL, default_value);
   }
 
   else if (node->type == AST_FUNCTION_DECL) {
     const char* func_name = node->children[0]->value;
-    const char* return_type = "i32";
-    ASTNode* body = NULL;
-
-    if (node->num_children >= 3) {
-      body = node->children[2];
-    }
-
-    add_member_to_type(type_table, type_name, func_name, return_type, body);
-    printf("✅ Guardado método %s::%s\n", type_name, func_name);
+    ASTNode* body = (node->num_children >= 3) ? node->children[2] : NULL;
+    add_member_to_type(type_table, type_name, func_name, "i32", body, 0);
   }
 
   else {
-    // Recurse
     for (int i = 0; i < node->num_children; ++i) {
       parse_type_members(node->children[i], type_name, type_table);
     }
@@ -102,38 +129,43 @@ static void register_function_return(CodeGenContext* ctx, const char* name, ASTN
     strcpy(ctx->return_table.return_types[ctx->return_table.count], has_return ? "i32" : "void");
     ctx->return_table.count++;
 }
-
 char* emit_virtual_call(CodeGenContext* ctx, Symbol* s_obj, const char* method_name) {
-    // 1) Obtener puntero vptr
     int tmp0 = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out, "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 0\n",
-          tmp0, s_obj->type, s_obj->type, s_obj->last_temp_id);
+        tmp0, s_obj->type, s_obj->type, s_obj->last_temp_id);
 
     int tmp1 = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out, "%%%d = load i8**, i8*** %%%d\n", tmp1, tmp0);
 
-    // 2) Índice del método
-    int idx = get_method_index(ctx->type_table, s_obj->dynamic_type[0]? s_obj->dynamic_type : s_obj->type, method_name);
+    // ✅ Usa dynamic_type si está
+    const char* dyn_type = strlen(s_obj->dynamic_type) > 0 ? s_obj->dynamic_type : s_obj->type;
+
+    int idx = get_method_index(ctx->type_table, dyn_type, method_name);
+
     int tmp2 = ctx->temp_count++;
     indent(ctx);
-    fprintf(ctx->out,
-        "%%%d = getelementptr [%d x i32 (%%%s*)*], [%d x i32 (%%%s*)*]* @%s_vtable, i32 0, i32 %d\n",
-        tmp2, get_method_count(ctx->type_table, s_obj->type), s_obj->type,
-        get_method_count(ctx->type_table, s_obj->type), s_obj->type,
-        s_obj->type, idx);
+    fprintf(ctx->out, "%%%d = getelementptr i8*, i8** %%%d, i32 %d\n", tmp2, tmp1, idx);
 
     int tmp3 = ctx->temp_count++;
     indent(ctx);
-    fprintf(ctx->out, "%%%d = load i32 (%%%s*)*, i32 (%%%s*)** %%%d\n",
-          tmp3, s_obj->type, s_obj->type, tmp2);
+    fprintf(ctx->out, "%%%d = load i8*, i8** %%%d\n", tmp3, tmp2);
 
-    // 3) Llamada al método dinámico
+    int tmp_func_cast = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = bitcast i8* %%%d to i32 (%%%s*)*\n",
+        tmp_func_cast, tmp3, dyn_type);
+
+    int tmp_cast = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = bitcast %%%s* %%%d to %%%s*\n",
+        tmp_cast, s_obj->type, s_obj->last_temp_id, dyn_type);
+
     int tmp4 = ctx->temp_count++;
     indent(ctx);
     fprintf(ctx->out, "%%%d = call i32 %%%d(%%%s* %%%d)\n",
-          tmp4, tmp3, s_obj->type, s_obj->last_temp_id);
+        tmp4, tmp_func_cast, dyn_type, tmp_cast);
 
     char* buffer = malloc(32);
     snprintf(buffer, 32, "%%%d", tmp4);
@@ -164,6 +196,7 @@ static void register_all_function_returns(CodeGenContext* ctx, ASTNode* node) {
         register_all_function_returns(ctx, node->children[i]);
     }
 }
+
 static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
   switch (node->type) {
     case AST_RETURN: {
@@ -174,135 +207,149 @@ static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
   
       return strdup("0");
     }
-    
-    case AST_FUNCTION_CALL: {
-      ASTNode* callee = node->children[0];
-      ASTNode* args = node->children[1];
-    
-      if (callee->type == AST_IDENTIFIER) {
-        const char* func_name = callee->value;
-        Symbol* s = lookup(ctx->sym_table, func_name);
-        if (!s) {
-          fprintf(stderr, "Error: función global '%s' no declarada\n", func_name);
-          exit(1);
-        }
-      
-        // Guarda argumentos reales en last_call_args
-        for (int i = 0; i < args->num_children; ++i) {
-          ASTNode* arg = args->children[i];
-          ctx->last_call_args[i] = (arg->type == AST_IDENTIFIER) ? lookup(ctx->sym_table, arg->value) : NULL;
-        }
-      
-        const char* ret_type = s->type;
-      
-        char arg_str[256] = "";
-        for (int i = 0; i < args->num_children; ++i) {
-          char* arg_val = codegen_expr(ctx, args->children[i]);
-          strcat(arg_str, arg_val);
-          if (i < args->num_children - 1) strcat(arg_str, ", ");
-          free(arg_val);
-        }
-      
-        int temp = -1;
-        if (strcmp(ret_type, "void") != 0) {
-          temp = ctx->temp_count++;
-          indent(ctx);
-          fprintf(ctx->out, "%%%d = call i32 @%s(%s)\n", temp, func_name, arg_str);
-        } else {
-          indent(ctx);
-          fprintf(ctx->out, "call void @%s(%s)\n", func_name, arg_str);
-        }
-      
-        for (int i = 0; i < 8; ++i) ctx->last_call_args[i] = NULL;
-      
-        char* buffer = malloc(32);
-        snprintf(buffer, 32, (temp >= 0) ? "%%%d" : "0", temp);
-        return buffer;
-      }
-    
-      // Método virtual
-      else if (callee->type == AST_MEMBER) {
-        ASTNode* obj_node = callee->children[0];
-        ASTNode* method_node = callee->children[1];
-      
-        const char* obj_name = obj_node->value;
-        const char* method_name = method_node->value;
-      
-        Symbol* s_obj = lookup(ctx->sym_table, obj_name);
-        if (!s_obj) {
-          fprintf(stderr, "Error: objeto '%s' no declarado\n", obj_name);
-          exit(1);
-        }
-      
-        return emit_virtual_call(ctx, s_obj, method_name);
-      }
-    
-      else {
-        fprintf(stderr, "Error: FunctionCall callee no soportado.\n");
-        exit(1);
-      }
+case AST_FUNCTION_CALL: {
+  ASTNode* callee = node->children[0];
+  ASTNode* args = node->children[1];
+
+  if (callee->type == AST_IDENTIFIER) {
+    const char* func_name = callee->value;
+
+    char arg_list[1024] = "";
+    for (int i = 0; i < args->num_children; ++i) {
+      char* arg_val = codegen_expr(ctx, args->children[i]);
+      strcat(arg_list, "i32 ");
+      strcat(arg_list, arg_val);
+      if (i < args->num_children - 1) strcat(arg_list, ", ");
+      free(arg_val);
     }
 
-    case AST_NEW_EXPR: {
-      const char* type_name = node->children[0]->value;  // Circle, Rectangle, etc.
-      int temp = ctx->temp_count++;
-      indent(ctx);
-      fprintf(ctx->out, "%%%d = alloca %%%s\n", temp, type_name);
-    
-      char* buffer = malloc(32);
-      snprintf(buffer, 32, "%%%d", temp);
-      return buffer;  // Quien lo use (VAR_DECL) debe registrar dynamic_type!
+    int temp = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = call i32 @%s(%s)\n", temp, func_name, arg_list);
+
+    char* buffer = malloc(32);
+    snprintf(buffer, 32, "%%%d", temp);
+    return buffer;
+  }
+
+  else if (callee->type == AST_MEMBER) {
+    const char* obj_name = callee->children[0]->value;
+    const char* method_name = callee->children[1]->value;
+
+    Symbol* s_obj = lookup(ctx->sym_table, obj_name);
+    if (!s_obj) {
+      fprintf(stderr, "Error: objeto '%s' no declarado\n", obj_name);
+      exit(1);
     }
+    s_obj->last_branch_dynamic_type[0] = '\0';
 
+    ctx->last_call_args[0] = s_obj;
 
-    case AST_MEMBER: {
-      char* base = NULL;
-      
-      const char* var_name = node->children[0]->value;
-      
-      // Busca el símbolo
-      Symbol* s = lookup(ctx->sym_table, var_name);
-      if (!s) {
-        fprintf(stderr, "Error: variable '%s' no declarada\n", var_name);
-        exit(1);
+    return emit_virtual_call(ctx, s_obj, method_name);
+  }
+
+  else {
+    fprintf(stderr, "Error: tipo de llamada no soportado\n");
+    exit(1);
+  }
+}
+
+case AST_NEW_EXPR: {
+  const char* type_name = node->children[0]->value;
+
+  int alloc_temp = ctx->temp_count++;
+  indent(ctx);
+  fprintf(ctx->out, "%%%d = alloca %%%s\n", alloc_temp, type_name);
+
+  int vtable_ptr_temp = ctx->temp_count++;
+  indent(ctx);
+  fprintf(ctx->out, "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 0\n",
+          vtable_ptr_temp, type_name, type_name, alloc_temp);
+
+  indent(ctx);
+  fprintf(ctx->out, "store i8** @%s_vtable, i8*** %%%d\n",
+          type_name, vtable_ptr_temp);
+
+  // Inicializa miembros
+  TypeEntry* tentry = lookup_type(ctx->type_table, type_name);
+  int index = 1;
+  if (tentry) {
+    Member* m = tentry->members;
+    while (m) {
+      if (m->body == NULL) {
+        int field_ptr_temp = ctx->temp_count++;
+        indent(ctx);
+        fprintf(ctx->out, "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
+                field_ptr_temp, type_name, type_name, alloc_temp, index);
+        indent(ctx);
+        fprintf(ctx->out, "store i32 %d, i32* %%%d\n",
+                m->default_value, field_ptr_temp);
+        index++;
       }
-    
-      // ✅ Si es 'this', usa literal %this
-      if (strcmp(var_name, "this") == 0) {
-        base = strdup("%this");
-      } else {
-        base = malloc(32);
-        snprintf(base, 32, "%%%d", s->last_temp_id);
-      }
-    
-      const char* struct_type = s->type;
-      const char* member_name = node->children[1]->value;
-    
-      int index = get_member_index(ctx->type_table, struct_type, member_name);
-      if (index == -1) {
-        fprintf(stderr, "Error: miembro '%s' no existe en '%s'\n", member_name, struct_type);
-        free(base);
-        exit(1);
-      }
-    
-      int gep = ctx->temp_count++;
-      indent(ctx);
-      fprintf(ctx->out,
-        "%%%d = getelementptr %%%s, %%%s* %s, i32 0, i32 %d\n",
-        gep, struct_type, struct_type, base, index);
-      
-      int load = ctx->temp_count++;
-      indent(ctx);
-      fprintf(ctx->out, "%%%d = load i32, i32* %%%d\n", load, gep);
-      
-      char* buffer = malloc(32);
-      snprintf(buffer, 32, "%%%d", load);
-      
-      free(base);
-      return buffer;
+      m = m->next;
     }
+  }
 
-    case AST_STRING: {
+  // ✅ Fallback base_type coherente
+  const char* base_type = type_name;  // por defecto = self
+  if (tentry && tentry->num_bases > 0) {
+    base_type = tentry->bases[0];
+  }
+
+  // Si base no existe, fallback al tipo real
+  TypeEntry* base_entry = lookup_type(ctx->type_table, base_type);
+  if (!base_entry) {
+    base_type = type_name;
+  }
+
+  int cast_temp = alloc_temp;
+  if (strcmp(base_type, type_name) != 0) {
+    cast_temp = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = bitcast %%%s* %%%d to %%%s*\n",
+            cast_temp, type_name, alloc_temp, base_type);
+  }
+
+  char* buffer = malloc(32);
+  snprintf(buffer, 32, "%%%d", cast_temp);
+  return buffer;
+}
+
+case AST_MEMBER: {
+  char* obj_expr = codegen_expr(ctx, node->children[0]);
+  const char* member_name = node->children[1]->value;
+
+  Symbol* s = lookup(ctx->sym_table, node->children[0]->value);
+  if (!s) {
+    fprintf(stderr, "Error: objeto '%s' no declarado\n", node->children[0]->value);
+    exit(1);
+  }
+  s->last_branch_dynamic_type[0] = '\0';
+
+  const char* struct_type = strlen(s->dynamic_type) > 0 ? s->dynamic_type : s->type;
+
+  int index = get_member_index(ctx->type_table, struct_type, member_name);
+  if (index == -1) {
+    fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n", member_name, struct_type);
+    exit(1);
+  }
+
+  int gep = ctx->temp_count++;
+  indent(ctx);
+  fprintf(ctx->out, "%%%d = getelementptr %%%s, %%%s* %s, i32 0, i32 %d\n",
+          gep, struct_type, struct_type, obj_expr, index);
+
+  int load_id = ctx->temp_count++;
+  indent(ctx);
+  fprintf(ctx->out, "%%%d = load i32, i32* %%%d\n", load_id, gep);
+
+  free(obj_expr);
+  char* buffer = malloc(32);
+  snprintf(buffer, 32, "%%%d", load_id);
+  return buffer;
+}
+
+case AST_STRING: {
     // Crea un identificador único para el string literal
     static int string_count = 0;
     int id = string_count++;
@@ -330,30 +377,33 @@ static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
       snprintf(buffer, 32, strcmp(node->value, "true") == 0 ? "1" : "0");
       return buffer;
     }
+case AST_IDENTIFIER: {
+  Symbol* s = lookup(ctx->sym_table, node->value);
+  if (!s) {
+    fprintf(stderr, "Error: variable '%s' no declarada\n", node->value);
+    exit(1);
+  }
+  s->last_branch_dynamic_type[0] = '\0';
 
-    case AST_IDENTIFIER: {
-      Symbol* s = lookup(ctx->sym_table, node->value);
-      if (!s) {
-        fprintf(stderr, "Error: variable '%s' no declarada\n", node->value);
-        exit(1);
-      }
-    
-      // ⚠️ Si es struct, devuelve como puntero directamente
-      if (lookup_type(ctx->type_table, s->type)) {
-        char* buffer = malloc(32);
-        snprintf(buffer, 32, "%%%d", s->last_temp_id);  // puntero ya alocado con alloca
-        return buffer;
-      }
-    
-      // Caso normal: escalar i32
-      int temp = ctx->temp_count++;
-      indent(ctx);
-      fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, node->value);
-      char* buffer = malloc(32);
-      snprintf(buffer, 32, "%%%d", temp);
-      return buffer;
-    }
+  int temp = ctx->temp_count++;
 
+  if (strcmp(s->name, "this") == 0) {
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = bitcast %%%s* %%this to %%%s*\n",
+            temp, s->dynamic_type, s->dynamic_type);
+  } else if (lookup_type(ctx->type_table, s->type)) {
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+            temp, s->type, s->type, s->name);
+  } else {
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, s->name);
+  }
+
+  char* buf = malloc(32);
+  snprintf(buf, 32, "%%%d", temp);
+  return buf;
+}
 
     case AST_UNARYOP: {
       const char* op = node->value;
@@ -389,6 +439,7 @@ static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
 
         // Busca símbolo para tamaño
         Symbol* s = lookup(ctx->sym_table, node->children[0]->value);
+        s->last_branch_dynamic_type[0] = '\0';
         int size = 1; // default fallback
         if (s && strncmp(s->type, "Vector[", 7) == 0) {
             sscanf(s->type + 7, "%d", &size);
@@ -457,72 +508,90 @@ static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
       free(right);
       return buffer;
     }
- 
-    case AST_ASSIGN: {
-      ASTNode* lhs = node->children[0];
-      ASTNode* rhs = node->children[1];
-      char* expr = codegen_expr(ctx, rhs);
-    
-      char* buffer = malloc(32);
-    
-      if (lhs->type == AST_IDENTIFIER) {
-        const char* name = lhs->value;
-        indent(ctx);
-        fprintf(ctx->out, "store i32 %s, i32* %%%s\n", expr, name);
-      
-        // ✅ Usa temp_count++ para el load
-        int temp = ctx->temp_count++;
-        indent(ctx);
-        fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, name);
-      
-        // ✅ Actualiza el símbolo con el %n real
-        Symbol* s = lookup(ctx->sym_table, name);
-        if (s) {
-          s->last_temp_id = temp;
-        } else {
-          fprintf(stderr, "Error: símbolo '%s' no declarado\n", name);
-          exit(1);
-        }
-      
-        snprintf(buffer, 32, "%%%d", temp);
-        free(expr);
-        return buffer;  // Devuelve el %n real
-      }
-      if (lhs->type == AST_MEMBER) {
-        const char* var_name = lhs->children[0]->value;
-        const char* member_name = lhs->children[1]->value;
-      
-        Symbol* s = lookup(ctx->sym_table, var_name);
-        if (!s) {
-          fprintf(stderr, "Error: variable '%s' no declarada\n", var_name);
-          exit(1);
-        }
-      
-        const char* struct_type = s->type;
-        int index = get_member_index(ctx->type_table, struct_type, member_name);
-        if (index == -1) {
-          fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n", member_name, struct_type);
-          exit(1);
-        }
-      
-        int gep = ctx->temp_count++;
-        indent(ctx);
-        fprintf(ctx->out,
-          "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
-          gep, struct_type, struct_type, s->last_temp_id, index);  // 🔥 Usa %n real
-        
-        indent(ctx);
-        fprintf(ctx->out, "store i32 %s, i32* %%%d\n", expr, gep);
-        
-        char* buffer = malloc(32);
-        snprintf(buffer, 32, "%%%d", gep);
-        free(expr);
-        return buffer;
-      }
-    
-      fprintf(stderr, "Error: LHS de asignación no soportado.\n");
+case AST_ASSIGN: {
+  ASTNode* lhs = node->children[0];
+  ASTNode* rhs = node->children[1];
+
+  char* rhs_val = codegen_expr(ctx, rhs);
+
+  if (lhs->type == AST_IDENTIFIER) {
+    Symbol* s = lookup(ctx->sym_table, lhs->value);
+    s->last_branch_dynamic_type[0] = '\0';
+    if (!s) {
+      fprintf(stderr, "Error: variable '%s' no declarada\n", lhs->value);
       exit(1);
     }
+
+    // ✅ Si el RHS es un new expr, guarda dynamic_type REAL
+    if (rhs->type == AST_NEW_EXPR) {
+      const char* dyn_type = rhs->children[0]->value;
+      strcpy(s->dynamic_type, dyn_type);
+      strcpy(s->last_branch_dynamic_type, dyn_type);
+      printf("🔗 %s.dynamic_type = %s\n", s->name, s->dynamic_type);
+
+      // ⚡️ CORRECTO: extrae el ID numérico del temp generado por codegen_expr
+      if (rhs_val[0] == '%') {
+        s->last_temp_id = atoi(rhs_val + 1);
+      }
+    }
+
+    TypeEntry* tentry = lookup_type(ctx->type_table, s->type);
+    if (tentry) {
+      indent(ctx);
+      fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
+              s->type, rhs_val, s->type, s->name);
+
+      // ⚡️ Para asignaciones que no son new expr (por ejemplo re-uso), asegura last_temp_id
+      if (rhs->type != AST_NEW_EXPR) {
+        s->last_temp_id = ctx->temp_count++;
+        indent(ctx);
+        fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+                s->last_temp_id, s->type, s->type, s->name);
+      }
+
+    } else {
+      indent(ctx);
+      fprintf(ctx->out, "store i32 %s, i32* %%%s\n", rhs_val, s->name);
+    }
+
+  } else if (lhs->type == AST_MEMBER) {
+    const char* var_name = lhs->children[0]->value;
+    const char* member_name = lhs->children[1]->value;
+
+    Symbol* s = lookup(ctx->sym_table, var_name);
+    s->last_branch_dynamic_type[0] = '\0';
+    if (!s) {
+      fprintf(stderr, "Error: variable '%s' no declarada\n", var_name);
+      exit(1);
+    }
+
+    const char* struct_type = strlen(s->dynamic_type) > 0 ? s->dynamic_type : s->type;
+
+    int index = get_member_index(ctx->type_table, struct_type, member_name);
+    if (index == -1) {
+      fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n",
+              member_name, struct_type);
+      exit(1);
+    }
+
+    int gep = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out,
+            "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
+            gep, struct_type, struct_type, s->last_temp_id, index);
+
+    indent(ctx);
+    fprintf(ctx->out, "store i32 %s, i32* %%%d\n", rhs_val, gep);
+
+  } else {
+    fprintf(stderr, "Error: LHS de asignación no soportado.\n");
+    exit(1);
+  }
+
+  free(rhs_val);
+  return strdup("0");
+}
+
     case AST_TYPE_SPEC:
       // El nombre del tipo en programación: usamos el identificador interno
       return strdup(node->children[0]->value);
@@ -547,6 +616,11 @@ static char* codegen_expr(CodeGenContext* ctx, ASTNode* node) {
       exit(1);
     }
   }
+}
+int extract_vector_size(const char* vector_type) {
+  int size = 0;
+  sscanf(vector_type, "Vector[%d]", &size);
+  return size;
 }
 
 static void codegen_stmt(CodeGenContext* ctx, ASTNode* node) {
@@ -616,6 +690,7 @@ static void codegen_stmt(CodeGenContext* ctx, ASTNode* node) {
         if (!s) { fprintf(stderr, "Variable '%s' no declarada\n", var->value); exit(1); }
 
         s->last_temp_id = ctx->temp_count++;
+        s->last_branch_dynamic_type[0] = '\0';
         indent(ctx);
         fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", s->last_temp_id, var->value);
 
@@ -668,120 +743,213 @@ static void codegen_stmt(CodeGenContext* ctx, ASTNode* node) {
         free(val);
         break;
         }
-      case AST_VAR_DECL: {
-        const char* name = node->children[0]->value;
-        ASTNode* expr_node = NULL;
+case AST_VAR_DECL: {
+  const char* name = node->children[0]->value;
 
-        if (node->num_children == 3 && node->children[1]->type == AST_ASSIGN_OP) {
-            expr_node = node->children[2];  // ignora :=
-        } else {
-            expr_node = node->children[1];
-        }
-      
-        char* expr = codegen_expr(ctx, expr_node);
-      
-        // 🔧 Crear símbolo
-        Symbol* s = malloc(sizeof(Symbol));
-        strcpy(s->name, name);
-      
-        if (expr_node->type == AST_NEW_EXPR) {
-            const char* struct_type = expr_node->children[0]->value;
-            strcpy(s->type, struct_type);
-            strcpy(s->dynamic_type, struct_type);
-        
-            // ⚠️ Almacenar puntero a struct (Circle*, Rectangle*)
-            indent(ctx);
-            fprintf(ctx->out, "%%%s = alloca %%%s*\n", name, s->type);  // %circle = alloca %Circle*
-            indent(ctx);
-            fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n", s->type, expr, s->type, name);
-        
-            int temp = ctx->temp_count++;
-            indent(ctx);
-            fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n", temp, s->type, s->type, name);
-            s->last_temp_id = temp;
-        } else {
-            // valor escalar
-            strcpy(s->type, "i32");
-            s->dynamic_type[0] = '\0';
-        
-            indent(ctx);
-            fprintf(ctx->out, "%%%s = alloca i32\n", name);
-            indent(ctx);
-            fprintf(ctx->out, "store i32 %s, i32* %%%s\n", expr, name);
-        
-            int temp = ctx->temp_count++;
-            indent(ctx);
-            fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, name);
-            s->last_temp_id = temp;
-        }
-      
-        s->kind = SYMBOL_VARIABLE;
-        s->next = ctx->sym_table->head;
-        ctx->sym_table->head = s;
-      
-        free(expr);
-        break;
-      }
+  ASTNode* type_spect = NULL;
+  ASTNode* expr_node = NULL;
 
-case AST_ASSIGN: {
-  char* val = codegen_expr(ctx, node);
-  free(val);  // Descartas porque ya hizo store
+  if (node->num_children == 4) {
+    type_spect = node->children[1];
+    expr_node = node->children[3];
+  } else if (node->num_children == 3 && node->children[1]->type == AST_ASSIGN_OP) {
+    expr_node = node->children[2];
+  } else {
+    expr_node = node->children[1];
+  }
+
+  const char* var_type = NULL;
+  if (type_spect) {
+    var_type = type_spect->children[0]->value;
+  } else {
+    var_type = infer_type(expr_node, ctx->sym_table, ctx->type_table, NULL);
+  }
+
+  Symbol* s = create_symbol(name, var_type, SYMBOL_VARIABLE);
+  s->next = ctx->sym_table->head;
+  ctx->sym_table->head = s;
+
+  char* expr = codegen_expr(ctx, expr_node);
+
+  if (strcmp(var_type, "Number") == 0 || strcmp(var_type, "Boolean") == 0) {
+    indent(ctx);
+    fprintf(ctx->out, "%%%s = alloca i32\n", name);
+    indent(ctx);
+    fprintf(ctx->out, "store i32 %s, i32* %%%s\n", expr, name);
+
+    int temp = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, name);
+    s->last_temp_id = temp;
+
+  } else if (lookup_type(ctx->type_table, var_type)) {
+    indent(ctx);
+    fprintf(ctx->out, "%%%s = alloca %%%s*\n", name, var_type);
+    indent(ctx);
+    fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
+            var_type, expr, var_type, name);
+
+    int temp = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+            temp, var_type, var_type, name);
+    s->last_temp_id = temp;
+  }
+
+  free(expr);
   break;
 }
 
+case AST_ASSIGN: {
+  ASTNode* lhs = node->children[0];
+  char* rhs_val = codegen_expr(ctx, node->children[1]);
+
+  if (lhs->type == AST_IDENTIFIER) {
+    Symbol* s = lookup(ctx->sym_table, lhs->value);
+    s->last_branch_dynamic_type[0] = '\0';
+    if (!s) {
+      fprintf(stderr, "Error: variable '%s' no declarada\n", lhs->value);
+      exit(1);
+    }
 
 
- case AST_IF: {
+TypeEntry* tentry = lookup_type(ctx->type_table, s->type);
+
+
+    if (tentry) {
+      const char* tname = s->type;  // Por ejemplo "Shape", "Circle", ...
+      indent(ctx);
+      fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
+              tname, rhs_val, tname, s->name);
+    } else {
+     
+      indent(ctx);
+      fprintf(ctx->out, "store i32 %s, i32* %%%s\n", rhs_val, s->name);
+    }
+  }
+
+  else if (lhs->type == AST_MEMBER) {
+
+    const char* var_name = lhs->children[0]->value;
+    const char* member_name = lhs->children[1]->value;
+
+    Symbol* s = lookup(ctx->sym_table, var_name);
+    s->last_branch_dynamic_type[0] = '\0';
+    if (!s) {
+      fprintf(stderr, "Error: variable '%s' no declarada\n", var_name);
+      exit(1);
+    }
+
+    // ⚡ Usa dynamic_type si existe
+    const char* struct_type = strlen(s->dynamic_type) > 0 ? s->dynamic_type : s->type;
+
+    int index = get_member_index(ctx->type_table, struct_type, member_name);
+    if (index == -1) {
+      fprintf(stderr, "Error: miembro '%s' no encontrado en '%s'\n", member_name, struct_type);
+      exit(1);
+    }
+
+    int gep = ctx->temp_count++;
+    indent(ctx);
+    fprintf(ctx->out,
+      "%%%d = getelementptr %%%s, %%%s* %%%d, i32 0, i32 %d\n",
+      gep, struct_type, struct_type, s->last_temp_id, index);
+
+    // ⚡ Para miembros asumimos escalar (i32). Si tienes miembros punteros, extiéndelo.
+    indent(ctx);
+    fprintf(ctx->out, "store i32 %s, i32* %%%d\n", rhs_val, gep);
+  }
+
+  else {
+    fprintf(stderr, "Error: LHS de asignación no soportado.\n");
+    exit(1);
+  }
+
+  free(rhs_val);
+  break;
+}
+case AST_IF: {
   char* cond = codegen_expr(ctx, node->children[0]);
   int label_id = ctx->temp_count++;
 
   indent(ctx);
   fprintf(ctx->out, "%%cond%d = icmp ne i32 %s, 0\n", label_id, cond);
 
-  if (node->num_children > 2) {
-    // if-else
-    indent(ctx);
-    fprintf(ctx->out, "br i1 %%cond%d, label %%then%d, label %%else%d\n",
-            label_id, label_id, label_id);
+  indent(ctx);
+  fprintf(ctx->out, "br i1 %%cond%d, label %%then%d, label %%else%d\n",
+          label_id, label_id, label_id);
 
-    indent(ctx);
-    fprintf(ctx->out, "then%d:\n", label_id);
-    ctx->indent++;
-    codegen_stmt(ctx, node->children[1]);
-    indent(ctx);
-    fprintf(ctx->out, "br label %%endif%d\n", label_id);
-    ctx->indent--;
+  // THEN
+  indent(ctx);
+  fprintf(ctx->out, "then%d:\n", label_id);
+  ctx->indent++;
+  codegen_stmt(ctx, node->children[1]);
 
-    indent(ctx);
-    fprintf(ctx->out, "else%d:\n", label_id);
-    ctx->indent++;
-    codegen_stmt(ctx, node->children[2]);
-    indent(ctx);
-    fprintf(ctx->out, "br label %%endif%d\n", label_id);
-    ctx->indent--;
-
-    indent(ctx);
-    fprintf(ctx->out, "endif%d:\n", label_id);
-  } else {
-    // if simple
-    indent(ctx);
-    fprintf(ctx->out, "br i1 %%cond%d, label %%then%d, label %%endif%d\n",
-            label_id, label_id, label_id);
-
-    indent(ctx);
-    fprintf(ctx->out, "then%d:\n", label_id);
-    ctx->indent++;
-    codegen_stmt(ctx, node->children[1]);
-    indent(ctx);
-    fprintf(ctx->out, "br label %%endif%d\n", label_id);
-    ctx->indent--;
-
-    indent(ctx);
-    fprintf(ctx->out, "endif%d:\n", label_id);
+  // Guarda tipo de rama THEN
+  Symbol* sym = ctx->sym_table->head;
+  while (sym) {
+    if (lookup_type(ctx->type_table, sym->type)) {
+      strcpy(sym->last_branch_dynamic_type, sym->dynamic_type);
+    }
+    sym = sym->next;
   }
+  indent(ctx);
+  fprintf(ctx->out, "br label %%endif%d\n", label_id);
+  ctx->indent--;
+
+  // ELSE
+  indent(ctx);
+  fprintf(ctx->out, "else%d:\n", label_id);
+  ctx->indent++;
+  codegen_stmt(ctx, node->children[2]);
+
+  // Guarda tipo de rama ELSE
+  sym = ctx->sym_table->head;
+  while (sym) {
+    if (lookup_type(ctx->type_table, sym->type)) {
+      strcpy(sym->last_branch_dynamic_type_else, sym->dynamic_type);
+    }
+    sym = sym->next;
+  }
+  indent(ctx);
+  fprintf(ctx->out, "br label %%endif%d\n", label_id);
+  ctx->indent--;
+
+  // ENDIF
+  indent(ctx);
+  fprintf(ctx->out, "endif%d:\n", label_id);
+
+  // 🔄 Fusión coherente
+  sym = ctx->sym_table->head;
+  while (sym) {
+    if (lookup_type(ctx->type_table, sym->type)) {
+      sym->last_temp_id = ctx->temp_count++;
+      indent(ctx);
+      fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+              sym->last_temp_id, sym->type, sym->type, sym->name);
+
+      if (strlen(sym->last_branch_dynamic_type) > 0 &&
+          strlen(sym->last_branch_dynamic_type_else) > 0) {
+        const char* merged = find_common_base(ctx->type_table,
+                                              sym->last_branch_dynamic_type,
+                                              sym->last_branch_dynamic_type_else);
+        strcpy(sym->dynamic_type, merged);
+      } else if (strlen(sym->last_branch_dynamic_type) > 0) {
+        strcpy(sym->dynamic_type, sym->last_branch_dynamic_type);
+      } else if (strlen(sym->last_branch_dynamic_type_else) > 0) {
+        strcpy(sym->dynamic_type, sym->last_branch_dynamic_type_else);
+      }
+
+      printf("🔄 Recarga después de IF: %s => last_temp_id=%d, dynamic_type=%s\n",
+             sym->name, sym->last_temp_id, sym->dynamic_type);
+    }
+    sym = sym->next;
+  }
+
   free(cond);
   break;
 }
+
 case AST_WHILE: {
   int label_id = ctx->temp_count++;
 
@@ -852,8 +1020,7 @@ case AST_FUNCTION_CALL: {
               int is_last = (i == node->num_children - 1);
               int needs_ret = (child->type == AST_BINOP ||
                               child->type == AST_FUNCTION_CALL ||
-                              child->type == AST_IDENTIFIER ||
-                              child->type == AST_ASSIGN);
+                              child->type == AST_IDENTIFIER );
 
              if (is_last && needs_ret) {
   if (child->type == AST_FUNCTION_CALL &&
@@ -888,73 +1055,84 @@ else {
 }
 
 void codegen_type_methods(CodeGenContext* ctx, TypeTable* type_table) {
-  TypeEntry* t = type_table->head;
-  while (t) {
-      Member* m = t->members;
-      while (m) {
-        if (m->body != NULL) {
+  for (TypeEntry* t = type_table->head; t; t = t->next) {
+    Member* m = t->members;
+    while (m) {
+      if (m->body != NULL) {
+        // Define solo si implementado localmente
+        indent(ctx);
+        fprintf(ctx->out, "define i32 @%s_%s(%%%s* %%this) {\n", t->name, m->name, t->name);
+        ctx->indent++;
+
+        SymbolTable local_scope = *ctx->sym_table;
+        Symbol* this_sym = create_symbol("this", t->name, SYMBOL_VARIABLE);
+        strcpy(this_sym->dynamic_type, t->name);
+        this_sym->last_temp_id = -1;
+        this_sym->next = local_scope.head;
+        local_scope.head = this_sym;
+
+        SymbolTable* prev_scope = ctx->sym_table;
+        ctx->sym_table = &local_scope;
+
+        if (m->body->type == AST_STATEMENT_LIST) {
+          codegen_stmt(ctx, m->body);
+        } else {
+          char* result = codegen_expr(ctx, m->body);
           indent(ctx);
-          fprintf(ctx->out, "define i32 @%s_%s(%%%s* %%this) {\n", t->name, m->name, t->name);
-          ctx->indent++;
-          // ✅ Crea un scope local basado en el global
-          SymbolTable local_scope = *ctx->sym_table;
-          // ✅ Inserta 'this' como símbolo especial
-          Symbol* this_sym = malloc(sizeof(Symbol));
-          strcpy(this_sym->name, "this");
-          strcpy(this_sym->type, t->name);
-          this_sym->last_temp_id = -1; // especial: se usa literal %this
-          this_sym->next = local_scope.head;
-          local_scope.head = this_sym;
-          // ✅ Usa el scope local solo dentro del método
-          SymbolTable* prev_scope = ctx->sym_table;
-          ctx->sym_table = &local_scope;
-          // ✅ Genera cuerpo del método
-          if (m->body->type == AST_STATEMENT_LIST) {
-              codegen_stmt(ctx, m->body);
-          } else {
-              char* result = codegen_expr(ctx, m->body);
-              indent(ctx);
-              fprintf(ctx->out, "ret i32 %s\n", result);
-              free(result);
-          }
-          indent(ctx);
-          fprintf(ctx->out, "ret i32 0\n"); // fallback
-          ctx->indent--;
-          indent(ctx);
-          fprintf(ctx->out, "}\n\n");
-          ctx->sym_table = prev_scope; // Restaura scope global
+          fprintf(ctx->out, "ret i32 %s\n", result);
+          free(result);
         }
-        m = m->next;
+
+        ctx->sym_table = prev_scope;
+        ctx->indent--;
+        indent(ctx);
+        fprintf(ctx->out, "}\n\n");
       }
-      t = t->next;
+      m = m->next;
+    }
   }
 }
 
-void collect_stmts_and_funcs(ASTNode* node, FuncBuffer* buf, ASTNode** main_stmts) {
+void collect_stmts_and_funcs(ASTNode* node, FuncBuffer* buf, ASTNode** main_stmts, TypeTable* type_table) {
   if (!node) return;
 
   if (node->type == AST_FUNCTION_DECL) {
-    // Agrega función al buffer
-    if (buf->count >= buf->capacity) {
-      buf->capacity *= 2;
-      buf->funcs = realloc(buf->funcs, sizeof(ASTNode*) * buf->capacity);
+    const char* func_name = node->children[0]->value;
+
+    // ⚡️ Filtra: Si el nombre está registrado como método en la tabla de tipos, NO lo agregues.
+    int is_method = 0;
+    for (TypeEntry* t = type_table->head; t; t = t->next) {
+      for (int i = 0; i < t->method_count; ++i) {
+        if (strcmp(func_name, t->method_names[i]) == 0) {
+          is_method = 1;
+          break;
+        }
+      }
+      if (is_method) break;
     }
-    buf->funcs[buf->count++] = node;
+
+    if (!is_method) {
+      // Solo funciones libres van al buffer
+      if (buf->count >= buf->capacity) {
+        buf->capacity *= 2;
+        buf->funcs = realloc(buf->funcs, sizeof(ASTNode*) * buf->capacity);
+      }
+      buf->funcs[buf->count++] = node;
+    }
   }
 
   else if (node->type == AST_TYPE_DECL) {
-    // ⚡ NO vuelvas a insertar tipos aquí
-    // La tabla de tipos ya está resuelta por semantic.c
+    // ⚡️ Los métodos se procesan vía `codegen_type_methods`. No necesitas hacer nada aquí.
   }
 
   else if (node->type == AST_STATEMENT_LIST || node->type == AST_PROGRAM) {
     for (int i = 0; i < node->num_children; ++i) {
-      collect_stmts_and_funcs(node->children[i], buf, main_stmts);
+      collect_stmts_and_funcs(node->children[i], buf, main_stmts, type_table);
     }
   }
 
   else {
-    // Otro statement: guárdalo como parte del main
+    // Otros statements: guárdalos como parte de main
     if (*main_stmts == NULL) {
       *main_stmts = create_ast_node(AST_STATEMENT_LIST, NULL);
     }
@@ -1008,39 +1186,37 @@ void generate_code(CodeGenContext* ctx, ASTNode* root) {
   ctx->indent = 0;
   ctx->return_table.count = 0;
 
-  // LLVM preámbulo: printf y formato
   fprintf(ctx->out, "declare i32 @printf(i8*, ...)\n");
   fprintf(ctx->out, "@print.str = constant [4 x i8] c\"%%d\\0A\\00\"\n\n");
 
-  // Emitir tipos (structs) con vptr incluido
+  resolve_virtual_methods(ctx->type_table);
+  build_vtable_info(ctx->type_table); 
+  debug_print_types(ctx->type_table); 
   emit_structs(ctx, ctx->type_table);
   emit_vtables(ctx, ctx->type_table);
 
-  //  1) Genera todos los métodos de tipos usando TU version robusta
   codegen_type_methods(ctx, ctx->type_table);
 
-  //  2) Registra todos los tipos de retorno de funciones globales
   register_all_function_returns(ctx, root);
 
-  //  4) Recolecta funciones y statements del programa principal
   FuncBuffer buf;
   buf.funcs = malloc(sizeof(ASTNode*) * 4);
   buf.count = 0;
   buf.capacity = 4;
 
   ASTNode* main_stmts = NULL;
-  collect_stmts_and_funcs(root, &buf, &main_stmts);
+  collect_stmts_and_funcs(root, &buf, &main_stmts, ctx->type_table);
 
-  //  5) Genera funciones globales normales
+
   for (int i = 0; i < buf.count; ++i) {
     codegen_function_decl(ctx, buf.funcs[i]);
   }
 
-  //  6) Genera el main program
   fprintf(ctx->out, "define i32 @main() {\n");
   ctx->indent++;
 
   if (main_stmts) {
+  
     codegen_stmt(ctx, main_stmts);
   }
 
@@ -1059,7 +1235,6 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
 
   const char* ret_type = get_function_return_type(ctx, func_name);
 
-  // 1) Inserta parámetros en la symbol table
   for (int i = 0; i < params->num_children; ++i) {
     ASTNode* param = params->children[i];
     const char* param_name = param->value;
@@ -1071,15 +1246,12 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
       }
     }
 
-    Symbol* s = malloc(sizeof(Symbol));
-    strcpy(s->name, param_name);
-    strcpy(s->type, param_type);
+    Symbol* s = create_symbol(param_name, param_type, SYMBOL_VARIABLE);
     s->last_temp_id = -1;
     s->next = ctx->sym_table->head;
     ctx->sym_table->head = s;
   }
 
-  // 2) Firma LLVM: usa %Shape* si corresponde
   fprintf(ctx->out, "define %s @%s(", ret_type, func_name);
   for (int i = 0; i < params->num_children; ++i) {
     ASTNode* param = params->children[i];
@@ -1090,7 +1262,7 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
       }
     }
 
-    if (strcmp(param_type, "Shape") == 0 || lookup_type(ctx->type_table, param_type)) {
+    if (lookup_type(ctx->type_table, param_type)) {
       fprintf(ctx->out, "%%%s* %%%s", param_type, param->value); 
     } else {
       fprintf(ctx->out, "i32");
@@ -1103,7 +1275,6 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
   ctx->indent++;
   ctx->temp_count = params->num_children + 1;
 
-  // 3) Alloca y guarda cada parámetro
   for (int i = 0; i < params->num_children; ++i) {
     ASTNode* param = params->children[i];
     const char* param_name = param->value;
@@ -1114,53 +1285,37 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
         param_type = param->children[j]->children[0]->value;
       }
     }
-    if (strcmp(param_type, "Shape") == 0 || lookup_type(ctx->type_table, param_type)) {
+
+    if (lookup_type(ctx->type_table, param_type)) {
       indent(ctx);
       fprintf(ctx->out, "%%%s_ptr = alloca %%%s*\n", param_name, param_type);
-    
       indent(ctx);
       fprintf(ctx->out, "store %%%s* %%%s, %%%s** %%%s_ptr\n",
               param_type, param_name, param_type, param_name);
-      
+
       int temp_id = ctx->temp_count++;
       indent(ctx);
       fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s_ptr\n",
               temp_id, param_type, param_type, param_name);
-      
-      Symbol* s_param = lookup(ctx->sym_table, param_name);
-      if (s_param) {
-        s_param->last_temp_id = temp_id;
-      
-        // ⚡ Hereda dynamic_type:
-        Symbol* s_arg = ctx->last_call_args[i];
-        if (s_arg && strlen(s_arg->dynamic_type) > 0) {
-          strcpy(s_param->dynamic_type, s_arg->dynamic_type);
-          printf("🔗 %s hereda dynamic_type = %s\n", param_name, s_param->dynamic_type);
-        }
-      }
-    }
 
-    else {
-          // 🟢 Escalar normal
-          indent(ctx);
-          fprintf(ctx->out, "%%%s = alloca i32\n", param_name);
-          indent(ctx);
-          fprintf(ctx->out, "store i32 %%%d, i32* %%%s\n", i, param_name);
-    
-          int temp = ctx->temp_count++;
-          indent(ctx);
-          fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, param_name);
-    
-            // Guarda correctamente el nombre y el ID:
+      Symbol* s_param = lookup(ctx->sym_table, param_name);
+      if (s_param) s_param->last_temp_id = temp_id;
+
+    } else {
+      indent(ctx);
+      fprintf(ctx->out, "%%%s = alloca i32\n", param_name);
+      indent(ctx);
+      fprintf(ctx->out, "store i32 %%%d, i32* %%%s\n", i, param_name);
+
+      int temp = ctx->temp_count++;
+      indent(ctx);
+      fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, param_name);
+
       Symbol* s = lookup(ctx->sym_table, param_name);
-      if (s) {
-        s->last_temp_id = temp;   // Usado en emit_virtual_call
-        strcpy(s->name, param_name); // ⚡ Necesario para bitcast correcto
-      }
+      if (s) s->last_temp_id = temp;
     }
   }
 
-  // 4) Cuerpo de la función
   codegen_stmt(ctx, body);
 
   if (strcmp(ret_type, "void") == 0) {
@@ -1298,17 +1453,24 @@ void emit_structs(CodeGenContext* ctx, TypeTable* table) {
 }
 
 void emit_vtables(CodeGenContext* ctx, TypeTable* table) {
-  TypeEntry* t = table->head;
-  while (t) {
-    int n = t->method_count;
-    // Definir la tabla global
-    fprintf(ctx->out, "@%s_vtable = global [%d x i32 (%%%s*)*] [\n", t->name, n, t->name);
-    // Inicializar punteros a métodos
-    for (int i = 0; i < n; ++i) {
-      fprintf(ctx->out, "  i32 (%%%s*)* @%s_%s%s\n", t->name, t->name, t->method_names[i], (i < n-1) ? "," : "");
+  for (TypeEntry* t = table->head; t; t = t->next) {
+    if (t->method_count == 0) continue; // 🟢 Evita generar una tabla vacía
+
+    // ⚡ Usa la firma de slot 0 como tipo base homogéneo
+    fprintf(ctx->out, "@%s_vtable = global [%d x %s] [\n",
+            t->name, t->method_count, t->method_signatures[0]);
+
+    for (int i = 0; i < t->method_count; ++i) {
+      fprintf(ctx->out, "  %s @%s_%s",
+              t->method_signatures[i],
+              t->method_impls[i],
+              t->method_names[i]);
+
+      if (i < t->method_count - 1) fprintf(ctx->out, ",\n");
+      else fprintf(ctx->out, "\n");
     }
+
     fprintf(ctx->out, "]\n\n");
-    t = t->next;
   }
 }
 
@@ -1337,4 +1499,36 @@ int get_member_index(TypeTable* table, const char* type_name, const char* member
   }
 
   return -1;
+}
+void resolve_virtual_methods(TypeTable* table) {
+  for (TypeEntry* t = table->head; t; t = t->next) {
+    for (int i = 0; i < t->num_bases; ++i) {
+      TypeEntry* base = lookup_type(table, t->bases[i]);
+      if (!base) continue;
+
+      for (int j = 0; j < base->method_count; ++j) {
+        const char* base_method = base->method_names[j];
+        const char* base_impl = base->method_impls[j];
+
+        int found = -1;
+        for (int k = 0; k < t->method_count; ++k) {
+          if (strcmp(t->method_names[k], base_method) == 0 &&
+              strcmp(t->method_impls[k], base_impl) == 0) {
+            found = k;
+            break;
+          }
+        }
+
+        if (found == -1) {
+          // Solo hereda si no hay slot idéntico ya
+          int slot = t->method_count++;
+          strcpy(t->method_names[slot], base_method);
+          strcpy(t->method_signatures[slot], base->method_signatures[j]);
+          strcpy(t->method_impls[slot], base_impl);
+
+          printf("✔️ Inherit %s::%s => slot %d\n", t->name, base_method, slot);
+        }
+      }
+    }
+  }
 }
