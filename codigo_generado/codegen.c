@@ -48,6 +48,8 @@ Symbol* create_symbol(const char* name, const char* type, SymbolKind kind) {
 
     s->kind = kind;
     s->next = NULL;
+    s->func_decl_node = NULL;
+   
     s->last_temp_id = -1;
 
     return s;
@@ -439,6 +441,13 @@ case AST_IDENTIFIER: {
   }
   s->last_branch_dynamic_type[0] = '\0';
 
+  // ⚡️ Si ya tiene un temp ID válido, usa ese
+  if (s->last_temp_id >= 0) {
+    char* buf = malloc(32);
+    snprintf(buf, 32, "%%%d", s->last_temp_id);
+    return buf;
+  }
+
   int temp = ctx->temp_count++;
 
   if (strcmp(s->name, "this") == 0) {
@@ -447,12 +456,14 @@ case AST_IDENTIFIER: {
             temp, s->dynamic_type, s->dynamic_type);
   } else if (lookup_type(ctx->type_table, s->type)) {
     indent(ctx);
-    fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s\n",
+    fprintf(ctx->out, "%%%d = load %%%s*, %%%s** %%%s_ptr\n",
             temp, s->type, s->type, s->name);
   } else {
     indent(ctx);
-    fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, s->name);
+    fprintf(ctx->out, "%%%d = load i32, i32* %%%s_ptr\n", temp, s->name);
   }
+
+  s->last_temp_id = temp;  // ⚡️ Actualiza por coherencia
 
   char* buf = malloc(32);
   snprintf(buf, 32, "%%%d", temp);
@@ -671,6 +682,7 @@ case AST_ASSIGN: {
     }
   }
 }
+
 int extract_vector_size(const char* vector_type) {
   int size = 0;
   sscanf(vector_type, "Vector[%d]", &size);
@@ -808,14 +820,18 @@ case AST_VAR_DECL: {
     expr_node = node->children[3];
   } else if (node->num_children == 3 && node->children[1]->type == AST_ASSIGN_OP) {
     expr_node = node->children[2];
-  } else {
-    expr_node = node->children[1];
+  } else if (node->num_children >= 2) {
+    if (node->children[1]->type == AST_TYPE_SPEC) {
+      type_spect = node->children[1];
+    } else {
+      expr_node = node->children[1];
+    }
   }
 
-  const char* var_type = NULL;
-  if (type_spect) {
+  const char* var_type = "Number"; // Fallback
+  if (type_spect && type_spect->num_children > 0) {
     var_type = type_spect->children[0]->value;
-  } else {
+  } else if (expr_node) {
     var_type = infer_type(expr_node, ctx->sym_table, ctx->type_table, NULL);
   }
 
@@ -823,13 +839,17 @@ case AST_VAR_DECL: {
   s->next = ctx->sym_table->head;
   ctx->sym_table->head = s;
 
-  char* expr = codegen_expr(ctx, expr_node);
-
+  // ⚡ Siempre alloca el espacio para la variable (parámetro o local)
   if (strcmp(var_type, "Number") == 0 || strcmp(var_type, "Boolean") == 0) {
     indent(ctx);
     fprintf(ctx->out, "%%%s = alloca i32\n", name);
-    indent(ctx);
-    fprintf(ctx->out, "store i32 %s, i32* %%%s\n", expr, name);
+
+    if (expr_node) {
+      char* expr = codegen_expr(ctx, expr_node);
+      indent(ctx);
+      fprintf(ctx->out, "store i32 %s, i32* %%%s\n", expr, name);
+      free(expr);
+    }
 
     int temp = ctx->temp_count++;
     indent(ctx);
@@ -839,9 +859,14 @@ case AST_VAR_DECL: {
   } else if (lookup_type(ctx->type_table, var_type)) {
     indent(ctx);
     fprintf(ctx->out, "%%%s = alloca %%%s*\n", name, var_type);
-    indent(ctx);
-    fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
-            var_type, expr, var_type, name);
+
+    if (expr_node) {
+      char* expr = codegen_expr(ctx, expr_node);
+      indent(ctx);
+      fprintf(ctx->out, "store %%%s* %s, %%%s** %%%s\n",
+              var_type, expr, var_type, name);
+      free(expr);
+    }
 
     int temp = ctx->temp_count++;
     indent(ctx);
@@ -850,9 +875,16 @@ case AST_VAR_DECL: {
     s->last_temp_id = temp;
   }
 
-  free(expr);
   break;
 }
+
+case AST_PARAM_LIST: {
+  for (int i = 0; i < node->num_children; ++i) {
+    codegen_stmt(ctx, node->children[i]);
+  }
+  break;
+}
+
 case AST_ASSIGN: {
   ASTNode* lhs = node->children[0];
   ASTNode* rhs = node->children[1];
@@ -1193,7 +1225,7 @@ void collect_stmts_and_funcs(ASTNode* node, FuncBuffer* buf, ASTNode** main_stmt
   else {
     // Otros statements: guárdalos como parte de main
     if (*main_stmts == NULL) {
-      *main_stmts = create_ast_node(AST_STATEMENT_LIST, NULL);
+      *main_stmts = create_ast_node(AST_STATEMENT_LIST, NULL , node->line ,node ->column);
     }
     add_ast_child(*main_stmts, node);
   }
@@ -1294,15 +1326,14 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
 
   const char* ret_type = get_function_return_type(ctx, func_name);
 
+  // ⚡ CORRIGE: usa children[0] para el nombre y children[1] para el tipo
   for (int i = 0; i < params->num_children; ++i) {
     ASTNode* param = params->children[i];
-    const char* param_name = param->value;
+    const char* param_name = param->children[0]->value;
 
     const char* param_type = "i32";
-    for (int j = 0; j < param->num_children; ++j) {
-      if (param->children[j]->type == AST_TYPE_SPEC) {
-        param_type = param->children[j]->children[0]->value;
-      }
+    if (param->num_children >= 2 && param->children[1]->type == AST_TYPE_SPEC) {
+      param_type = param->children[1]->children[0]->value;
     }
 
     Symbol* s = create_symbol(param_name, param_type, SYMBOL_VARIABLE);
@@ -1313,18 +1344,18 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
 
   fprintf(ctx->out, "define %s @%s(", ret_type, func_name);
   for (int i = 0; i < params->num_children; ++i) {
-    ASTNode* param = params->children[i];
+    ASTNode* param = params->num_children > 0 ? params->children[i] : NULL;
+    const char* param_name = param->children[0]->value;
+
     const char* param_type = "i32";
-    for (int j = 0; j < param->num_children; ++j) {
-      if (param->children[j]->type == AST_TYPE_SPEC) {
-        param_type = param->children[j]->children[0]->value;
-      }
+    if (param->num_children >= 2 && param->children[1]->type == AST_TYPE_SPEC) {
+      param_type = param->children[1]->children[0]->value;
     }
 
     if (lookup_type(ctx->type_table, param_type)) {
-      fprintf(ctx->out, "%%%s* %%%s", param_type, param->value); 
+      fprintf(ctx->out, "%%%s* %%%s", param_type, param_name);
     } else {
-      fprintf(ctx->out, "i32");
+      fprintf(ctx->out, "i32 %%%s", param_name);
     }
 
     if (i < params->num_children - 1) fprintf(ctx->out, ", ");
@@ -1336,13 +1367,11 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
 
   for (int i = 0; i < params->num_children; ++i) {
     ASTNode* param = params->children[i];
-    const char* param_name = param->value;
+    const char* param_name = param->children[0]->value;
 
     const char* param_type = "i32";
-    for (int j = 0; j < param->num_children; ++j) {
-      if (param->children[j]->type == AST_TYPE_SPEC) {
-        param_type = param->children[j]->children[0]->value;
-      }
+    if (param->num_children >= 2 && param->children[1]->type == AST_TYPE_SPEC) {
+      param_type = param->children[1]->children[0]->value;
     }
 
     if (lookup_type(ctx->type_table, param_type)) {
@@ -1362,13 +1391,13 @@ void codegen_function_decl(CodeGenContext* ctx, ASTNode* node) {
 
     } else {
       indent(ctx);
-      fprintf(ctx->out, "%%%s = alloca i32\n", param_name);
+      fprintf(ctx->out, "%%%s_ptr = alloca i32\n", param_name);
       indent(ctx);
-      fprintf(ctx->out, "store i32 %%%d, i32* %%%s\n", i, param_name);
+      fprintf(ctx->out, "store i32 %%%s, i32* %%%s_ptr\n", param_name, param_name);
 
       int temp = ctx->temp_count++;
       indent(ctx);
-      fprintf(ctx->out, "%%%d = load i32, i32* %%%s\n", temp, param_name);
+      fprintf(ctx->out, "%%%d = load i32, i32* %%%s_ptr\n", temp, param_name);
 
       Symbol* s = lookup(ctx->sym_table, param_name);
       if (s) s->last_temp_id = temp;

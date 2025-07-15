@@ -55,10 +55,12 @@ typedef struct ASTNode {
     struct ASTNode** children;
     int num_children;
     int capacity;
+    int line;    // NUEVO
+    int column;  // NUEVO
 } ASTNode;
 
 // Creación y manipulación
-ASTNode* create_ast_node(ASTNodeType type, const char* value);
+ASTNode* create_ast_node(ASTNodeType type, const char* value, int line, int column);
 void add_ast_child(ASTNode* parent, ASTNode* child);
 void free_ast(ASTNode* node);
 void print_ast(const ASTNode* node, int indent);

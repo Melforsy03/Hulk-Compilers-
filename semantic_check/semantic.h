@@ -7,11 +7,16 @@
 #define MAX_ERRORS 256
 #define MAX_METHODS 32
 typedef struct {
-    char* messages[MAX_ERRORS];
+    char* message;   // Mensaje dinámico
+    int line;        // Línea del error
+    int column;      // Columna del error
+} SemanticError;
+
+typedef struct {
+    SemanticError errors[MAX_ERRORS];
     int count;
 } ErrorList;
 
-void add_error(ErrorList* list, const char* fmt, ...);
 
 typedef enum {
     SYMBOL_VARIABLE,
@@ -28,6 +33,7 @@ typedef struct Symbol {
     SymbolKind kind;
     struct Symbol* next;
     int last_temp_id;
+    ASTNode* func_decl_node; 
 } Symbol;
 
 typedef struct Member {
@@ -77,13 +83,21 @@ typedef struct SymbolTable {
 void init_symbol_table(SymbolTable* table);
 Symbol* lookup(SymbolTable* table, const char* name);
 void insert_symbol(SymbolTable* table, const char* name, const char* type, SymbolKind kind);
-
+void add_error(ErrorList* list, int line, int column, const char* fmt, ...);
 // Tipos
 void init_type_table(TypeTable* table);
 TypeEntry* lookup_type(TypeTable* table, const char* name);
 // semantic.h
-void insert_type(TypeTable* table, const char* name, const char** bases, int num_bases, ASTNode* members_node);
-
+void insert_type(
+    TypeTable* table,
+    const char* name,
+    const char** bases,
+    int num_bases,
+    ASTNode* bases_node,  
+    ASTNode* members_node, 
+    ErrorList* error_list
+);
+int has_circular_dependency(TypeTable* table, const char* type_name, const char* current);
 void add_member_to_type(TypeTable* table, const char* type_name, const char* name, const char* type, ASTNode* body, int default_value);
 const char* lookup_member_type(TypeTable* table, const char* type_name, const char* member_name);
 static void process_members(ASTNode* node, SymbolTable* sym_table, TypeTable* type_table, const char* type_name);

@@ -1,32 +1,31 @@
-type Shape {
-    function area(): Number => 0;
-    function prueba() :Number => 6;
+type D {
+    function sum () : Number => 4 + 5 ;
 };
 
-type Circle inherits Shape {
-    radius := 5;
-    
-    function area(): Number =>  4 * this.radius * this.radius;
-};
-
-type Rectangle inherits Shape {
-    width := 2;
-    height := 4;
-    function area(): Number =>  this.width * this.height;
-};
-
-let 
-    circle : Shape = New Shape (),
-    rectangle = 0  , x = 10 , area1 = 0
-in {
-     if(x > 3)
+function prueba (a : Number) :Number
+{
+  let x = 4 in {
+    if (a < x)
     {
-       circle =  New Circle ();
-    }else 
-    {
-        circle = New Rectangle () ;
-    };
-    area1 = circle.area();
-    
-    print(area1);      
+        return true ;
+    }
+    else {
+        return false ;
+    }; 
+  };
 };
+
+type A inherits B {};
+type B inherits C {};
+type C inherits A {};
+
+let x : String  = New D () , y = f()  , h : String = prueba("JJJJ" , 9) in x ;
+let z  = New D () , t : Boolean = z.sum(), edad = z.age in t ;
+let prueba1 = 4 , prueba2 = var_interna in "hola";
+if ( 4 < "hola")
+ {
+    print (2);
+ }
+ else {
+    print ("hello" + 4);
+ };
