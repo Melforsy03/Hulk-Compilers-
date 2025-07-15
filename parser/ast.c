@@ -2,9 +2,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+ASTNode* safe_create_ast_node(ASTNodeType type, const char* value, CSTNode* cst) {
+    int line = -1;
+    int column = -1;
 
+    if (cst && cst->token) {
+        line = cst->token->line;
+        column = cst->token->column;
+    } else if (cst && cst->num_children > 0) {
+        for (int i = 0; i < cst->num_children; ++i) {
+            if (cst->children[i] && cst->children[i]->token) {
+                line = cst->children[i]->token->line;
+                column = cst->children[i]->token->column;
+                break;
+            }
+        }
+    }
+
+    return create_ast_node(type, value, line, column);
+}
 // Crear nodo AST
-ASTNode* create_ast_node(ASTNodeType type, const char* value) {
+ASTNode* create_ast_node(ASTNodeType type, const char* value, int line, int column) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = type;
     if (value) {
@@ -16,6 +34,8 @@ ASTNode* create_ast_node(ASTNodeType type, const char* value) {
     node->capacity = 2;
     node->num_children = 0;
     node->children = malloc(sizeof(ASTNode*) * node->capacity);
+    node->line = line;     
+    node->column = column; 
     return node;
 }
 
@@ -122,7 +142,7 @@ ASTNode* parse_atom_suffix(ASTNode* base, CSTNode* suffix) {
         break;
       }
     }
-    ASTNode* index_node = create_ast_node(AST_INDEX, NULL);
+    ASTNode* index_node = safe_create_ast_node(AST_INDEX, NULL , suffix);
     add_ast_child(index_node, base);
     if (index_expr) add_ast_child(index_node, index_expr);
     return index_node;
@@ -133,11 +153,11 @@ ASTNode* parse_atom_suffix(ASTNode* base, CSTNode* suffix) {
     ASTNode* member = NULL;
     for (int i = 0; i < suffix->num_children; i++) {
       if (strcmp(suffix->children[i]->symbol, "IDENTIFIER") == 0) {
-        member = create_ast_node(AST_IDENTIFIER, suffix->children[i]->token->lexema);
+        member = safe_create_ast_node(AST_IDENTIFIER, suffix->children[i]->token->lexema , suffix);
         break;
       }
     }
-    ASTNode* member_node = create_ast_node(AST_MEMBER, NULL);
+    ASTNode* member_node = safe_create_ast_node(AST_MEMBER, NULL , suffix);
     add_ast_child(member_node, base);
     if (member) add_ast_child(member_node, member);
 
@@ -151,10 +171,10 @@ ASTNode* parse_atom_suffix(ASTNode* base, CSTNode* suffix) {
 
   else if (strcmp(suffix->symbol, "CallFuncSuffix") == 0) {
     // ⚡️ Siempre convierte en FunctionCall(base, ArgumentList)
-    ASTNode* call_node = create_ast_node(AST_FUNCTION_CALL, NULL);
+    ASTNode* call_node = safe_create_ast_node(AST_FUNCTION_CALL, NULL , suffix);
     add_ast_child(call_node, base); // base puede ser IDENTIFIER o Member
 
-    ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+    ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL,suffix );
     for (int i = 0; i < suffix->num_children; ++i) {
       if (strcmp(suffix->children[i]->symbol, "ArgumentListOpt") == 0) {
         for (int j = 0; j < suffix->children[i]->num_children; ++j) {
@@ -217,13 +237,21 @@ void process_argument_list(ASTNode* parent, CSTNode* args) {
 ASTNode* cst_to_ast(CSTNode* cst) {
     if (!cst) return NULL;
 if (strcmp(cst->symbol, "ReturnType") == 0) {
-  if (cst->num_children >= 2 && strcmp(cst->children[1]->symbol, "IDENTIFIER") == 0) {
-    ASTNode* type_spec = create_ast_node(AST_TYPE_SPEC, NULL);
-    ASTNode* id = create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema);
-    add_ast_child(type_spec, id);
-    return type_spec;
+  if (cst->num_children >= 2 && strcmp(cst->children[1]->symbol, "TypeSpec") == 0) {
+    return cst_to_ast(cst->children[1]);  // ⚡ Baja TypeSpec entero
   }
   return NULL;
+}
+
+if (strcmp(cst->symbol, "TypeSpec") == 0) {
+  ASTNode* type_spec = safe_create_ast_node(AST_TYPE_SPEC, NULL, cst);
+  for (int i = 0; i < cst->num_children; ++i) {
+    if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
+      ASTNode* id = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema, cst->children[i]);
+      add_ast_child(type_spec, id);
+    }
+  }
+  return type_spec;
 }
 
 
@@ -235,14 +263,14 @@ if (strcmp(cst->symbol, "FunctionBody") == 0) {
   }
 }
 if (strcmp(cst->symbol, "NewExpr") == 0) {
-    ASTNode* new_node = create_ast_node(AST_NEW_EXPR, "new");
-    ASTNode* type = create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema);
+    ASTNode* new_node = safe_create_ast_node(AST_NEW_EXPR, "new" , cst->children[1]);
+    ASTNode* type = safe_create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema, cst->children[1] );
     add_ast_child(new_node, type);
     
     if (cst->num_children > 2 && strcmp(cst->children[2]->symbol, "ArgumentListOpt") == 0) {
         CSTNode* args_opt = cst->children[2];
         if (args_opt->num_children > 1) {
-            ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+            ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
             add_argument_list(args, args_opt->children[1]);
             add_ast_child(new_node, args);
         }
@@ -255,10 +283,10 @@ if (strstr(cst->symbol, "ExprTail") != NULL) return NULL;
     // Caso IDENTIFIER o NUMBER
     if (cst->token && cst->token->lexema) {
         if (strcmp(cst->symbol, "STRING") == 0) {
-            return create_ast_node(AST_STRING, cst->token->lexema);
+            return safe_create_ast_node(AST_STRING, cst->token->lexema , cst);
         }
         if (strcmp(cst->symbol, "NUMBER") == 0) {
-            return create_ast_node(AST_NUMBER, cst->token->lexema);
+            return safe_create_ast_node(AST_NUMBER, cst->token->lexema , cst);
         }
     }
 else if (strcmp(cst->symbol, "ConcatExpr") == 0) {
@@ -274,7 +302,7 @@ if (strcmp(cst->symbol, "ReturnStatement") == 0) {
       break;
     }
   }
-  ASTNode* return_node = create_ast_node(AST_RETURN, "");
+  ASTNode* return_node = safe_create_ast_node(AST_RETURN, "" , cst);
   if (expr) add_ast_child(return_node, expr);
   return return_node;
 }
@@ -282,12 +310,12 @@ if (strcmp(cst->symbol, "ReturnStatement") == 0) {
 
 else if (strcmp(cst->symbol, "TypeFuncList") == 0) {
     if (strcmp(cst->children[0]->symbol, "ε") == 0) {
-      return create_ast_node(AST_STATEMENT_LIST, ""); // vacío
+      return safe_create_ast_node(AST_STATEMENT_LIST, "" , cst); // vacío
     } else {
       ASTNode* decl = cst_to_ast(cst->children[0]); // Declaration
       ASTNode* rest = cst_to_ast(cst->children[1]); // TypeFuncList recursivo
 
-      ASTNode* list = create_ast_node(AST_STATEMENT_LIST, "");
+      ASTNode* list = safe_create_ast_node(AST_STATEMENT_LIST, "", cst);
       add_ast_child(list, decl);
       for (int i = 0; i < rest->num_children; i++) {
         add_ast_child(list, rest->children[i]);
@@ -298,10 +326,10 @@ else if (strcmp(cst->symbol, "TypeFuncList") == 0) {
 else if (strcmp(cst->symbol, "Inherits") == 0) {
   if (cst->num_children < 2) return NULL;  // ε
 
-  ASTNode* bases_node = create_ast_node(AST_BASES, NULL);
+  ASTNode* bases_node = safe_create_ast_node(AST_BASES, NULL , cst);
 
   // ✅ Nodo base principal
-  ASTNode* parent = create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema);
+  ASTNode* parent = safe_create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema , cst->children[1]);
   add_ast_child(bases_node, parent);
 
   // ✅ Guarda ArgumentList por separado para semántica futura
@@ -310,7 +338,7 @@ else if (strcmp(cst->symbol, "Inherits") == 0) {
     for (int i = 0; i < arg_list_opt->num_children; ++i) {
       CSTNode* maybe_arg_list = arg_list_opt->children[i];
       if (strcmp(maybe_arg_list->symbol, "ArgumentList") == 0) {
-        ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+        ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
         for (int j = 0; j < maybe_arg_list->num_children; ++j) {
           ASTNode* arg = cst_to_ast(maybe_arg_list->children[j]);
           if (arg) add_ast_child(args, arg);
@@ -326,11 +354,12 @@ else if (strcmp(cst->symbol, "Inherits") == 0) {
 
 
 if (strcmp(cst->symbol, "STRING") == 0) {
-  return create_ast_node(AST_STRING, cst->token->lexema);
+  return safe_create_ast_node(AST_STRING, cst->token->lexema , cst);
 }
 
 if (strcmp(cst->symbol, "ParamsList") == 0) {
-  ASTNode* params = create_ast_node(AST_PARAM_LIST, NULL);
+  ASTNode* params = safe_create_ast_node(AST_PARAM_LIST, NULL, cst);
+
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "ParamDecl") == 0) {
       ASTNode* param = cst_to_ast(cst->children[i]);
@@ -345,25 +374,37 @@ if (strcmp(cst->symbol, "ParamsList") == 0) {
       }
     }
   }
+
   return params;
 }
 
 if (strcmp(cst->symbol, "ParamDecl") == 0) {
-  ASTNode* param = NULL;
+  ASTNode* var_decl = safe_create_ast_node(AST_VAR_DECL, NULL, cst);
+
+  // Nombre del parámetro
   for (int i = 0; i < cst->num_children; ++i) {
-    if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0 && !param) {
-      param = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+    if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
+      ASTNode* id = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema, cst->children[i]);
+      add_ast_child(var_decl, id);
     }
-    else if (strcmp(cst->children[i]->symbol, "TypeSpec") == 0) {
-      ASTNode* type_spec = cst_to_ast(cst->children[i]);
-      if (type_spec) add_ast_child(param, type_spec);
+    else if (strcmp(cst->children[i]->symbol, "ParamTypeOpt") == 0) {
+      ASTNode* type = cst_to_ast(cst->children[i]);
+      if (type) add_ast_child(var_decl, type);
     }
   }
-  return param;
+
+  return var_decl;
+}
+
+if (strcmp(cst->symbol, "ParamTypeOpt") == 0) {
+  if (cst->num_children >= 2 && strcmp(cst->children[1]->symbol, "TypeSpec") == 0) {
+    return cst_to_ast(cst->children[1]);
+  }
+  return NULL; // ε
 }
 
 if (strcmp(cst->symbol, "TypeArgsOpt") == 0) {
-  ASTNode* args_node = create_ast_node(AST_ARGUMENT_LIST, NULL);
+  ASTNode* args_node = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "TypeList") == 0) {
       ASTNode* list = cst_to_ast(cst->children[i]);
@@ -377,7 +418,8 @@ if (strcmp(cst->symbol, "TypeArgsOpt") == 0) {
 
 
 if (strcmp(cst->symbol, "ParamsTail") == 0) {
-  ASTNode* temp = create_ast_node(AST_PARAM_LIST, NULL);
+  ASTNode* temp = safe_create_ast_node(AST_PARAM_LIST, NULL, cst);
+
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "ParamDecl") == 0) {
       ASTNode* param = cst_to_ast(cst->children[i]);
@@ -392,14 +434,16 @@ if (strcmp(cst->symbol, "ParamsTail") == 0) {
       }
     }
   }
+
   return temp;
 }
+
 
 
 if (strcmp(cst->symbol, "TypeSpec") == 0) {
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
-      return create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+      return safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema ,cst->children[i] );
     }
   }
   return NULL;
@@ -407,11 +451,11 @@ if (strcmp(cst->symbol, "TypeSpec") == 0) {
 
 
 // ParamsTail
-if (strcmp(cst->symbol, "ParamsTail") == 0) {
-  ASTNode* temp = create_ast_node(AST_ARGUMENT_LIST, NULL);
+if (strcmp(cst->symbol, "") == 0) {
+  ASTNode* temp = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
-      ASTNode* param = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+      ASTNode* param = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema ,cst->children[i]);
       add_ast_child(temp, param);
     }
     else if (strcmp(cst->children[i]->symbol, "ParamsTail") == 0) {
@@ -429,7 +473,7 @@ if (strcmp(cst->symbol, "ParamsTail") == 0) {
 }
 
 if (strcmp(cst->symbol, "TypeMembers") == 0) {
-  ASTNode* members = create_ast_node(AST_STATEMENT_LIST, NULL);
+  ASTNode* members = safe_create_ast_node(AST_STATEMENT_LIST, NULL , cst);
   for (int i = 0; i < cst->num_children; ++i) {
     ASTNode* member = cst_to_ast(cst->children[i]);
     if (member) {
@@ -442,16 +486,16 @@ if (strcmp(cst->symbol, "TypeMembers") == 0) {
   return members;
 }
 if (strcmp(cst->symbol, "Type") == 0) {
-    ASTNode* type_node = create_ast_node(AST_TYPE_DECL, NULL);
-    
-    // Procesar nombre del tipo (IDENTIFIER)
-    ASTNode* id = create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema);
+    ASTNode* type_node = safe_create_ast_node(AST_TYPE_DECL, "Type" , cst->children[1]);
+   
+    ASTNode* id = safe_create_ast_node(AST_IDENTIFIER, cst->children[1]->token->lexema ,cst->children[1] );
+     
     add_ast_child(type_node, id);
-    
+   
     // Procesar parámetros de tipo si existen
     if (strcmp(cst->children[2]->symbol, "ParamsListOpt") == 0 && 
         cst->children[2]->num_children > 1) {
-        ASTNode* params = cst_to_ast(cst->children[2]->children[1]); // ParamsList
+        ASTNode* params = cst_to_ast(cst->children[2]->children[1]); 
         if (params) add_ast_child(type_node, params);
     }
     
@@ -473,7 +517,7 @@ if (strcmp(cst->symbol, "Type") == 0) {
 
 else if (strcmp(cst->symbol, "TypeMember") == 0) {
   if (strcmp(cst->children[0]->symbol, "IDENTIFIER") == 0) {
-    ASTNode* var = create_ast_node(AST_IDENTIFIER, cst->children[0]->token->lexema);
+    ASTNode* var = safe_create_ast_node(AST_IDENTIFIER, cst->children[0]->token->lexema ,cst->children[0]);
     ASTNode* expr = NULL;
     const char* assign_op_value = "=";  // Valor por defecto
 
@@ -482,7 +526,7 @@ else if (strcmp(cst->symbol, "TypeMember") == 0) {
         strcmp(cst->children[i]->symbol, "=") == 0 ||
         strcmp(cst->children[i]->symbol, ":=") == 0
       ) {
-        // ⚡️ El operador es un token terminal directo
+       
         assign_op_value = cst->children[i]->token->lexema;
       }
 
@@ -492,7 +536,7 @@ else if (strcmp(cst->symbol, "TypeMember") == 0) {
     }
 
     if (expr) {
-      ASTNode* assign = create_ast_node(AST_ASSIGN, assign_op_value);  // ✅ Usa el operador real
+      ASTNode* assign = safe_create_ast_node(AST_ASSIGN, assign_op_value , cst);  // ✅ Usa el operador real
       add_ast_child(assign, var);
       add_ast_child(assign, expr);
       return assign;
@@ -508,7 +552,7 @@ if (strcmp(cst->symbol, "StatementList") == 0) {
         return cst_to_ast(cst->children[0]);
     }
     
-    ASTNode* list = create_ast_node(AST_STATEMENT_LIST, NULL);
+    ASTNode* list = safe_create_ast_node(AST_STATEMENT_LIST, NULL , cst);
     for (int i = 0; i < cst->num_children; ++i) {
         ASTNode* child = cst_to_ast(cst->children[i]);
         if (child) add_ast_child(list, child);
@@ -520,7 +564,7 @@ if (strcmp(cst->symbol, "UnaryExpr") == 0) {
   if (cst->num_children >= 2) {
     const char* op = cst->children[0]->symbol;
     if (strcmp(op, "+") == 0 || strcmp(op, "-") == 0 || strcmp(op, "!") == 0) {
-      ASTNode* unary = create_ast_node(AST_UNARYOP, op);
+      ASTNode* unary = safe_create_ast_node(AST_UNARYOP, op , cst);
       ASTNode* factor = cst_to_ast(cst->children[1]);
       add_ast_child(unary, factor);
       return unary;
@@ -534,11 +578,11 @@ if (strcmp(cst->symbol, "UnaryExpr") == 0) {
       const char* op = tail->children[0]->symbol;
       const char* type_name = tail->children[1]->token->lexema;
 
-      ASTNode* isas_node = create_ast_node(
-          strcmp(op, "is") == 0 ? AST_IS : AST_AS, op);
+      ASTNode* isas_node = safe_create_ast_node(
+          strcmp(op, "is") == 0 ? AST_IS : AST_AS, op , cst);
       ASTNode* base = cst_to_ast(cst->children[0]);
       add_ast_child(isas_node, base);
-      ASTNode* type_id = create_ast_node(AST_IDENTIFIER, type_name);
+      ASTNode* type_id = safe_create_ast_node(AST_IDENTIFIER, type_name , cst);
       add_ast_child(isas_node, type_id);
       return isas_node;
     }
@@ -581,7 +625,7 @@ if (strcmp(cst->symbol, "Conditional") == 0) {
       else_branch = cst_to_ast(cst->children[i]);
     }
   }
-  ASTNode* if_node = create_ast_node(AST_IF, NULL);
+  ASTNode* if_node = safe_create_ast_node(AST_IF, NULL , cst);
   if (cond) add_ast_child(if_node, cond);
   if (then_branch) add_ast_child(if_node, then_branch);
   if (else_branch) add_ast_child(if_node, else_branch);
@@ -595,7 +639,7 @@ if (strcmp(cst->symbol, "ElifOrElse") == 0) {
     ASTNode* cond = cst_to_ast(cst->children[2]);
     ASTNode* then_branch = cst_to_ast(cst->children[4]);
     ASTNode* next = cst_to_ast(cst->children[5]);
-    ASTNode* elif_node = create_ast_node(AST_IF, NULL);
+    ASTNode* elif_node = safe_create_ast_node(AST_IF, NULL , cst);
     if (cond) add_ast_child(elif_node, cond);
     if (then_branch) add_ast_child(elif_node, then_branch);
     if (next) add_ast_child(elif_node, next);
@@ -618,21 +662,21 @@ if (strcmp(cst->symbol, "WhileLoop") == 0) {
     }
   }
 
-  ASTNode* while_node = create_ast_node(AST_WHILE, NULL);
+  ASTNode* while_node = safe_create_ast_node(AST_WHILE, NULL , cst);
   if (cond) add_ast_child(while_node, cond);
   if (body) add_ast_child(while_node, body);
   return while_node;
 }
 
 if (strcmp(cst->symbol, "ForLoop") == 0) {
-    ASTNode* for_node = create_ast_node(AST_FOR, NULL);
+    ASTNode* for_node = safe_create_ast_node(AST_FOR,"for" , cst);
     ASTNode* var = NULL;
     ASTNode* expr = NULL;
     ASTNode* body = NULL;
 
     for (int i = 0; i < cst->num_children; ++i) {
         if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
-            var = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+            var = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema  , cst->children[i]);
         }
         else if (strcmp(cst->children[i]->symbol, "Expr") == 0) {
             expr = cst_to_ast(cst->children[i]);
@@ -648,7 +692,7 @@ if (strcmp(cst->symbol, "ForLoop") == 0) {
     return for_node;
 }
  if (strcmp(cst->symbol, "VarDeclList") == 0) {
-    ASTNode* list = create_ast_node(AST_VAR_DECL_LIST, NULL);
+    ASTNode* list = safe_create_ast_node(AST_VAR_DECL_LIST, NULL , cst);
     for (int i = 0; i < cst->num_children; ++i) {
       if (strcmp(cst->children[i]->symbol, "VarDecl") == 0)
         add_ast_child(list, cst_to_ast(cst->children[i]));
@@ -664,7 +708,7 @@ if (strcmp(cst->symbol, "ForLoop") == 0) {
     return list;
   }
 if (strcmp(cst->symbol, "LetExpr") == 0) {
-    ASTNode* let_node = create_ast_node(AST_LET, NULL);
+    ASTNode* let_node = safe_create_ast_node(AST_LET, NULL , cst);
     ASTNode* decls = NULL;
     ASTNode* body = NULL;
     
@@ -683,7 +727,7 @@ if (strcmp(cst->symbol, "LetExpr") == 0) {
     return let_node;
 }
 if (strcmp(cst->symbol, "VarDecl") == 0) {
-  ASTNode* var_decl = create_ast_node(AST_VAR_DECL, NULL);
+  ASTNode* var_decl = safe_create_ast_node(AST_VAR_DECL, NULL , cst);
   ASTNode* var_name = NULL;
   ASTNode* type_ann = NULL;
   ASTNode* assign_op = NULL;
@@ -691,14 +735,14 @@ if (strcmp(cst->symbol, "VarDecl") == 0) {
 
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0 && !var_name) {
-      var_name = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+      var_name = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema , cst->children[i]);
     }
     else if (strcmp(cst->children[i]->symbol, "TypeAnnotation") == 0) {
       type_ann = cst_to_ast(cst->children[i]);
     }
     else if (strcmp(cst->children[i]->symbol, "AssignOp") == 0 && cst->children[i]->num_children > 0) {
       // Puede ser '=' o ':='
-      assign_op = create_ast_node(AST_ASSIGN_OP, cst->children[i]->children[0]->symbol);
+      assign_op = safe_create_ast_node(AST_ASSIGN_OP, cst->children[i]->children[0]->symbol , cst->children[i] );
     }
     else if (strcmp(cst->children[i]->symbol, "Expr") == 0) {
       expr = cst_to_ast(cst->children[i]); // ⚡️ Aquí recoge el UnaryOp o lo que sea
@@ -716,12 +760,10 @@ if (strcmp(cst->symbol, "VarDecl") == 0) {
 
 else if (strcmp(cst->symbol, "TypeAnnotation") == 0) {
   if (cst->num_children >= 2 && strcmp(cst->children[1]->symbol, "TypeSpec") == 0) {
-    ASTNode* type_spec = create_ast_node(AST_TYPE_SPEC, NULL);
-    ASTNode* type_id = cst_to_ast(cst->children[1]);  // Esto baja a IDENTIFIER [String]
-    if (type_id) add_ast_child(type_spec, type_id);
-    return type_spec;
+    return cst_to_ast(cst->children[1]);  // ✅ Corrige la anidación
   }
 }
+
 
 
 
@@ -734,8 +776,8 @@ if (strcmp(cst->symbol, "ExprBlock") == 0) {
 if (strcmp(cst->symbol, "NewExpr") == 0) {
   const char* class_name = cst->children[1]->token->lexema;
 
-  ASTNode* new_node = create_ast_node(AST_FUNCTION_CALL, "new");
-  ASTNode* class_id = create_ast_node(AST_IDENTIFIER, class_name);
+  ASTNode* new_node = safe_create_ast_node(AST_FUNCTION_CALL, "new" , cst);
+  ASTNode* class_id = safe_create_ast_node(AST_IDENTIFIER, class_name , cst);
   add_ast_child(new_node, class_id);
 
   int added_args = 0;
@@ -743,7 +785,7 @@ if (strcmp(cst->symbol, "NewExpr") == 0) {
     if (strcmp(cst->children[i]->symbol, "ArgumentListOpt") == 0) {
       if (cst->children[i]->num_children >= 2) {
         CSTNode* arg_list = cst->children[i]->children[1];
-        ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+        ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL, cst);
         add_argument_list(args, arg_list);
         add_ast_child(new_node, args);
         added_args = 1;
@@ -752,7 +794,7 @@ if (strcmp(cst->symbol, "NewExpr") == 0) {
   }
 
   if (!added_args) {
-    ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+    ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
     add_ast_child(new_node, args);
   }
 
@@ -770,7 +812,7 @@ if (strcmp(cst->symbol, "AssignmentExpr") == 0) {
   if (tail->num_children >= 2 &&
       strcmp(tail->children[0]->symbol, "=") == 0) {
     ASTNode* right = cst_to_ast(tail->children[1]);
-    ASTNode* assign = create_ast_node(AST_ASSIGN, "=");
+    ASTNode* assign = safe_create_ast_node(AST_ASSIGN, "=" , cst);
     add_ast_child(assign, left);
     add_ast_child(assign, right);
     return assign;
@@ -782,8 +824,8 @@ if (strcmp(cst->symbol, "AssignmentExpr") == 0) {
  
     // Program o StatementList
     if (strcmp(cst->symbol, "Program") == 0 || strcmp(cst->symbol, "StatementList") == 0) {
-        ASTNode* list = create_ast_node(
-            strcmp(cst->symbol, "Program") == 0 ? AST_PROGRAM : AST_STATEMENT_LIST, NULL);
+        ASTNode* list = safe_create_ast_node(
+            strcmp(cst->symbol, "Program") == 0 ? AST_PROGRAM : AST_STATEMENT_LIST, NULL , cst);
 
         for (int i = 0; i < cst->num_children; ++i) {
             ASTNode* child_ast = cst_to_ast(cst->children[i]);
@@ -793,7 +835,7 @@ if (strcmp(cst->symbol, "AssignmentExpr") == 0) {
         return list;
     }
     if (strcmp(cst->symbol, "Arguments") == 0) {
-  ASTNode* list = create_ast_node(AST_ARGUMENT_LIST, NULL);
+  ASTNode* list = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
   for (int i = 0; i < cst->num_children; ++i) {
     ASTNode* arg = cst_to_ast(cst->children[i]);
     if (arg) add_ast_child(list, arg);
@@ -806,7 +848,7 @@ if (strcmp(cst->symbol, "Expr") == 0) {
       strcmp(cst->children[0]->symbol, "IDENTIFIER") == 0 &&
       strcmp(cst->children[1]->symbol, "Arguments") == 0) {
     if (strcmp(cst->children[0]->token->lexema, "print") == 0) {
-      ASTNode* print_node = create_ast_node(AST_PRINT, "print");
+      ASTNode* print_node = safe_create_ast_node(AST_PRINT, "print" , cst);
       ASTNode* args = cst_to_ast(cst->children[1]);
       if (args) add_ast_child(print_node, args);
       return print_node;
@@ -822,7 +864,7 @@ if (strcmp(cst->symbol, "Expr") == 0) {
 
 
 if (strcmp(cst->symbol, "PrintExpr") == 0) {
-    ASTNode* print_node = create_ast_node(AST_PRINT, "print");
+    ASTNode* print_node = safe_create_ast_node(AST_PRINT, "print" , cst);
     
     // Buscar el argumento de print (nodo Expr)
     for (int i = 0; i < cst->num_children; i++) {
@@ -837,7 +879,7 @@ if (strcmp(cst->symbol, "PrintExpr") == 0) {
     return print_node;
 }
 if (strcmp(cst->symbol, "Vector") == 0) {
-  ASTNode* vec = create_ast_node(AST_VECTOR, NULL);
+  ASTNode* vec = safe_create_ast_node(AST_VECTOR, NULL, cst);
 
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "VectorTail") == 0) {
@@ -867,7 +909,7 @@ if (strcmp(cst->symbol, "VectorTail") == 0) {
   if (strcmp(cst->children[0]->symbol, "ForExpr") == 0) {
     return cst_to_ast(cst->children[0]);
   } else if (strcmp(cst->children[0]->symbol, "Expr") == 0) {
-  ASTNode* list = create_ast_node(AST_ARGUMENT_LIST, NULL);
+  ASTNode* list = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
   ASTNode* expr = cst_to_ast(cst->children[0]);
   if (expr) add_ast_child(list, expr);
 
@@ -892,7 +934,7 @@ if (strcmp(cst->symbol, "VectorTail") == 0) {
 if (strcmp(cst->symbol, "VectorTailRest") == 0) {
   if (cst->num_children == 0) return NULL;
 
-  ASTNode* list = create_ast_node(AST_ARGUMENT_LIST, NULL);
+  ASTNode* list = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
   CSTNode* arglist = cst->children[1];
   add_argument_list(list, arglist);
   return list;
@@ -900,13 +942,13 @@ if (strcmp(cst->symbol, "VectorTailRest") == 0) {
 
 if (strcmp(cst->symbol, "ForExpr") == 0) {
   // P.ej., [for (i in 1)]
-  ASTNode* for_node = create_ast_node(AST_FOR, NULL);
+  ASTNode* for_node = safe_create_ast_node(AST_FOR, NULL , cst);
   ASTNode* var = NULL;
   ASTNode* expr = NULL;
 
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
-      var = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+      var = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema ,cst->children[i]);
     } else if (strcmp(cst->children[i]->symbol, "Expr") == 0) {
       expr = cst_to_ast(cst->children[i]);
     }
@@ -924,15 +966,15 @@ if (strcmp(cst->symbol, "FunctionCall") == 0) {
 
         // Caso especial para print
         if (strcmp(func_name, "print") == 0) {
-            ASTNode* print_node = create_ast_node(AST_PRINT, "print");
+            ASTNode* print_node = safe_create_ast_node(AST_PRINT, "print" , cst);
             ASTNode* args = cst_to_ast(cst->children[1]);
             if (args) add_ast_child(print_node, args);
             return print_node;
         }
 
         // ⚡ Caso general:
-      ASTNode* func_call = create_ast_node(AST_FUNCTION_CALL, NULL); // ⚡ SIN value
-      ASTNode* id = create_ast_node(AST_IDENTIFIER, func_name);
+      ASTNode* func_call = safe_create_ast_node(AST_FUNCTION_CALL, NULL, cst); // ⚡ SIN value
+      ASTNode* id = safe_create_ast_node(AST_IDENTIFIER, func_name , cst);
       add_ast_child(func_call, id);
 
       ASTNode* args = cst_to_ast(cst->children[1]);
@@ -958,15 +1000,15 @@ if (strcmp(cst->symbol, "Factor") == 0) {
   return cst_to_ast(cst->children[0]);
 }
 if (strcmp(cst->symbol, "true") == 0 || strcmp(cst->symbol, "false") == 0) {
-  return create_ast_node(AST_BOOL, cst->symbol);
+  return safe_create_ast_node(AST_BOOL, cst->symbol, cst);
 }
 
 if (strcmp(cst->symbol, "Function") == 0) {
-  ASTNode* func_node = create_ast_node(AST_FUNCTION_DECL, NULL);
+  ASTNode* func_node = safe_create_ast_node(AST_FUNCTION_DECL, NULL , cst);
 
   for (int i = 0; i < cst->num_children; ++i) {
     if (strcmp(cst->children[i]->symbol, "IDENTIFIER") == 0) {
-      ASTNode* id = create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema);
+      ASTNode* id = safe_create_ast_node(AST_IDENTIFIER, cst->children[i]->token->lexema , cst->children[i]);
       add_ast_child(func_node, id);
     }
     else if (strcmp(cst->children[i]->symbol, "ParamsList") == 0) {
@@ -1006,25 +1048,25 @@ if (strcmp(cst->symbol, "Atom") == 0) {
 if (strcmp(cst->symbol, "BaseAtom") == 0) {
   // Caso IDENTIFIER simple
   if (strcmp(cst->children[0]->symbol, "IDENTIFIER") == 0) {
-    return create_ast_node(AST_IDENTIFIER, cst->children[0]->token->lexema);
+    return safe_create_ast_node(AST_IDENTIFIER, cst->children[0]->token->lexema , cst->children[0]);
   }
 
   // Caso NUMBER
   if (strcmp(cst->children[0]->symbol, "NUMBER") == 0) {
-    return create_ast_node(AST_NUMBER, cst->children[0]->token->lexema);
+    return safe_create_ast_node(AST_NUMBER, cst->children[0]->token->lexema , cst->children[0]);
   }
 
   // Caso STRING
   if (strcmp(cst->children[0]->symbol, "STRING") == 0) {
-    return create_ast_node(AST_STRING, cst->children[0]->token->lexema);
+    return safe_create_ast_node(AST_STRING, cst->children[0]->token->lexema , cst->children[0]);
   }
 
   // Caso 'new' IDENTIFIER '(' ArgumentListOpt ')'
   if (strcmp(cst->children[0]->symbol, "new") == 0) {
     const char* class_name = cst->children[1]->token->lexema;
 
-    ASTNode* new_node = create_ast_node(AST_FUNCTION_CALL, "new");
-    ASTNode* class_id = create_ast_node(AST_IDENTIFIER, class_name);
+    ASTNode* new_node = safe_create_ast_node(AST_FUNCTION_CALL, "new" , cst);
+    ASTNode* class_id = safe_create_ast_node(AST_IDENTIFIER, class_name , cst);
     add_ast_child(new_node, class_id);
 
     int added_args = 0;
@@ -1033,7 +1075,7 @@ if (strcmp(cst->symbol, "BaseAtom") == 0) {
         if (cst->children[i]->num_children >= 2) {
           // Tiene '(' ArgumentList ')'
           CSTNode* arg_list = cst->children[i]->children[1];
-          ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+          ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
           add_argument_list(args, arg_list);
           add_ast_child(new_node, args);
           added_args = 1;
@@ -1043,7 +1085,7 @@ if (strcmp(cst->symbol, "BaseAtom") == 0) {
 
     // Si no hay argumentos, agrega ArgumentList vacío
     if (!added_args) {
-      ASTNode* args = create_ast_node(AST_ARGUMENT_LIST, NULL);
+      ASTNode* args = safe_create_ast_node(AST_ARGUMENT_LIST, NULL , cst);
       add_ast_child(new_node, args);
     }
 
@@ -1107,7 +1149,7 @@ ASTNode* parse_tail(ASTNode* left, CSTNode* tail) {
   if (!right) return left;
 
   // Construye el nodo binario
-  ASTNode* op_node_ast = create_ast_node(AST_BINOP, op);
+  ASTNode* op_node_ast = safe_create_ast_node(AST_BINOP, op , tail->children[0]);
   add_ast_child(op_node_ast, left);
   add_ast_child(op_node_ast, right);
 

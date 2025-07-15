@@ -10,6 +10,7 @@ typedef struct CSTNode {
     int num_children;
     int capacity;
     Token* token;
+    
 } CSTNode;
 
 

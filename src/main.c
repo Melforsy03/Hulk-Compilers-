@@ -42,16 +42,17 @@ void print_symbol_table(SymbolTable* table) {
 }
 
 int main() {
-    Grammar* g = (Grammar*)malloc(sizeof(Grammar));
+    // ---- Inicializar gramática ----
+    Grammar* g = malloc(sizeof(Grammar));
     if (!g) {
         fprintf(stderr, "Error: No se pudo asignar memoria para la gramática\n");
-        exit(1);
+        return EXIT_FAILURE;
     }
 
     init_grammar(g);
     load_grammar_from_file(g, "grammar/grammar.bnf");
-    //  print_grammar(g);
 
+    // ---- Tabla FirstFollow ----
     FirstFollowTable* table = malloc(sizeof(FirstFollowTable));
     if (!table) {
         fprintf(stderr, "Error: No se pudo asignar memoria para la tabla\n");
@@ -59,38 +60,36 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // Cambio clave aquí: pasar los punteros directamente, no sus direcciones
     init_first_follow_table(table, g);
     compute_first(g, table);
     compute_follow(g, table);
-    
-    //  print_first_follow(table);
-    //  fprintf(stderr, "Error: No se pudo asignar memoria para la tabla LL1\n");
-    LL1Table *ll1 = malloc(sizeof(LL1Table));
+
+    // ---- Tabla LL1 ----
+    LL1Table* ll1 = malloc(sizeof(LL1Table));
     if (!ll1) {
         fprintf(stderr, "Error: No se pudo asignar memoria para la tabla LL1\n");
         free(table);
         free(g);
         return EXIT_FAILURE;
     }
-    // fprintf(stderr, "Error: No se pudo asignar memoria para la tabla LL1\n");
-    init_ll1_table(ll1);
 
+    init_ll1_table(ll1);
     generate_ll1_table(g, table, ll1);
-    // print_ll1_table(ll1);
-    // ✅ Declaras la variable FILE* f en este bloque
+
+    // ---- Leer archivo de entrada ----
     FILE* f = fopen("entrada.txt", "r");
     if (!f) {
-        fprintf(stderr, "Error: no se pudo abrir input.txt\n");
+        fprintf(stderr, "Error: no se pudo abrir entrada.txt\n");
+        free(ll1);
+        free(table);
+        free(g);
         return EXIT_FAILURE;
     }
 
-    // 2️⃣ Obtener tamaño del archivo
     fseek(f, 0, SEEK_END);
     long length = ftell(f);
     rewind(f);
 
-    // 3️⃣ Reservar memoria para el contenido
     char* input = malloc(length + 1);
     if (!input) {
         fprintf(stderr, "Error: no se pudo asignar memoria para la entrada\n");
@@ -101,64 +100,84 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // 4️⃣ Leer contenido y cerrar archivo
     size_t read = fread(input, 1, length, f);
     input[read] = '\0';
-    fclose(f);
+    fclose(f);  // ✅ Cerrar después de leer
 
-    // 5️⃣ Usar input como antes
+    // ---- Parsear ----
     LL1Parser parser;
     init_parser(&parser, input, ll1, g);
 
     CSTNode* cst = parse(&parser, g->start_symbol);
-    // print_cst(cst , 1);
     ASTNode* ast_root = cst_to_ast(cst);
-
-    
+    //  print_cst(cst , 1);
     printf("\n=== AST generado ===\n");
     print_ast(ast_root, 3);
+
+    // ---- Semántica ----
     SymbolTable sym_table;
-    TypeTable type_table;
     init_symbol_table(&sym_table);
+    TypeTable type_table;
     init_type_table(&type_table);
 
-    printf("=== Chequeo Semántico ===\n");
-    ErrorList errors = {.count = 0};
-    check_semantics(ast_root, &sym_table, &type_table, NULL ,&errors);
+    ErrorList errors = { .count = 0 };
+    check_semantics(ast_root, &sym_table, &type_table, NULL, &errors);
+
+    printf("\n=== Tabla de Tipos ===\n");
     print_type_table(&type_table);
+    printf("\n=== Tabla de Símbolos ===\n");
     print_symbol_table(&sym_table);
+
+    // ---- Verificar errores semánticos ----
+    if (errors.count > 0) {
+        fprintf(stderr, "\n❌ Se encontraron errores semánticos:\n");
+        for (int i = 0; i < errors.count; ++i) {
+            printf("- Línea %d Columna %d: %s\n",
+                   errors.errors[i].line,
+                   errors.errors[i].column,
+                   errors.errors[i].message);
+            free(errors.errors[i].message); // Libera cada mensaje
+        }
+
+        // Limpieza
+        free(input);
+        free(ll1);
+        free(table);
+        free(g);
+        return EXIT_FAILURE;
+    }
+
+    // ---- LLVM IR ----
     FILE* ir_file = fopen("hulk/programa.ll", "w");
     if (!ir_file) {
         perror("No se pudo abrir programa.ll");
-        return 1;
-    }
-    if (errors.count > 0) {
-    fprintf(stderr, "\n❌ Se encontraron errores semánticos:\n");
-    for (int i = 0; i < errors.count; ++i) {
-        fprintf(stderr, "- %s\n", errors.messages[i]);
-        free(errors.messages[i]);  // Libera memoria de cada mensaje
+        free(input);
+        free(ll1);
+        free(table);
+        free(g);
+        return EXIT_FAILURE;
     }
 
-    // Limpieza antes de salir
-    free(input);
-    free(ll1);
-    free(table);
-    free(g);
-    return EXIT_FAILURE;
-}
+    ReturnTypeTable typereturn;
+    CodeGenContext ctx = {
+        .out = ir_file,
+        .temp_count = 0,
+        .indent = 0,
+        .sym_table = &sym_table,
+        .type_table = &type_table,
+        .return_table = typereturn,
+        .last_call_args = { NULL }
+    };
 
-    ReturnTypeTable typereturn ;
-    // ✅ 2) Pasa el FILE* a tu contexto de codegen
-    CodeGenContext ctx = { .out = ir_file, .temp_count = 0, .indent = 0 , .sym_table = &sym_table ,.type_table = &type_table ,.return_table=typereturn , .last_call_args = { NULL } };
-
-    // ✅ 3) Genera LLVM IR SOLO al archivo
     generate_code(&ctx, ast_root);
 
     fclose(ir_file);
-    fclose(f);
+
+    // ---- Limpieza ----
     free(input);
     free(ll1);
     free(table);
     free(g);
+
     return 0;
 }
